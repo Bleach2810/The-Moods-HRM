@@ -1,0 +1,6 @@
+@TheMoods.Api_HostAddress = http://localhost:5078
+
+GET {{TheMoods.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

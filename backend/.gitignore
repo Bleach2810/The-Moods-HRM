@@ -1,0 +1,30 @@
+## Visual Studio / dotnet build output
+[Bb]in/
+[Oo]bj/
+[Log]/
+
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Mono Auto Generated Files
+mono_crash.*
+
+## VS Code
+.vscode/
+
+## Visual Studio Cache
+.vs/
+
+## SQLite databases (tenant & control DBs should not be committed)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+## OS files
+.DS_Store
+Thumbs.db

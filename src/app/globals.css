@@ -1,0 +1,364 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-be-vietnam), "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-be-vietnam), "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  
+  --color-beige: #F5F5F7;
+  --color-coffee: #4B3621;
+  --color-cream: #F4EADF;
+  --color-hazel: #7c4831;
+  
+  --color-sage: #D3ECE1;
+  --color-sage-text: #1B523A;
+  
+  --color-terracotta: #FADCD5;
+  --color-terracotta-text: #7A2F1E;
+  
+  --color-mustard: #FEF3C7;
+  --color-mustard-text: #92400E;
+}
+
+:root {
+  --font-be-vietnam: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-space-mono: "Space Mono", monospace;
+  --background: #F5F5F7;
+  --foreground: #4B3621;
+}
+
+::selection {
+  background: #7c4831;
+  color: #FFFFFF;
+}
+
+* {
+  border-color: rgba(124, 72, 49, 0.1);
+}
+
+body {
+  background-color: #F5F5F7;
+  background-image: url('/images/bg-pattern.png');
+  background-repeat: repeat;
+  background-attachment: fixed;
+  background-size: auto;
+  color: #4B3621;
+  font-family: var(--font-be-vietnam), "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  font-size: 14px; /* Văn bản chính (Body Text): 14px */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ===== FONT SIZE STANDARDS (Chuẩn Kích Thước Chữ) ===== */
+h1, .text-h1, .text-page-title {
+  font-size: clamp(20px, 4vw, 28px); /* Tiêu đề lớn: 20 - 28px */
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+h2, .text-h2, .text-heading {
+  font-size: clamp(16px, 3vw, 20px); /* Tiêu đề phụ: 16 - 20px */
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+p, .text-body {
+  font-size: 14px; /* Văn bản chính: 14px */
+  line-height: 1.5;
+}
+
+.btn, .text-btn {
+  font-size: clamp(12px, 2vw, 14px); /* Nút bấm: 12 - 14px */
+}
+
+.text-caption, .text-label, label {
+  font-size: clamp(11px, 1.8vw, 13px); /* Thông tin phụ / Caption / Labels: 11 - 13px */
+}
+
+/* ===== HIDE GLOBAL SCROLLBARS ===== */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* ===== SOFT CARDS ===== */
+.card {
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.card:hover {
+  border-color: rgba(124, 72, 49, 0.18);
+}
+
+.card-solid {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+}
+
+/* ===== MINIMAL BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-be-vietnam), "Be Vietnam Pro", sans-serif;
+  font-weight: 500;
+  border-radius: 10px;
+  padding: 0.6rem 1.25rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  outline: none;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary {
+  background-color: #7c4831;
+  color: #FFFFFF;
+}
+
+.btn-primary:hover {
+  background-color: #643621;
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-ghost {
+  background-color: #FAF9F6;
+  color: #7c4831;
+  border: 1px solid rgba(124, 72, 49, 0.1);
+}
+
+.btn-ghost:hover {
+  background-color: #F4EADF;
+  color: #643621;
+}
+
+.btn-ghost:active {
+  transform: scale(0.98);
+}
+
+.btn-success {
+  background-color: #FAF9F6;
+  color: #1B523A;
+  border: 1px solid rgba(27, 82, 58, 0.15);
+}
+
+.btn-success:hover {
+  background-color: #D3ECE1;
+}
+
+.btn-danger {
+  background-color: #FAF9F6;
+  color: #7A2F1E;
+  border: 1px solid rgba(122, 47, 30, 0.15);
+}
+
+.btn-danger:hover {
+  background-color: #FADCD5;
+}
+
+/* ===== MINIMAL INPUTS ===== */
+.input {
+  background-color: #FFFFFF;
+  color: #4B3621;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  font-family: var(--font-be-vietnam), "Be Vietnam Pro", sans-serif;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.input:focus {
+  border-color: #7c4831;
+  box-shadow: 0 0 0 3px rgba(124, 72, 49, 0.06);
+}
+
+.input::placeholder {
+  color: rgba(124, 72, 49, 0.5);
+}
+
+.input:disabled {
+  background-color: #EAE5DB; /* A slightly darker gray-cream tone to be clearly visible as disabled */
+  color: rgba(75, 54, 33, 0.4);
+  cursor: not-allowed;
+  border-color: rgba(124, 72, 49, 0.08);
+}
+
+/* ===== GENTLE BADGE PILLS ===== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pill-blue { background-color: #E0F2FE; color: #075985; }
+.pill-violet { background-color: #EDE9FE; color: #5B21B6; }
+.pill-pink { background-color: #FCE7F3; color: #9D174D; }
+.pill-green { background-color: #D3ECE1; color: #1B523A; }
+.pill-amber { background-color: #FEF3C7; color: #92400E; }
+.pill-red { background-color: #FADCD5; color: #7A2F1E; }
+
+/* ===== NAVIGATION ===== */
+.glass-nav {
+  background-color: #F4EADF;
+  box-shadow: 0 -4px 20px rgba(75, 54, 33, 0.06);
+}
+
+/* ===== MARQUEE ===== */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.anim-fadeUp { animation: fadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.anim-slideDown { animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.anim-backdrop { animation: backdropFadeIn 0.24s ease-out forwards; }
+.anim-sheet { animation: sheetSlideUp 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* ===== SIDEBAR ACTIVE ===== */
+.sidebar-active {
+  background-color: #7c4831;
+  color: #FFFFFF !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(124, 72, 49, 0.12);
+}
+
+/* ===== PROGRESS BAR ===== */
+.progress-container {
+  background-color: #F5EBE1;
+  border-radius: 99px;
+  height: 8px;
+  width: 100%;
+}
+
+.progress-bar {
+  background-color: #7c4831;
+  height: 100%;
+  border-radius: 99px;
+}
+
+@media screen and (max-width: 868px) {
+  input, select, textarea, .input {
+    font-size: 14px !important;   
+    padding: 0.45rem 0.65rem;
+    border-radius: 8px;
+  }
+
+
+  .btn {
+    padding: 0.45rem 0.85rem;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  .card {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+
+  label, .text-label, .text-caption {
+    font-size: 13px !important;
+  }
+
+  h1, .text-h1, .text-page-title {
+    font-size: clamp(18px, 3.5vw, 22px) !important;
+  }
+
+  h2, .text-h2, .text-heading {
+    font-size: clamp(15px, 2.5vw, 17px) !important;
+  }
+
+  .pill {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  span, p, a, div, td, th {
+    word-break: break-word;
+  }
+
+  .grid-cols-2, .grid-cols-3, .grid-cols-4, .grid-cols-5 {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+
+  .grid-cols-3-forced {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  th, td {
+    padding: 0.5rem 0.35rem !important;
+    font-size: 13px !important;
+  }
+
+  .flex-nowrap {
+    flex-wrap: nowrap !important;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 0.75rem !important;
+  }
+
+  .space-y-4 > * + * {
+    margin-top: 0.5rem !important;
+  }
+}

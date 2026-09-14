@@ -1,0 +1,2567 @@
+"use client";
+
+import React, { useState } from "react";
+import { useApp } from "@/context/AppContext";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign } from "lucide-react";
+import Link from "next/link";
+
+export default function AdminPortal() {
+  const { activeBrand, activeLocation, customers, promotions, shifts, requests, feedbacks, menuImage, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, sendFeedbackReply, logs, addPointsToCustomer } = useApp() as any;
+
+  const [page, setPage] = useState("dashboard");
+  const [sideOpen, setSideOpen] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [desktopExpanded, setDesktopExpanded] = useState(true);
+
+  // Staff Management States
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [newStaffPhone, setNewStaffPhone] = useState("");
+  const [newStaffName, setNewStaffName] = useState("");
+  const [newStaffRole, setNewStaffRole] = useState(3);
+  const [newStaffWage, setNewStaffWage] = useState("25000");
+  const [staffLoading, setStaffLoading] = useState(false);
+
+  // Schedule Management States
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedScheduleStaffId, setSelectedScheduleStaffId] = useState("");
+  const [schedStartTime, setSchedStartTime] = useState("08:00");
+  const [schedEndTime, setSchedEndTime] = useState("12:00");
+  const [isRegGateLocked, setIsRegGateLocked] = useState(false);
+  const [availabilitiesList, setAvailabilitiesList] = useState<any[]>([]);
+  const [officialSchedulesList, setOfficialSchedulesList] = useState<any[]>([]);
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = tuần này, 1 = tuần sau
+  const [showSchedModal, setShowSchedModal] = useState(false);
+  const [allConfigsList, setAllConfigsList] = useState<any[]>([]);
+  const [editingSchedId, setEditingSchedId] = useState<string | null>(null);
+
+  const handleCreateOrUpdateSchedule = async () => {
+    if (!selectedScheduleStaffId) {
+      alert("Vui lòng chọn nhân sự để xếp ca!");
+      return;
+    }
+    if (!schedStartTime || !schedEndTime) {
+      alert("Vui lòng chọn giờ bắt đầu và kết thúc!");
+      return;
+    }
+
+    const url = editingSchedId
+      ? `${getApiBaseUrl()}/api/attendance/schedules/${editingSchedId}`
+      : `${getApiBaseUrl()}/api/attendance/schedules`;
+    const method = editingSchedId ? "PUT" : "POST";
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedScheduleStaffId,
+          locationId: activeLocation?.id || "govap-branch",
+          date: selectedScheduleDate,
+          startTime: schedStartTime,
+          endTime: schedEndTime,
+          createdBy: "Admin"
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(editingSchedId ? "Cập nhật lịch trực thành công!" : "Xếp ca làm việc chính thức thành công!");
+        fetchOfficialSchedules();
+        setShowSchedModal(false);
+        setEditingSchedId(null);
+      } else {
+        alert(data.message || "Xếp ca thất bại!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi xếp ca!");
+    }
+  };
+
+  const handleDeleteSchedule = async (schedId: string) => {
+    if (!confirm("Bạn có chắc muốn xóa lịch trực này?")) return;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules/${schedId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Xóa lịch trực thành công!");
+        fetchOfficialSchedules();
+      } else {
+        alert(data.message || "Xóa lịch trực thất bại!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối!");
+    }
+  };
+
+  // Payroll States
+  const [payrollList, setPayrollList] = useState<any[]>([]);
+  const [payrollFromDate, setPayrollFromDate] = useState("2026-06-01");
+  const [payrollToDate, setPayrollToDate] = useState("2026-06-07");
+  const [payrollLoading, setPayrollLoading] = useState(false);
+
+  // Dynamic Penalties/Configs
+  const [latePenaltyRule, setLatePenaltyRule] = useState("10:-50000,20:-100000,30:-200000");
+  const [holidaysStr, setHolidaysStr] = useState("2026-01-01,2026-04-30,2026-05-01");
+  const [activeBonusStr, setActiveBonusStr] = useState("100000");
+
+  // Config Tab State
+  const [configActiveTab, setConfigActiveTab] = useState("rules"); // "rules", "holidays", "adjustments"
+
+  // Late Penalty Parameters States
+  const [latePenaltyStartMinutes, setLatePenaltyStartMinutes] = useState("10");
+  const [latePenaltyBaseAmount, setLatePenaltyBaseAmount] = useState("50000");
+  const [latePenaltyIntervalMinutes, setLatePenaltyIntervalMinutes] = useState("10");
+  const [latePenaltyMultiplier, setLatePenaltyMultiplier] = useState("2");
+
+  // Detailed Holidays list
+  const [detailedHolidaysList, setDetailedHolidaysList] = useState<any[]>([]);
+  const [newHolidayDate, setNewHolidayDate] = useState("");
+  const [newHolidayNote, setNewHolidayNote] = useState("");
+
+  // Adjustments (individual bonus/penalty) list
+  const [adjustmentsList, setAdjustmentsList] = useState<any[]>([]);
+  
+  // Form for adding new adjustment
+  const [newAdjEmployeeId, setNewAdjEmployeeId] = useState("");
+  const [newAdjType, setNewAdjType] = useState("bonus"); // "bonus" or "penalty"
+  const [newAdjUnit, setNewAdjUnit] = useState("co_dinh"); // "lan", "phut", "co_dinh"
+  const [newAdjQuantity, setNewAdjQuantity] = useState("1");
+  const [newAdjAmountPerUnit, setNewAdjAmountPerUnit] = useState("50000");
+  const [newAdjDate, setNewAdjDate] = useState("2026-06-08");
+  const [newAdjNote, setNewAdjNote] = useState("");
+
+  const [currentUserPhone, setCurrentUserPhone] = useState("");
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("moods_auth_user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "admin");
+        } catch {
+          setCurrentUserPhone("admin");
+        }
+      } else {
+        const storedStaff = localStorage.getItem("moods_active_staff");
+        if (storedStaff) {
+          try {
+            const parsed = JSON.parse(storedStaff);
+            setCurrentUserPhone(parsed.phone || "admin");
+          } catch {
+            setCurrentUserPhone("admin");
+          }
+        }
+      }
+    }
+  }, []);
+
+  const getRpId = () => {
+    if (typeof window === "undefined") return "localhost";
+    return window.location.hostname;
+  };
+
+  const handleRegisterBiometricDirectly = async () => {
+    if (typeof window === "undefined") return;
+    if (!window.isSecureContext) {
+      alert("Thiết lập sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost).");
+      return;
+    }
+    if (!navigator.credentials) {
+      alert("Thiết bị hoặc trình duyệt của bạn không hỗ trợ bảo mật sinh trắc học Touch ID!");
+      return;
+    }
+
+    const phone = currentUserPhone || "admin";
+    try {
+      const randomChallenge = new Uint8Array(32);
+      window.crypto.getRandomValues(randomChallenge);
+      const userId = new TextEncoder().encode(phone);
+
+      const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
+        challenge: randomChallenge,
+        rp: {
+          name: "The Moods Specialty Coffee",
+          id: getRpId(),
+        },
+        user: {
+          id: userId,
+          name: phone,
+          displayName: phone,
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+          residentKey: "required",
+          requireResidentKey: true,
+        },
+        timeout: 60000,
+        attestation: "none"
+      };
+
+      const credential = await navigator.credentials.create({
+        publicKey: publicKeyCredentialCreationOptions
+      }) as PublicKeyCredential;
+
+      if (credential) {
+        const rawIdArray = Array.from(new Uint8Array(credential.rawId));
+        const bioKey = JSON.stringify(rawIdArray);
+
+        // Gọi API setup-biometric
+        const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey })
+        });
+        if (res.ok) {
+          console.log("Biometric linked to DB successfully");
+        }
+
+        localStorage.setItem(`moods_bio_cred_${phone}`, bioKey);
+        localStorage.setItem(`moods_bio_${phone}`, "enabled");
+        alert("Kích hoạt sinh trắc học (vân tay) thành công cho thiết bị này!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+    }
+  };
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("moods_active_staff");
+      localStorage.removeItem("moods_auth_user");
+    }
+    window.location.href = "/";
+  };
+
+  // Promos
+  const [promoTitle, setPromoTitle] = useState("");
+  const [promoDesc, setPromoDesc] = useState("");
+  const [promoImg, setPromoImg] = useState("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80");
+  const [promoExpiry, setPromoExpiry] = useState("");
+
+  // Points
+  const [editPhone, setEditPhone] = useState("");
+  const [editPts, setEditPts] = useState("");
+
+  // Feedback Chat
+  const [selectedFeedbackPhone, setSelectedFeedbackPhone] = useState<string | null>(null);
+
+  // QR Scanner State
+  const [qrInput, setQrInput] = useState("");
+  const [qrBillAmt, setQrBillAmt] = useState("");
+  const [qrLookupResult, setQrLookupResult] = useState<any>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState("");
+  const [qrSuccess, setQrSuccess] = useState("");
+
+  const locked = activeBrand?.status === "suspended" || activeLocation?.status === "suspended";
+
+  const fetchStaff = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff`);
+      if (res.ok) {
+        const data = await res.json();
+        setStaffList(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch staff:", err);
+    }
+  };
+
+  const fetchHrmConfigs = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllConfigsList(data);
+        const lockVal = data.find((c: any) => c.configKey === "ShiftRegistrationLocked")?.configValue;
+        setIsRegGateLocked(lockVal === "true");
+
+        const lateVal = data.find((c: any) => c.configKey === "LatePenaltyRule")?.configValue;
+        if (lateVal) setLatePenaltyRule(lateVal);
+
+        const holVal = data.find((c: any) => c.configKey === "Holidays")?.configValue;
+        if (holVal) setHolidaysStr(holVal);
+
+        const bonVal = data.find((c: any) => c.configKey === "ActiveBonus")?.configValue;
+        if (bonVal) setActiveBonusStr(bonVal);
+
+        // New formula keys
+        const startVal = data.find((c: any) => c.configKey === "LatePenaltyStartMinutes")?.configValue;
+        if (startVal) setLatePenaltyStartMinutes(startVal);
+
+        const baseVal = data.find((c: any) => c.configKey === "LatePenaltyBaseAmount")?.configValue;
+        if (baseVal) setLatePenaltyBaseAmount(baseVal);
+
+        const intervalVal = data.find((c: any) => c.configKey === "LatePenaltyIntervalMinutes")?.configValue;
+        if (intervalVal) setLatePenaltyIntervalMinutes(intervalVal);
+
+        const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
+        if (multVal) setLatePenaltyMultiplier(multVal);
+
+        // Detailed Holidays
+        const holDetVal = data.find((c: any) => c.configKey === "Holidays_Detailed")?.configValue;
+        if (holDetVal) {
+          try {
+            setDetailedHolidaysList(JSON.parse(holDetVal));
+          } catch {
+            setDetailedHolidaysList([]);
+          }
+        } else {
+          setDetailedHolidaysList([]);
+        }
+
+        // Adjustments
+        const adjVal = data.find((c: any) => c.configKey === "Adjustments")?.configValue;
+        if (adjVal) {
+          try {
+            setAdjustmentsList(JSON.parse(adjVal));
+          } catch {
+            setAdjustmentsList([]);
+          }
+        } else {
+          setAdjustmentsList([]);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchAvailabilities = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/availability?locationId=${activeLocation?.id || "govap-branch"}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAvailabilitiesList(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchOfficialSchedules = async () => {
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules?locationId=${activeLocation?.id || "govap-branch"}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOfficialSchedulesList(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchPayrollData = async () => {
+    setPayrollLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/payroll?locationId=${activeLocation?.id || "govap-branch"}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPayrollList(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPayrollLoading(false);
+    }
+  };
+
+  const handleSaveHrmConfigs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "LatePenaltyStartMinutes", configValue: latePenaltyStartMinutes },
+          { configKey: "LatePenaltyBaseAmount", configValue: latePenaltyBaseAmount },
+          { configKey: "LatePenaltyIntervalMinutes", configValue: latePenaltyIntervalMinutes },
+          { configKey: "LatePenaltyMultiplier", configValue: latePenaltyMultiplier },
+          { configKey: "ActiveBonus", configValue: activeBonusStr }
+        ])
+      });
+      if (res.ok) {
+        alert("Cập nhật cấu hình tính lương thành công!");
+        fetchHrmConfigs();
+      } else {
+        alert("Không thể cập nhật cấu hình!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi cập nhật cấu hình!");
+    }
+  };
+
+  const handleAddDetailedHoliday = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHolidayDate || !newHolidayNote.trim()) {
+      alert("Vui lòng nhập ngày và ghi chú ngày lễ!");
+      return;
+    }
+    const updated = [...detailedHolidaysList, { Date: newHolidayDate, Note: newHolidayNote.trim() }];
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sách ngày lễ chi tiết có ghi chú (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert("Thêm ngày lễ thành công!");
+        setNewHolidayDate("");
+        setNewHolidayNote("");
+        fetchHrmConfigs();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối!");
+    }
+  };
+
+  const handleDeleteDetailedHoliday = async (holidayIndex: number) => {
+    if (!confirm("Bạn có chắc muốn xóa ngày lễ này?")) return;
+    const updated = detailedHolidaysList.filter((_, idx) => idx !== holidayIndex);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sách ngày lễ chi tiết có ghi chú (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert("Xóa ngày lễ thành công!");
+        fetchHrmConfigs();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối!");
+    }
+  };
+
+  const handleAddAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdjEmployeeId) {
+      alert("Vui lòng chọn nhân viên!");
+      return;
+    }
+    if (!newAdjNote.trim()) {
+      alert("Vui lòng điền ghi chú lý do!");
+      return;
+    }
+
+    const emp = staffList.find((s: any) => s.id === newAdjEmployeeId);
+    const empName = emp ? emp.fullName : "Nhân viên";
+
+    const qty = parseFloat(newAdjQuantity) || 1;
+    const price = parseFloat(newAdjAmountPerUnit) || 0;
+    const totalAmt = newAdjUnit === "co_dinh" ? price : qty * price;
+
+    const newAdj = {
+      EmployeeId: newAdjEmployeeId,
+      EmployeeName: empName,
+      Type: newAdjType,
+      Unit: newAdjUnit,
+      Quantity: qty,
+      AmountPerUnit: price,
+      Amount: totalAmt,
+      Date: newAdjDate,
+      Note: newAdjNote.trim()
+    };
+
+    const updated = [...adjustmentsList, newAdj];
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert("Thêm khoản thưởng/phạt thành công!");
+        setNewAdjNote("");
+        fetchHrmConfigs();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối!");
+    }
+  };
+
+  const handleDeleteAdjustment = async (adjIndex: number) => {
+    if (!confirm("Bạn có chắc muốn xóa khoản thưởng/phạt này?")) return;
+    const updated = adjustmentsList.filter((_, idx) => idx !== adjIndex);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert("Xóa khoản thưởng/phạt thành công!");
+        fetchHrmConfigs();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối!");
+    }
+  };
+
+  const handleToggleRegGate = async () => {
+    const nextState = !isRegGateLocked;
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "ShiftRegistrationLocked", configValue: String(nextState) }
+        ])
+      });
+      if (res.ok) {
+        setIsRegGateLocked(nextState);
+        alert(nextState ? "Đã khóa cổng đăng ký ca rảnh của nhân viên!" : "Đã mở cổng đăng ký ca rảnh cho nhân viên!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi thay đổi trạng thái cổng!");
+    }
+  };
+
+
+
+  React.useEffect(() => {
+    if (page === "staff") {
+      fetchStaff();
+    } else if (page === "schedule") {
+      fetchHrmConfigs();
+      fetchAvailabilities();
+      fetchOfficialSchedules();
+      fetchStaff();
+    } else if (page === "payroll") {
+      fetchPayrollData();
+    } else if (page === "config") {
+      fetchHrmConfigs();
+    }
+  }, [page]);
+
+  const handleRegisterStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaffPhone.trim() || !newStaffName.trim()) {
+      alert("Vui lòng nhập đầy đủ Số điện thoại và Họ tên!");
+      return;
+    }
+    setStaffLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: newStaffPhone.trim(),
+          fullName: newStaffName.trim(),
+          roleId: Number(newStaffRole),
+          locationId: activeLocation?.id || "govap-branch",
+          hourlyWage: Number(newStaffWage || 25000)
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Đăng ký nhân sự thành công!");
+        setNewStaffPhone("");
+        setNewStaffName("");
+        setNewStaffWage("25000");
+        fetchStaff();
+      } else {
+        alert(data.message || "Đăng ký nhân sự thất bại!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối máy chủ khi đăng ký nhân sự!");
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  const menuItems = [
+    { key: "dashboard", icon: LayoutDashboard, label: "Tổng quan" },
+    { key: "scanqr", icon: ScanLine, label: "Quét QR" },
+    { key: "staff", icon: Users, label: "Nhân viên" },
+    { key: "promos", icon: Megaphone, label: "Khuyến mãi" },
+    { key: "schedule", icon: Calendar, label: "Lịch trực" },
+    { key: "payroll", icon: DollarSign, label: "Tính lương" },
+    { key: "requests", icon: FileCheck, label: "Duyệt đơn" },
+    { key: "loyalty", icon: Gift, label: "Điểm & Menu" },
+    { key: "feedback", icon: MessageSquare, label: "Ý kiến góp ý" },
+    { key: "config", icon: Settings, label: "Cấu hình" },
+  ];
+
+  const getAvatarBg = (name: string) => {
+    return "bg-[#FAF9F6] text-[#4B3621] border-gray-200/80";
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "AD";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[parts.length - 2][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  // === DASHBOARD ===
+  const DashView = () => {
+    const totalCust = customers?.length || 0;
+    const totalPts = customers?.reduce((s: number, c: any) => s + c.points, 0) || 0;
+    const pendingReqs = requests?.filter((r: any) => r.status === "pending").length || 0;
+    const totalShifts = shifts?.length || 0;
+
+    const kpis = [
+      { label: "Tổng Khách Hàng", value: totalCust, icon: Users, subText: "+4.2% so với tháng trước", subClass: "text-emerald-600" },
+      { label: "Tổng Điểm Tích Lũy", value: totalPts, icon: TrendingUp, subText: "+8.5% so với tháng trước", subClass: "text-emerald-600" },
+      { label: "Đơn Chờ Xét Duyệt", value: pendingReqs, icon: FileCheck, subText: "Yêu cầu cần giải quyết", subClass: pendingReqs > 0 ? "text-[#7A2F1E]" : "text-gray-400" },
+      { label: "Số Ca Trực Tuần", value: totalShifts, icon: Calendar, subText: "Đã phân bổ ca trực", subClass: "text-gray-400" },
+    ];
+
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-[#4B3621]">
+              Tổng quan vận hành
+            </h2>
+            <p className="text-xs text-[#7c4831]/80 mt-1">
+              Chuỗi: {activeBrand ? activeBrand.name.split(" - ")[0] : "The Moods"} • Chi nhánh: {activeLocation ? (activeLocation.name.split(" - ")[1] || activeLocation.name) : "Toàn hệ thống"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-[#FAF9F6] border border-gray-100 py-1 px-3 rounded-full text-[10px] font-semibold text-[#4B3621]/80 shrink-0">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+            Trạng thái: Hoạt động bình thường
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kpis.map((k, i) => (
+            <div key={i} className="card border border-gray-100">
+              <div className="flex justify-between items-start mb-3">
+                <span className="w-8 h-8 rounded-lg bg-[#FAF9F6] border border-gray-100 flex items-center justify-center">
+                  <k.icon size={14} className="text-[#7c4831]" />
+                </span>
+                <span className="text-[9px] font-semibold text-[#7c4831]/60">Số liệu</span>
+              </div>
+              <p className="text-xl font-mono font-bold text-[#4B3621] tracking-tight">{k.value.toLocaleString("vi-VN")}</p>
+              <p className="text-xs font-semibold text-[#4B3621] mt-1">{k.label}</p>
+              <p className={`text-[9px] font-medium mt-1 ${k.subClass}`}>{k.subText}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Recent Logs & Heatmap */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Logs */}
+          <div className="card space-y-4 flex flex-col justify-between border border-gray-100">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3.5 text-[#7c4831]">
+                <Clock size={14} className="text-[#7c4831]" /> Nhật ký hoạt động
+              </h3>
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1 mt-3">
+                {(logs || []).slice(-8).reverse().map((l: any) => (
+                  <div key={l.id} className="p-3 rounded-xl bg-[#FAF9F6] border border-gray-100 text-xs flex gap-3 items-start transition-all hover:bg-white hover:border-gray-200">
+                    <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 font-bold text-[9px] ${getAvatarBg(l.staffName)}`}>
+                      {getInitials(l.staffName)}
+                    </div>
+                    <div className="flex-grow font-semibold">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="text-[#4B3621]/90 leading-relaxed text-xs">{l.description}</span>
+                        <span className="pill bg-[#FAF3E0] text-[#7c4831] text-[8px] font-semibold shrink-0 border border-[#7c4831]/10">{l.action}</span>
+                      </div>
+                      <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} • {l.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Heatmap */}
+          <div className="card space-y-4 flex flex-col justify-between border border-gray-100">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3.5 text-[#7c4831]">
+                <TrendingUp size={14} className="text-[#7c4831]" /> Mật độ giao dịch trong tuần
+              </h3>
+              <p className="text-xs text-[#4B3621]/80 leading-relaxed mt-2.5">
+                Thống kê lượng giao dịch tích điểm của khách hàng tại chi nhánh theo khung giờ trong tuần.
+              </p>
+
+              <div className="grid grid-cols-7 gap-2.5 pt-3.5">
+                {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((d, i) => {
+                  const intensity = [0.25, 0.5, 0.85, 0.4, 0.65, 1.0, 0.45][i];
+                  return (
+                    <div key={d} className="text-center">
+                      <div
+                        className="w-full aspect-square rounded-lg border border-gray-100 transition-all duration-300 hover:scale-105"
+                        style={{ background: `rgba(127, 85, 57, ${intensity * 0.9})` }}
+                      />
+                      <span className="text-[9px] font-semibold text-[#7c4831] mt-2 block">{d}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <div className="flex justify-end gap-2.5 text-[8px] font-semibold text-[#7c4831]/60 uppercase tracking-widest">
+                <span>Thưa thớt</span>
+                <div className="w-16 h-1.5 bg-gradient-to-r from-[#FAF9F6] to-[#7c4831] border border-gray-100 rounded-full" />
+                <span>Đông đúc</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // === PROMOS ===
+  const PromosView = () => (
+    <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+      <div className="border-b border-gray-200/50 pb-4">
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Khuyến Mãi & Bản Tin</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tạo các bài viết ưu đãi mới nhất trên thiết bị khách hàng</p>
+      </div>
+
+      <form onSubmit={e => { e.preventDefault(); if (!promoTitle) return; addPromotion(promoTitle, promoDesc, promoImg, promoExpiry || undefined); alert("Đăng tải chiến dịch khuyến mãi thành công!"); setPromoTitle(""); setPromoDesc(""); setPromoExpiry(""); }} className="card space-y-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <Plus size={16} className="text-[#7c4831]" /> Tạo Chương Trình Mới
+        </h3>
+        <div className="space-y-3.5">
+          <input type="text" placeholder="Tiêu đề chương trình ưu đãi *" required value={promoTitle} onChange={e => setPromoTitle(e.target.value)} className="input w-full text-sm font-semibold" id="promo-title" />
+          <textarea placeholder="Mô tả nội dung chương trình khuyến mãi chi tiết..." value={promoDesc} onChange={e => setPromoDesc(e.target.value)} className="input w-full text-sm resize-none font-semibold" rows={3} id="promo-desc" />
+          <input type="url" placeholder="Đường dẫn hình ảnh quảng cáo (URL)" value={promoImg} onChange={e => setPromoImg(e.target.value)} className="input w-full text-sm font-semibold" id="promo-img" />
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider block">Thời hạn bài đăng (Tự động lưu trữ khi hết hạn)</label>
+            <input type="date" value={promoExpiry} onChange={e => setPromoExpiry(e.target.value)} className="input w-full text-sm font-semibold" id="promo-expiry" />
+          </div>
+        </div>
+        <button type="submit" className="btn btn-primary py-3 text-xs w-full sm:w-auto"><Megaphone size={14} /> Đăng chiến dịch</button>
+      </form>
+
+      <div className="space-y-4">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] pl-1">Các ưu đãi đang hiển thị</h3>
+        {promotions?.map((p: any) => {
+          const isExpired = p.expiryDate && new Date(p.expiryDate) < new Date();
+          return (
+            <div key={p.id} className="card flex flex-col sm:flex-row items-start justify-between gap-4 border border-gray-100/60 transition-all hover:border-gray-200">
+              <div className="flex gap-4 items-start">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image} alt={p.title} className="w-20 h-20 rounded-2xl object-cover shrink-0 shadow-sm border border-gray-100" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-extrabold uppercase text-[#4B3621]">{p.title}</h4>
+                    {p.status === "archived" && <span className="pill pill-amber border text-[8px]">Đã lưu trữ</span>}
+                    {isExpired && <span className="pill pill-red border text-[8px]">Hết hạn</span>}
+                  </div>
+                  <p className="text-xs text-[#4B3621]/80 font-medium leading-relaxed line-clamp-2">{p.description}</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider block">Ngày đăng: {p.date}</span>
+                    {p.expiryDate && (
+                      <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider block">Hạn dùng: {p.expiryDate}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0 sm:self-center">
+                {p.status !== "archived" && !isExpired && (
+                  <button onClick={() => { archivePromotion(p.id); alert("Đã thu hồi bài viết thành công!"); }} className="btn btn-danger py-1.5 px-3 text-[10px] font-bold">Thu hồi</button>
+                )}
+                <button onClick={() => { if(confirm("Xác nhận xóa vĩnh viễn bài đăng này?")) { deletePromotion(p.id); } }} className="btn btn-ghost py-1.5 px-3 text-[10px] font-bold text-red-600 border-red-200 hover:bg-red-50">Xóa</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  // === SCHEDULE ===
+  // === SCHEDULE ===
+  const SchedView = () => {
+    const staffOnly = staffList.filter((s: any) => s.roleId === 3);
+
+    const getMondayOfCurrentWeek = () => {
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(today.setDate(diff));
+    };
+
+    const getWeekDays = (offset: number) => {
+      const monday = getMondayOfCurrentWeek();
+      monday.setDate(monday.getDate() + offset * 7);
+      const days = [];
+      const labels = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+        days.push({
+          dateStr,
+          label: labels[i],
+          dayNum: `${dd}/${mm}`
+        });
+      }
+      return days;
+    };
+
+    const weekDays = getWeekDays(weekOffset);
+
+    const timelineHours = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
+
+    const parseTimeToFloat = (timeStr: string) => {
+      if (!timeStr) return 0;
+      const parts = timeStr.split(":");
+      return parseFloat(parts[0]) + (parts[1] ? parseFloat(parts[1]) / 60 : 0);
+    };
+
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 pb-4">
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Lịch Trực Chi Nhánh</h2>
+            <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">
+              Thời khóa biểu ({weekDays[0].dayNum} - {weekDays[6].dayNum}) phong cách Outlook
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            {/* Week navigation */}
+            <div className="flex gap-1.5 bg-[#FAF9F6] border border-gray-150 p-1 rounded-2xl">
+              <button
+                onClick={() => setWeekOffset(0)}
+                className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all ${
+                  weekOffset === 0
+                    ? "bg-[#7c4831] text-white shadow-xs"
+                    : "text-[#4B3621] hover:bg-[#7c4831]/5"
+                }`}
+              >
+                Tuần này
+              </button>
+              <button
+                onClick={() => setWeekOffset(1)}
+                className={`py-1.5 px-3.5 rounded-xl text-xs font-bold transition-all ${
+                  weekOffset === 1
+                    ? "bg-[#7c4831] text-white shadow-xs"
+                    : "text-[#4B3621] hover:bg-[#7c4831]/5"
+                }`}
+              >
+                Tuần sau
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 bg-[#FAF9F6] border border-gray-150 py-1.5 px-3 rounded-2xl shadow-xs">
+              <span className="text-xs font-bold text-[#7c4831] uppercase">Cổng đăng ký:</span>
+              <button
+                onClick={handleToggleRegGate}
+                type="button"
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${!isRegGateLocked ? 'bg-emerald-600' : 'bg-gray-200'}`}
+              >
+                <span className="sr-only">Toggle shift registration portal</span>
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${!isRegGateLocked ? 'translate-x-5' : 'translate-x-0'}`}
+                />
+              </button>
+              <span className={`text-[10px] font-black uppercase ${!isRegGateLocked ? "text-emerald-700" : "text-gray-400"}`}>
+                {!isRegGateLocked ? "Đang mở" : "Đã khóa"}
+              </span>
+            </div>
+
+            <button
+              onClick={() => window.open(`${getApiBaseUrl()}/api/attendance/availability/export?locationId=${activeLocation?.id || "govap-branch"}`, "_blank")}
+              type="button"
+              className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw size={13} />
+              <span>Xuất Excel Ca Rảnh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Outlook-style Schedule Grid */}
+        <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white">
+          <div className="grid grid-cols-8 border-b border-gray-200 text-center bg-[#FAF9F6] py-3 shrink-0">
+            <div className="text-[10px] font-black text-gray-400 uppercase self-center">Giờ</div>
+            {weekDays.map(day => (
+              <div key={day.dateStr} className="space-y-0.5">
+                <p className="text-xs font-black text-[#7c4831] uppercase">{day.label}</p>
+                <p className="text-[10px] font-bold text-gray-400">{day.dayNum}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative flex h-[480px] overflow-y-auto">
+            {/* Timeline hour labels on left */}
+            <div className="w-[12.5%] border-r border-gray-100 flex flex-col justify-between py-2 text-right pr-3 text-[10px] font-bold text-gray-400 font-mono select-none">
+              {timelineHours.map(h => (
+                <div key={h} className="h-6 flex items-center justify-end">{String(h).padStart(2, '0')}:00</div>
+              ))}
+            </div>
+
+            {/* Grid days columns */}
+            <div className="flex-grow grid grid-cols-7 relative h-[480px]">
+              {/* Hour Background Lines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none select-none">
+                {timelineHours.map(h => (
+                  <div key={h} className="w-full border-t border-gray-100/70 h-0" />
+                ))}
+              </div>
+
+              {/* Day Columns containing absolute events */}
+              {weekDays.map(day => {
+                const dayScheds = officialSchedulesList.filter((s: any) => s.date === day.dateStr);
+
+                return (
+                  <div
+                    key={day.dateStr}
+                    className="relative border-r border-gray-100/60 last:border-r-0 h-full"
+                  >
+                    {/* Hour Click Targets */}
+                    {Array.from({ length: 24 }).map((_, idx) => {
+                      const hourNum = idx;
+                      const hourStr = `${String(hourNum).padStart(2, '0')}:00`;
+                      const topPct = (idx / 24) * 100;
+                      const heightPct = (1 / 24) * 100;
+
+                      return (
+                        <div
+                          key={`cell-${hourNum}`}
+                          style={{ top: `${topPct}%`, height: `${heightPct}%` }}
+                          onClick={() => {
+                            setSelectedScheduleDate(day.dateStr);
+                            setSelectedScheduleStaffId("");
+                            setSchedStartTime(hourStr);
+                            const endHourNum = Math.min(hourNum + 4, 24);
+                            const endHourStr = endHourNum === 24 ? "23:59" : `${String(endHourNum).padStart(2, '0')}:00`;
+                            setSchedEndTime(endHourStr);
+                            setEditingSchedId(null);
+                            setShowSchedModal(true);
+                          }}
+                          className="absolute left-0 right-0 hover:bg-[#7c4831]/5 cursor-pointer z-10 transition-colors"
+                        />
+                      );
+                    })}
+
+                    {/* Render Official Schedules (Lịch trực chính thức) as Solid colorful blocks */}
+                    {dayScheds.map((sched: any) => {
+                      const start = parseTimeToFloat(sched.startTime);
+                      const end = parseTimeToFloat(sched.endTime);
+                      if (start < 0 || end > 24) return null;
+
+                      const topPct = (start / 24) * 100;
+                      const heightPct = ((end - start) / 24) * 100;
+
+                      return (
+                        <div
+                          key={`sched-${sched.id}`}
+                          style={{ top: `${topPct}%`, height: `${heightPct}%` }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedScheduleDate(sched.date);
+                            setSelectedScheduleStaffId(sched.userId);
+                            setSchedStartTime(sched.startTime);
+                            setSchedEndTime(sched.endTime);
+                            setEditingSchedId(sched.id);
+                            setShowSchedModal(true);
+                          }}
+                          className="absolute left-1 right-1 rounded-lg bg-[#7c4831] border-l-4 border-l-emerald-500 text-white p-1.5 shadow-sm overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:shadow-md z-20 hover:z-35 flex flex-col justify-between cursor-pointer"
+                          title={`Lịch trực: ${sched.staffName} (${sched.startTime} - ${sched.endTime})`}
+                        >
+                          <span className="text-[9px] font-black uppercase truncate leading-tight">{sched.staffName}</span>
+                          <span className="text-[8px] font-bold text-emerald-300 font-mono leading-none">{sched.startTime} - {sched.endTime}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Schedule Overlay Modal */}
+        {showSchedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4B3621]/45 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 anim-scaleIn space-y-4">
+              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                  <Calendar size={16} /> {editingSchedId ? "Cập Nhật Ca Trực" : "Xếp Ca Trực Mới"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => { setShowSchedModal(false); setEditingSchedId(null); }}
+                  className="text-gray-450 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-3.5">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân sự trực:</label>
+                  <select
+                    value={selectedScheduleStaffId}
+                    onChange={e => setSelectedScheduleStaffId(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  >
+                    <option value="">-- Chọn nhân viên --</option>
+                    {staffOnly.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.fullName} ({s.phoneNumber})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ngày trực:</label>
+                  <input
+                    type="date"
+                    value={selectedScheduleDate}
+                    onChange={e => setSelectedScheduleDate(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giờ bắt đầu:</label>
+                    <input
+                      type="time"
+                      value={schedStartTime}
+                      onChange={e => setSchedStartTime(e.target.value)}
+                      className="input w-full text-xs font-semibold bg-white"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giờ kết thúc:</label>
+                    <input
+                      type="time"
+                      value={schedEndTime}
+                      onChange={e => setSchedEndTime(e.target.value)}
+                      className="input w-full text-xs font-semibold bg-white"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={handleCreateOrUpdateSchedule}
+                  className="btn btn-primary flex-grow text-xs py-2.5 font-bold"
+                >
+                  {editingSchedId ? "Cập Nhật" : "Xác Nhận Xếp Ca"}
+                </button>
+                {editingSchedId && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSchedule(editingSchedId)}
+                    className="btn btn-danger text-xs py-2.5 font-bold px-4"
+                  >
+                    Xóa
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setShowSchedModal(false); setEditingSchedId(null); }}
+                  className="btn btn-ghost text-xs py-2.5 font-bold px-4 border-gray-200"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // === PAYROLL ===
+  const PayrollView = () => {
+    const exportPayrollToCsv = () => {
+      let csv = "Họ tên,Số điện thoại,Lương/Giờ,Tổng giờ làm,Lương cơ bản,Thưởng,Phạt,Lương thực nhận\n";
+      payrollList.forEach((p: any) => {
+        csv += `"${p.fullName}","${p.phoneNumber}",${p.hourlyWage},${p.totalWorkedHours},${p.baseSalary},${p.totalBonus},${p.totalPenalty},${p.finalAmount}\n`;
+      });
+      const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `BangLuong_${activeLocation?.id || "govap-branch"}_${payrollFromDate}_to_${payrollToDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 pb-4">
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Tính Lương Nhân Sự</h2>
+            <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tính toán tự động tiền lương, thưởng/phạt đi trễ của nhân viên chi nhánh</p>
+          </div>
+          <button
+            onClick={exportPayrollToCsv}
+            disabled={payrollList.length === 0}
+            type="button"
+            className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+          >
+            <RefreshCw size={13} />
+            <span>Xuất Báo Cáo Bảng Lương</span>
+          </button>
+        </div>
+
+        {/* Date Selector Form */}
+        <div className="card space-y-4">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Chọn khoảng thời gian đối soát lương</h3>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Từ ngày:</label>
+              <input
+                type="date"
+                value={payrollFromDate}
+                onChange={e => setPayrollFromDate(e.target.value)}
+                className="input text-xs font-semibold w-36"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Đến ngày:</label>
+              <input
+                type="date"
+                value={payrollToDate}
+                onChange={e => setPayrollToDate(e.target.value)}
+                className="input text-xs font-semibold w-36"
+              />
+            </div>
+            <button
+              onClick={fetchPayrollData}
+              disabled={payrollLoading}
+              type="button"
+              className="btn btn-primary text-xs py-2 px-4 h-9 flex items-center gap-1.5"
+            >
+              {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
+            </button>
+          </div>
+        </div>
+
+        {/* Payroll Table */}
+        <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
+          <div className="p-4 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Chi tiết bảng lương chi nhánh</span>
+            <span className="text-[10px] font-semibold text-gray-500 font-mono">Đơn vị: VNĐ</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
+                  <th className="p-4">Họ tên nhân viên</th>
+                  <th className="p-4">Số điện thoại</th>
+                  <th className="p-4 text-right">Lương/giờ</th>
+                  <th className="p-4 text-right">Giờ làm</th>
+                  <th className="p-4 text-right">Lương cơ bản</th>
+                  <th className="p-4 text-right">Thưởng</th>
+                  <th className="p-4 text-right">Phạt đi trễ</th>
+                  <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
+                {payrollList.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
+                  </tr>
+                ) : (
+                  payrollList.map((p: any) => (
+                    <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
+                      <td className="p-4 font-mono font-medium text-gray-500">{p.phoneNumber}</td>
+                      <td className="p-4 text-right font-mono">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right font-mono">{p.totalWorkedHours}h</td>
+                      <td className="p-4 text-right font-mono">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right font-mono text-emerald-600">+{p.totalBonus?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right font-mono text-red-600">-{p.totalPenalty?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right font-mono font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}đ</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // === REQUESTS ===
+  const ReqsView = () => {
+    const pending = requests?.filter((r: any) => r.status === "pending") || [];
+    const resolved = requests?.filter((r: any) => r.status !== "pending") || [];
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+        <div className="border-b border-gray-200/50 pb-4">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Phê Duyệt Đơn Nhân Sự</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Duyệt xin nghỉ phép và yêu cầu đổi ca trực của nhân viên</p>
+        </div>
+
+        <div className="card space-y-4">
+          <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#92400E] border-b border-gray-100 pb-3">
+            <FileCheck size={16} /> Danh Sách Đơn Đang Chờ ({pending.length})
+          </h3>
+          {pending.length === 0 ? (
+            <p className="text-xs text-gray-400 italic py-6 text-center">Hiện tại không có đơn nào đang chờ duyệt.</p>
+          ) : pending.map((r: any) => (
+            <div key={r.id} className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100 space-y-3.5 shadow-xs anim-scaleIn">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-[10px] shadow-xs border ${getAvatarBg(r.staffName)}`}>
+                    {getInitials(r.staffName)}
+                  </div>
+                  <span className="font-extrabold text-sm uppercase tracking-tight text-[#4B3621]">{r.staffName}</span>
+                </div>
+                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"} border`}>{r.type === "leave" ? "Nghỉ phép" : "Đổi ca"}</span>
+              </div>
+              <p className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{r.date} — Lý do: {r.details}</p>
+              <div className="flex gap-2.5 pt-1">
+                <button onClick={() => { approveRequest(r.id); }} className="btn btn-success py-2 px-4 text-[10px] font-bold shadow-xs">Duyệt Đơn</button>
+                <button onClick={() => { rejectRequest(r.id); }} className="btn btn-danger py-2 px-4 text-[10px] font-bold shadow-xs">Từ Chối</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card space-y-4">
+          <h3 className="text-xs font-extrabold uppercase text-gray-400 border-b border-gray-100 pb-2.5">Đơn Đã Xử Lý ({resolved.length})</h3>
+          <div className="space-y-3">
+            {resolved.map((r: any) => (
+              <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6]/60 border border-gray-100 text-xs flex justify-between items-center opacity-85 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[9px] border ${getAvatarBg(r.staffName)}`}>
+                    {getInitials(r.staffName)}
+                  </div>
+                  <div>
+                    <p className="font-extrabold uppercase text-[#4B3621] tracking-tight">{r.staffName}</p>
+                    <p className="text-[#7c4831]/70 font-semibold mt-0.5">{r.date} — {r.details}</p>
+                  </div>
+                </div>
+                <span className={`pill ${r.status === "approved" ? "pill-green" : "pill-red"} text-[8px] font-bold border`}>{r.status === "approved" ? "Đã Duyệt" : "Bác Bỏ"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // === LOYALTY ===
+  const LoyaltyView = () => (
+    <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+      <div className="border-b border-gray-200/50 pb-4">
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Điểm Loyalty & Thực Đơn</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Điều chỉnh điểm thành viên thủ công & Cập nhật Menu chi nhánh</p>
+      </div>
+
+      {/* Edit Points */}
+      <div className="card space-y-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <Edit3 size={16} className="text-[#7c4831]" /> Sửa điểm khách hàng thủ công
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <input type="tel" placeholder="Số điện thoại khách *" value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input text-sm font-semibold" id="edit-phone" />
+          <input type="number" placeholder="Số điểm mới *" value={editPts} onChange={e => setEditPts(e.target.value)} className="input text-sm font-semibold" id="edit-pts" />
+          <button onClick={() => { if (!editPhone || !editPts) return; adjustPointsManually(editPhone.trim(), parseInt(editPts)); alert("Cập nhật số điểm thành công!"); setEditPhone(""); setEditPts(""); }}
+            className="btn btn-primary py-2.5 text-xs" id="edit-pts-btn">Cập Nhật Ngay</button>
+        </div>
+      </div>
+
+      {/* Customer List */}
+      <div className="card space-y-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <Users size={16} className="text-[#7c4831]" /> Danh Sách Khách Hàng Đăng Ký ({customers?.length || 0})
+        </h3>
+        <div className="space-y-3">
+          {(customers || []).map((c: any) => (
+            <div key={c.phone} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-gray-100 text-sm flex justify-between items-center shadow-xs transition-all hover:bg-white">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-[10px] shadow-xs border ${getAvatarBg(c.name)}`}>
+                  {getInitials(c.name)}
+                </div>
+                <div>
+                  <p className="font-extrabold text-sm text-[#4B3621] uppercase tracking-tight">{c.name}</p>
+                  <p className="text-[10px] font-bold text-gray-400 mt-0.5">{c.phone} • {c.email}</p>
+                </div>
+              </div>
+              <span className="pill bg-[#E0F2FE] text-[#075985] font-mono font-extrabold border border-sky-100">{c.points}đ</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Menu Upload */}
+      <div className="card space-y-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <ImagePlus size={16} className="text-[#7c4831]" /> Cấu Hình Hình Ảnh Thực Đơn
+        </h3>
+        <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm max-w-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={menuImage} alt="Menu" className="w-full max-h-64 object-cover" />
+        </div>
+        <div className="flex flex-col gap-2 pt-2 max-w-lg">
+          <label className="text-xs font-bold text-gray-500 uppercase">Tải tệp hình ảnh thực đơn lên trực tiếp:</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  if (typeof reader.result === "string") {
+                    updateMenuImage(reader.result);
+                    alert("Cập nhật hình ảnh thực đơn thành công!");
+                  }
+                };
+                reader.readAsDataURL(file);
+              }
+            }}
+            className="input w-full text-xs font-semibold cursor-pointer"
+            id="menu-file"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  // === FEEDBACK ===
+  const FeedbackView = () => {
+    const uniquePhones = Array.from(new Set((feedbacks || []).map((f: any) => f.customerPhone))) as string[];
+    
+    // Pick the first phone number if none is selected yet
+    const currentPhone = selectedFeedbackPhone || uniquePhones[0] || null;
+    const currentMessages = feedbacks?.filter((f: any) => f.customerPhone === currentPhone) || [];
+    const currentCustomerName = currentMessages[0]?.customerName || currentPhone || "";
+
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621] h-[calc(100vh-160px)] flex flex-col">
+        <div className="border-b border-gray-200/50 pb-4 shrink-0">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Ý Kiến Góp Ý Khách Hàng</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Phản hồi trực tiếp các ý kiến đóng góp từ thực khách</p>
+        </div>
+
+        {uniquePhones.length === 0 ? (
+          <div className="card text-center py-10 flex-grow flex items-center justify-center"><p className="text-xs text-[#4B3621]/60 font-bold italic">Chưa nhận được phản hồi góp ý nào.</p></div>
+        ) : (
+          <div className="flex flex-col lg:flex-row flex-grow border border-gray-150 rounded-2xl overflow-hidden bg-white shadow-sm h-0">
+            {/* Split Left: Customer List */}
+            <div className="w-full lg:w-80 border-r border-gray-150 flex flex-col h-1/3 lg:h-full bg-[#FAF9F6]">
+              <div className="p-3 border-b border-gray-150 bg-white font-bold text-xs uppercase tracking-wider text-[#7c4831]">Danh sách hội thoại</div>
+              <div className="overflow-y-auto flex-grow divide-y divide-gray-100">
+                {uniquePhones.map(phone => {
+                  const userMessages = feedbacks.filter((f: any) => f.customerPhone === phone);
+                  const lastMessage = userMessages[userMessages.length - 1];
+                  const name = lastMessage?.customerName || phone;
+                  const isSelected = currentPhone === phone;
+
+                  return (
+                    <button
+                      key={phone}
+                      onClick={() => setSelectedFeedbackPhone(phone)}
+                      className={`w-full text-left p-3.5 transition-all flex items-center gap-3 hover:bg-[#7c4831]/5 ${isSelected ? "bg-[#7c4831]/10 border-l-4 border-l-[#7c4831]" : ""}`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-[10px] border shrink-0 ${getAvatarBg(name)}`}>
+                        {getInitials(name)}
+                      </div>
+                      <div className="flex-grow min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <p className="font-extrabold text-xs text-[#4B3621] uppercase truncate">{name}</p>
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-bold font-mono">{phone}</p>
+                        {lastMessage && (
+                          <p className="text-[10.5px] text-gray-600 truncate mt-0.5 font-medium">{lastMessage.message}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Split Right: Conversational Chat Pane */}
+            <div className="flex-grow flex flex-col h-2/3 lg:h-full bg-white">
+              {currentPhone ? (
+                <>
+                  {/* Chat Pane Header */}
+                  <div className="p-3.5 border-b border-gray-150 flex items-center justify-between bg-white shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-[10px] border ${getAvatarBg(currentCustomerName)}`}>
+                        {getInitials(currentCustomerName)}
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold uppercase text-xs text-[#4B3621] tracking-tight">{currentCustomerName}</h4>
+                        <span className="text-[9px] font-bold text-gray-400 font-mono mt-0.5 block">{currentPhone}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Message Bubble Feed */}
+                  <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-[#FAF9F6]">
+                    {currentMessages.map((m: any) => {
+                      const isAdmin = m.sender === "admin";
+                      return (
+                        <div key={m.id} className={`flex flex-col max-w-[75%] ${isAdmin ? "ml-auto items-end" : "mr-auto items-start"}`}>
+                          <div className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed ${isAdmin ? "bg-[#7c4831] text-white rounded-tr-none shadow-sm" : "bg-white text-[#4B3621] rounded-tl-none border border-gray-200/80 shadow-sm"}`}>
+                            <p>{m.message}</p>
+                          </div>
+                          <span className="text-[8px] font-bold text-[#7c4831]/60 mt-1 uppercase tracking-wider">
+                            {isAdmin ? "Bạn" : "Khách hàng"} • {m.timestamp}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Message Input Panel */}
+                  <div className="p-3.5 border-t border-gray-150 bg-white shrink-0">
+                    <div className="flex gap-2.5">
+                      <input
+                        type="text"
+                        placeholder={`Trả lời cho ${currentCustomerName}...`}
+                        className="input flex-grow text-xs font-semibold"
+                        onKeyDown={e => {
+       // === CONFIG ===
+  const ConfigView = () => {
+    return (
+      <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+        <div className="border-b border-gray-200/50 pb-4">
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Cấu Hình Hệ Thống</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Cấu hình lương thưởng, phạt đi trễ, ngày lễ & thưởng phạt riêng của nhân viên</p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-gray-150 pb-3">
+          <button
+            onClick={() => setConfigActiveTab("rules")}
+            type="button"
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+              configActiveTab === "rules"
+                ? "bg-[#7c4831] text-white shadow-xs"
+                : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
+            }`}
+          >
+            Quy định trễ & GPS
+          </button>
+          <button
+            onClick={() => setConfigActiveTab("holidays")}
+            type="button"
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+              configActiveTab === "holidays"
+                ? "bg-[#7c4831] text-white shadow-xs"
+                : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
+            }`}
+          >
+            Ngày nghỉ lễ chi tiết
+          </button>
+          <button
+            onClick={() => setConfigActiveTab("adjustments")}
+            type="button"
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+              configActiveTab === "adjustments"
+                ? "bg-[#7c4831] text-white shadow-xs"
+                : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
+            }`}
+          >
+            Thưởng / Phạt nhân viên
+          </button>
+        </div>
+
+        {/* Tab 1: Rules & GPS */}
+        {configActiveTab === "rules" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 anim-fadeUp">
+            <div className="card space-y-4">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+                <Gift size={16} className="text-[#7c4831]" /> Quy đổi Loyalty
+              </h3>
+              <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cách tích điểm:</span><span className="text-sm font-mono text-[#4B3621]">50.000 VNĐ = 1 Điểm</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cách đổi quà:</span><span className="text-sm font-mono text-[#4B3621]">10 Điểm = Voucher 55K</span></div>
+              </div>
+            </div>
+
+            <div className="card space-y-4">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+                <Settings size={16} className="text-[#7c4831]" /> Quản lý HRM
+              </h3>
+              <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Bán kính GPS:</span><span className="text-sm font-mono text-[#4B3621]">50 mét</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Checkout tự động:</span><span className="pill pill-green border border-emerald-200">Đang bật (No OT)</span></div>
+              </div>
+            </div>
+
+            <div className="card space-y-4 md:col-span-2">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+                <Settings size={16} className="text-[#7c4831]" /> Cấu hình Lương thưởng & Công thức phạt đi trễ
+              </h3>
+              <form onSubmit={handleSaveHrmConfigs} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Bắt đầu phạt (Số phút trễ):</label>
+                    <input
+                      type="number"
+                      value={latePenaltyStartMinutes}
+                      onChange={e => setLatePenaltyStartMinutes(e.target.value)}
+                      placeholder="Ví dụ: 10"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số tiền phạt mốc đầu (VNĐ):</label>
+                    <input
+                      type="number"
+                      value={latePenaltyBaseAmount}
+                      onChange={e => setLatePenaltyBaseAmount(e.target.value)}
+                      placeholder="Ví dụ: 50000"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Khoảng tăng trễ (Phút):</label>
+                    <input
+                      type="number"
+                      value={latePenaltyIntervalMinutes}
+                      onChange={e => setLatePenaltyIntervalMinutes(e.target.value)}
+                      placeholder="Ví dụ: 10"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hệ số nhân (Lũy tiến):</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={latePenaltyMultiplier}
+                      onChange={e => setLatePenaltyMultiplier(e.target.value)}
+                      placeholder="Ví dụ: 2"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-4">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Thưởng chuyên cần ca trực (VNĐ/ca đúng giờ):</label>
+                    <input
+                      type="number"
+                      value={activeBonusStr}
+                      onChange={e => setActiveBonusStr(e.target.value)}
+                      placeholder="Ví dụ: 100000"
+                      className="input w-full text-xs font-semibold animate-pulse"
+                      id="active-bonus"
+                    />
+                  </div>
+                </div>
+                
+                <div className="p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl text-[11px] font-medium text-gray-500 leading-relaxed">
+                  <strong>Giải thích công thức:</strong> Đi trễ dưới <strong>{latePenaltyStartMinutes} phút</strong> không phạt. 
+                  Trễ từ <strong>{latePenaltyStartMinutes} phút</strong> trở đi sẽ phạt mốc đầu là <strong>{(Number(latePenaltyBaseAmount) || 0).toLocaleString("vi-VN")} VNĐ</strong>. 
+                  Cứ mỗi <strong>{latePenaltyIntervalMinutes} phút</strong> tăng thêm thì số tiền phạt sẽ nhân lên <strong>{latePenaltyMultiplier} lần</strong> (hệ số lũy tiến hình học).
+                </div>
+
+                <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
+                  Lưu cấu hình quy định trễ
+                </button>
+              </form>
+            </div>
+
+            {/* Dynamic Custom Bonus / Penalty Configs */}
+            <div className="card space-y-4 md:col-span-2">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+                <DollarSign size={16} className="text-[#7c4831]" /> Quản Lý Các Loại Thưởng & Phạt Khác
+              </h3>
+              <p className="text-xs text-gray-500">
+                Bạn có thể thêm không giới hạn các loại thưởng (bắt đầu bằng <strong>Bonus_</strong>) hoặc phạt (bắt đầu bằng <strong>Penalty_</strong>).
+                <br />
+                Định dạng giá trị: điền số cụ thể (ví dụ: <code>100000</code>) hoặc theo ca <code>per_shift:10000</code> (tự nhân số ca).
+              </p>
+
+              <div className="space-y-3">
+                {allConfigsList
+                  .filter((c: any) => c.configKey.startsWith("Bonus_") || c.configKey.startsWith("Penalty_"))
+                  .map((c: any) => (
+                    <div key={c.configKey} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-gray-100 flex justify-between items-center shadow-xs transition-colors hover:border-gray-200">
+                      <div className="space-y-1">
+                        <p className="font-extrabold text-xs text-[#4B3621] uppercase tracking-tight">
+                          {c.configKey.startsWith("Bonus_") ? "🎁 THƯỞNG: " : "⚠️ PHẠT: "} {c.configKey}
+                        </p>
+                        <p className="text-[10px] text-gray-400 font-semibold">{c.description || "Không có mô tả"}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs font-bold bg-[#FAF3E0] px-2.5 py-1 rounded-xl text-[#7c4831] border border-[#7c4831]/10">
+                          {c.configValue}
+                        </span>
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Bạn có chắc muốn xóa cấu hình này?`)) {
+                              try {
+                                const res = await fetch(`${getApiBaseUrl()}/api/attendance/config/delete?locationId=${activeLocation?.id || "govap-branch"}&key=${c.configKey}`, {
+                                  method: "POST"
+                                });
+                                if (res.ok) {
+                                  alert("Xóa cấu hình thành công!");
+                                  fetchHrmConfigs();
+                                }
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }
+                          }}
+                          className="text-xs text-red-650 hover:underline font-bold"
+                          type="button"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                {allConfigsList.filter((c: any) => c.configKey.startsWith("Bonus_") || c.configKey.startsWith("Penalty_")).length === 0 && (
+                  <p className="text-xs text-gray-400 italic text-center py-4">Chưa có loại thưởng hoặc phạt riêng nào được thiết lập.</p>
+                )}
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const keyEl = document.getElementById("new-config-key") as HTMLInputElement;
+                  const valEl = document.getElementById("new-config-val") as HTMLInputElement;
+                  const descEl = document.getElementById("new-config-desc") as HTMLInputElement;
+                  if (!keyEl?.value || !valEl?.value) return;
+
+                  const key = keyEl.value.trim();
+                  if (!key.startsWith("Bonus_") && !key.startsWith("Penalty_")) {
+                    alert("Mã cấu hình phải bắt đầu bằng 'Bonus_' hoặc 'Penalty_'!");
+                    return;
+                  }
+
+                  try {
+                    const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify([
+                        { configKey: key, configValue: valEl.value.trim(), description: descEl.value.trim() }
+                      ])
+                    });
+                    if (res.ok) {
+                      alert("Thêm cấu hình mới thành công!");
+                      keyEl.value = "";
+                      valEl.value = "";
+                      descEl.value = "";
+                      fetchHrmConfigs();
+                    }
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+                className="border-t border-gray-150 pt-4 space-y-3"
+              >
+                <h4 className="text-xs font-black uppercase text-[#7c4831]">Thêm loại Thưởng / Phạt mới</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input type="text" id="new-config-key" placeholder="Ví dụ: Bonus_DoanhThu" className="input text-xs font-semibold" required />
+                  <input type="text" id="new-config-val" placeholder="Ví dụ: 100000 hoặc per_shift:20000" className="input text-xs font-semibold" required />
+                  <input type="text" id="new-config-desc" placeholder="Mô tả cấu hình" className="input text-xs font-semibold" />
+                </div>
+                <button type="submit" className="btn btn-primary text-xs py-2 px-4 font-bold cursor-pointer">Thêm cấu hình</button>
+              </form>
+            </div>
+
+            {/* Device Security Biometrics */}
+            <div className="card space-y-4 md:col-span-2">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+                <Lock size={16} className="text-[#7c4831]" /> Bảo mật thiết bị (Biometrics)
+              </h3>
+              <div className="p-5 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="space-y-1">
+                  <span className="text-[#4B3621] text-xs font-bold block uppercase">Kích hoạt vân tay / Face ID trên thiết bị hiện tại</span>
+                  <span className="text-gray-400 font-semibold text-[10px] block normal-case leading-relaxed">
+                    Đăng ký sinh trắc học thiết bị này cho tài khoản quản trị hiện tại ({currentUserPhone || "admin"}) để bỏ qua nhập mã PIN hoặc mật khẩu khi đăng nhập nhanh.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRegisterBiometricDirectly}
+                  className="btn btn-primary py-2.5 px-6 text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  <svg className="w-4.5 h-4.5 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a5 5 0 00-10 0c0 .353.017.702.051 1.045l-.011-.05M12 11c0-3.517 1.009-6.799 2.753-9.571m3.44 2.04l-.054.09A13.916 13.916 0 0015 11a5 5 0 0010 0c0-.353-.017-.702-.051-1.045l.011.05M12 11V3" />
+                  </svg>
+                  <span>Kích hoạt Touch ID thiết bị này</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Holidays Detailed */}
+        {configActiveTab === "holidays" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 anim-fadeUp">
+            {/* Form Holiday */}
+            <div className="card space-y-4 h-fit border border-gray-150">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] border-b border-gray-100 pb-3 flex items-center gap-2">
+                <Calendar size={15} /> Thêm Ngày Nghỉ Lễ Mới
+              </h3>
+              <form onSubmit={handleAddDetailedHoliday} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ngày nghỉ lễ:</label>
+                  <input
+                    type="date"
+                    value={newHolidayDate}
+                    onChange={e => setNewHolidayDate(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ghi chú tên ngày lễ:</label>
+                  <input
+                    type="text"
+                    value={newHolidayNote}
+                    onChange={e => setNewHolidayNote(e.target.value)}
+                    placeholder="Ví dụ: Tết Dương Lịch"
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary py-2 px-4 text-xs font-bold w-full cursor-pointer">
+                  Thêm ngày lễ
+                </button>
+              </form>
+            </div>
+
+            {/* List Holidays */}
+            <div className="card p-0 lg:col-span-2 overflow-hidden border border-gray-150 bg-white">
+              <div className="p-4 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                  <Calendar size={14} /> Danh sách ngày nghỉ lễ chi tiết ({detailedHolidaysList.length})
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
+                      <th className="p-3">Ngày lễ</th>
+                      <th className="p-3">Mô tả / Tên ngày lễ</th>
+                      <th className="p-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
+                    {detailedHolidaysList.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="p-6 text-center text-gray-400 italic">Chưa có ngày lễ nào được thiết lập.</td>
+                      </tr>
+                    ) : (
+                      detailedHolidaysList.map((h: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="p-3 font-mono text-xs text-[#7c4831]">{h.Date}</td>
+                          <td className="p-3 text-xs">{h.Note}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              onClick={() => handleDeleteDetailedHoliday(idx)}
+                              className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                              type="button"
+                            >
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Employee Adjustments */}
+        {configActiveTab === "adjustments" && (
+          <div className="space-y-6 anim-fadeUp">
+            {/* Form Adjustment */}
+            <div className="card space-y-4 border border-gray-150">
+              <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] border-b border-gray-100 pb-3 flex items-center gap-2">
+                <Plus size={15} /> Thêm Thưởng / Phạt Cho Nhân Viên
+              </h3>
+              <form onSubmit={handleAddAdjustment} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân viên áp dụng:</label>
+                  <select
+                    value={newAdjEmployeeId}
+                    onChange={e => setNewAdjEmployeeId(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  >
+                    <option value="">-- Chọn nhân viên --</option>
+                    {staffList.filter((s: any) => s.roleId === 3).map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.fullName} ({s.phoneNumber})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hình thức điều chỉnh:</label>
+                  <select
+                    value={newAdjType}
+                    onChange={e => setNewAdjType(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                  >
+                    <option value="bonus">Thưởng (Bonus)</option>
+                    <option value="penalty">Phạt (Penalty)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Đơn vị tính:</label>
+                  <select
+                    value={newAdjUnit}
+                    onChange={e => setNewAdjUnit(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                  >
+                    <option value="co_dinh">Cố định (Flat)</option>
+                    <option value="lan">Lần (Times)</option>
+                    <option value="phut">Phút (Minutes)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số lượng (Quantity):</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={newAdjQuantity}
+                    onChange={e => setNewAdjQuantity(e.target.value)}
+                    disabled={newAdjUnit === "co_dinh"}
+                    className="input w-full text-xs font-semibold bg-white disabled:opacity-50"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số tiền / Đơn vị (VNĐ):</label>
+                  <input
+                    type="number"
+                    value={newAdjAmountPerUnit}
+                    onChange={e => setNewAdjAmountPerUnit(e.target.value)}
+                    placeholder="Ví dụ: 50000"
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ngày áp dụng:</label>
+                  <input
+                    type="date"
+                    value={newAdjDate}
+                    onChange={e => setNewAdjDate(e.target.value)}
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-3 lg:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Lý do điều chỉnh (Note):</label>
+                  <input
+                    type="text"
+                    value={newAdjNote}
+                    onChange={e => setNewAdjNote(e.target.value)}
+                    placeholder="Ví dụ: Thưởng nóng hiệu suất tuần / Phạt nghỉ tự do"
+                    className="input w-full text-xs font-semibold bg-white"
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary py-2.5 px-4 text-xs font-bold w-full cursor-pointer h-9">
+                  Thêm điều chỉnh
+                </button>
+              </form>
+            </div>
+
+            {/* List Adjustments */}
+            <div className="card p-0 overflow-hidden border border-gray-150 bg-white shadow-sm">
+              <div className="p-4 border-b border-gray-150 bg-[#FAF9F6]">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                  <Users size={14} /> Danh sách Thưởng/Phạt riêng của nhân viên ({adjustmentsList.length})
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
+                      <th className="p-3">Nhân viên</th>
+                      <th className="p-3">Ngày</th>
+                      <th className="p-3">Loại</th>
+                      <th className="p-3">Chi tiết đơn vị</th>
+                      <th className="p-3 text-right">Tổng số tiền</th>
+                      <th className="p-3">Ghi chú</th>
+                      <th className="p-3 text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
+                    {adjustmentsList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-gray-400 italic">Chưa có khoản thưởng/phạt riêng nào cho nhân viên.</td>
+                      </tr>
+                    ) : (
+                      adjustmentsList.map((a: any, idx: number) => {
+                        const totalMoney = a.Amount || (a.Quantity * a.AmountPerUnit);
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="p-3 uppercase font-black tracking-tight">{a.EmployeeName}</td>
+                            <td className="p-3 font-mono text-xs">{a.Date}</td>
+                            <td className="p-3">
+                              <span className={`pill ${a.Type === "bonus" ? "pill-green" : "pill-red"} border text-[8px] font-black uppercase`}>
+                                {a.Type === "bonus" ? "Thưởng" : "Phạt"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-xs text-gray-500 font-medium">
+                              {a.Unit === "co_dinh" 
+                                ? "Số tiền cố định" 
+                                : `${a.Quantity} ${a.Unit === "lan" ? "lần" : "phút"} x ${(a.AmountPerUnit || 0).toLocaleString("vi-VN")}đ`}
+                            </td>
+                            <td className={`p-3 text-right font-mono font-bold ${a.Type === "bonus" ? "text-emerald-600" : "text-red-600"}`}>
+                              {a.Type === "bonus" ? "+" : "-"}{(totalMoney || 0).toLocaleString("vi-VN")}đ
+                            </td>
+                            <td className="p-3 text-xs italic text-gray-650 max-w-[200px] truncate" title={a.Note}>{a.Note}</td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => handleDeleteAdjustment(idx)}
+                                className="text-xs font-bold text-red-650 hover:underline cursor-pointer"
+                                type="button"
+                              >
+                                Xóa
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const getApiBaseUrl = () => {
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
+        return "http://localhost:5078";
+      }
+      const parts = hostname.split(".");
+      if (parts.length >= 3) {
+        parts[0] = "api";
+        return `https://${parts.join(".")}`;
+      }
+      return `https://api.${hostname}`;
+    }
+    return "https://api.themoods.tieenz.site";
+  };
+
+
+
+  // === QR LOOKUP ===
+  const handleQrLookup = async () => {
+    if (!qrInput.trim()) {
+      setQrError("Vui lòng nhập mã QR hoặc số điện thoại khách hàng!");
+      return;
+    }
+    setQrLoading(true);
+    setQrError("");
+    setQrSuccess("");
+    setQrLookupResult(null);
+
+    // Try decoding the raw text as JSON or use as phone
+    let qrData = qrInput.trim();
+    try {
+      // If it looks like URL-encoded JSON, decode it
+      const decoded = decodeURIComponent(qrData);
+      JSON.parse(decoded); // validate JSON
+      qrData = decoded;
+    } catch {
+      // Not JSON, could be phone number - wrap as JSON
+      if (/^[0-9]{10,11}$/.test(qrData)) {
+        qrData = JSON.stringify({ phone: qrData });
+      }
+    }
+
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/customers/lookup-qr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qrData,
+          locationId: activeLocation?.id || "govap-branch"
+        })
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        // Fallback to local context search
+        const localCustomer = customers?.find((c: any) =>
+          c.phone === qrInput.trim() || c.id === qrInput.trim()
+        );
+        if (localCustomer) {
+          setQrLookupResult({
+            Id: localCustomer.id || `cust-${localCustomer.phone}`,
+            PhoneNumber: localCustomer.phone,
+            FullName: localCustomer.name,
+            Points: localCustomer.points
+          });
+        } else {
+          setQrError(errData.message || "Không tìm thấy khách hàng!");
+        }
+      } else {
+        const data = await response.json();
+        setQrLookupResult(data.customer);
+      }
+    } catch {
+      // Fallback to local context if API down
+      const localCustomer = customers?.find((c: any) =>
+        c.phone === qrInput.trim() || c.id === qrInput.trim()
+      );
+      if (localCustomer) {
+        setQrLookupResult({
+          Id: localCustomer.id || `cust-${localCustomer.phone}`,
+          PhoneNumber: localCustomer.phone,
+          FullName: localCustomer.name,
+          Points: localCustomer.points
+        });
+      } else {
+        setQrError("Lỗi kết nối API. Không tìm thấy khách hàng trong dữ liệu cục bộ.");
+      }
+    }
+    setQrLoading(false);
+  };
+
+  // === ADD POINTS VIA API ===
+  const handleQrAddPoints = async () => {
+    if (!qrLookupResult || !qrBillAmt) return;
+    const billAmount = parseInt(qrBillAmt);
+    if (isNaN(billAmount) || billAmount <= 0) {
+      setQrError("Số tiền hóa đơn không hợp lệ!");
+      return;
+    }
+    setQrLoading(true);
+    setQrError("");
+    setQrSuccess("");
+
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/customers/add-points`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: qrLookupResult.Id,
+          billAmount,
+          locationId: activeLocation?.id || "govap-branch",
+          staffId: "admin"
+        })
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        // Fallback local
+        const localResult = addPointsToCustomer(qrLookupResult.PhoneNumber, billAmount, "Admin");
+        if (localResult?.success) {
+          setQrSuccess(`Tích điểm thành công (cục bộ)! +${localResult.pointsAdded} điểm từ hóa đơn ${billAmount.toLocaleString("vi-VN")}đ.`);
+          setQrLookupResult({ ...qrLookupResult, Points: (qrLookupResult.Points || 0) + localResult.pointsAdded });
+        } else {
+          setQrError(errData.message || "Không thể tích điểm!");
+        }
+      } else {
+        const data = await response.json();
+        setQrSuccess(data.message);
+        setQrLookupResult({ ...qrLookupResult, Points: data.totalPoints });
+        // Also sync to local context
+        if (addPointsToCustomer) {
+          addPointsToCustomer(qrLookupResult.PhoneNumber, billAmount, "Admin");
+        }
+      }
+    } catch {
+      // Fallback local
+      const localResult = addPointsToCustomer(qrLookupResult.PhoneNumber, billAmount, "Admin");
+      if (localResult?.success) {
+        setQrSuccess(`Tích điểm thành công! +${localResult.pointsAdded} điểm.`);
+        setQrLookupResult({ ...qrLookupResult, Points: (qrLookupResult.Points || 0) + localResult.pointsAdded });
+      } else {
+        setQrError("Lỗi kết nối và không thể tích điểm cục bộ.");
+      }
+    }
+    setQrLoading(false);
+    setQrBillAmt("");
+  };
+
+  // === QR SCANNER VIEW ===
+  const ScanQrView = () => (
+    <div className="space-y-6 anim-fadeUp text-[#4B3621]">
+      <div className="border-b border-gray-200/50 pb-4">
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Quét QR Tích Điểm</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Quét mã QR khách hàng hoặc nhập SĐT để tra cứu và cộng điểm loyalty</p>
+      </div>
+
+      {/* QR Input Card */}
+      <div className="card space-y-5">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <ScanLine size={16} className="text-[#7c4831]" /> Nhập Mã QR / Số Điện Thoại
+        </h3>
+
+        <div className="space-y-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder='Dán nội dung QR hoặc nhập SĐT khách hàng (VD: 0987654321)'
+              value={qrInput}
+              onChange={e => setQrInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleQrLookup(); }}
+              className="input w-full text-sm font-semibold pr-24"
+              id="qr-input-field"
+            />
+            <button
+              onClick={handleQrLookup}
+              disabled={qrLoading}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-primary py-1.5 px-4 text-[10px] font-bold uppercase tracking-wider"
+              id="qr-lookup-btn"
+            >
+              {qrLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Search size={12} /> Tra cứu</>}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-gray-400 font-semibold">
+            Hỗ trợ nhận dạng: JSON QR {`{"id":"...","phone":"..."}`}, SĐT trực tiếp, hoặc ID khách hàng.
+          </p>
+        </div>
+
+        {/* Error/Success Messages */}
+        {qrError && (
+          <div className="p-3 bg-[#FADCD5] border border-red-200 rounded-xl text-[#7A2F1E] text-xs font-bold flex items-center gap-2 anim-fadeUp">
+            <AlertTriangle size={14} /> {qrError}
+          </div>
+        )}
+        {qrSuccess && (
+          <div className="p-3 bg-[#D3ECE1] border border-emerald-200 rounded-xl text-[#1B523A] text-xs font-bold flex items-center gap-2 anim-fadeUp">
+            <CheckCircle size={14} /> {qrSuccess}
+          </div>
+        )}
+      </div>
+
+      {/* Customer Info Card (Shown after lookup) */}
+      {qrLookupResult && (
+        <div className="card space-y-5 border-2 border-[#7c4831]/15 anim-fadeUp">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#7c4831]">
+              <UserCheck size={16} className="text-emerald-600" /> Thông Tin Khách Hàng
+            </h3>
+            <button
+              onClick={() => { setQrLookupResult(null); setQrInput(""); setQrBillAmt(""); setQrError(""); setQrSuccess(""); }}
+              className="text-[10px] text-gray-400 hover:text-[#7c4831] font-bold uppercase tracking-wider cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
+
+          {/* Customer Profile Strip */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FAF9F6] to-[#F5EDE4] border border-[#7c4831]/10 flex items-center gap-4 shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-[#7c4831] flex items-center justify-center text-white font-extrabold text-lg shadow-sm shrink-0">
+              {getInitials(qrLookupResult.FullName)}
+            </div>
+            <div className="flex-grow min-w-0">
+              <h4 className="font-extrabold text-base text-[#4B3621] uppercase tracking-tight truncate">{qrLookupResult.FullName}</h4>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs font-mono font-bold text-[#7c4831]/70">{qrLookupResult.PhoneNumber}</span>
+                <span className="pill bg-[#E0F2FE] text-[#075985] font-mono font-extrabold border border-sky-100 text-[10px]">{qrLookupResult.Points} điểm</span>
+              </div>
+              <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-wider">ID: {qrLookupResult.Id?.substring(0, 12)}...</p>
+            </div>
+            {/* QR Code Preview */}
+            <div className="shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=64x64&color=7c4831&data=${encodeURIComponent(JSON.stringify({ id: qrLookupResult.Id, phone: qrLookupResult.PhoneNumber }))}`}
+                alt="QR"
+                className="w-16 h-16 rounded-lg border border-gray-100 shadow-xs"
+              />
+            </div>
+          </div>
+
+          {/* Bill Amount Input & Add Points */}
+          <div className="space-y-3">
+            <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhập số tiền hóa đơn để tích điểm:</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 relative">
+                <input
+                  type="number"
+                  placeholder="Ví dụ: 150000"
+                  value={qrBillAmt}
+                  onChange={e => setQrBillAmt(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handleQrAddPoints(); }}
+                  className="input w-full text-sm font-semibold font-mono"
+                  id="qr-bill-input"
+                />
+                {qrBillAmt && parseInt(qrBillAmt) > 0 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                    +{Math.floor(parseInt(qrBillAmt) / 50000)} điểm
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleQrAddPoints}
+                disabled={qrLoading || !qrBillAmt}
+                className="btn btn-primary py-3 text-xs font-bold flex items-center justify-center gap-1.5"
+                id="qr-add-points-btn"
+              >
+                {qrLoading ? (
+                  <RefreshCw size={13} className="animate-spin" />
+                ) : (
+                  <><Gift size={14} /> Tích Điểm</>  
+                )}
+              </button>
+            </div>
+            <p className="text-[9px] text-gray-400 font-semibold">
+              Quy cách: Mỗi 50,000 VNĐ = 1 điểm tích lũy. Đủ 10 điểm = tự động nhận Voucher 55K.
+            </p>
+          </div>
+
+          {/* Quick Amount Buttons */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider self-center mr-1">Nhanh:</span>
+            {[50000, 100000, 150000, 200000, 300000, 500000].map(amt => (
+              <button
+                key={amt}
+                onClick={() => setQrBillAmt(String(amt))}
+                className={`py-1.5 px-3 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                  qrBillAmt === String(amt)
+                    ? "bg-[#7c4831] text-white border-[#7c4831] shadow-sm"
+                    : "bg-[#FAF9F6] text-[#4B3621] border-gray-150 hover:border-[#7c4831]/30"
+                }`}
+              >
+                {amt.toLocaleString("vi-VN")}đ
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Scan History from Logs */}
+      <div className="card space-y-4">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+          <Clock size={14} className="text-[#7c4831]" /> Lịch Sử Quét QR Gần Đây
+        </h3>
+        <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+          {(logs || []).filter((l: any) => l.action?.includes("Tích điểm") || l.action?.includes("Quét mã")).slice(0, 10).map((l: any) => (
+            <div key={l.id} className="p-3 rounded-xl bg-[#FAF9F6] border border-gray-100 text-xs flex gap-3 items-start transition-all hover:bg-white hover:border-gray-200">
+              <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 font-bold text-[9px] ${getAvatarBg(l.staffName)}`}>
+                {getInitials(l.staffName)}
+              </div>
+              <div className="flex-grow font-semibold">
+                <span className="text-[#4B3621]/90 leading-relaxed text-xs">{l.description}</span>
+                <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} • {l.time}</p>
+              </div>
+              <span className="pill bg-[#D3ECE1] text-[#1B523A] text-[8px] font-semibold shrink-0 border border-emerald-200">+ĐIỂM</span>
+            </div>
+          ))}
+          {(logs || []).filter((l: any) => l.action?.includes("Tích điểm") || l.action?.includes("Quét mã")).length === 0 && (
+            <p className="text-xs text-gray-400 italic py-6 text-center">Chưa có bản ghi quét QR tích điểm nào.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPage = () => {
+    if (locked) return (
+      <div className="flex flex-col items-center justify-center h-full text-center space-y-5 anim-fadeUp py-16">
+        <div className="w-16 h-16 rounded-full bg-[#FADCD5] flex items-center justify-center shadow-sm border border-red-200">
+          <Settings size={26} className="text-[#7A2F1E]" />
+        </div>
+        <h3 className="text-xl font-extrabold uppercase text-[#4B3621] tracking-tight">Vận Hành Bị Khóa</h3>
+        <p className="text-xs text-[#4B3621]/70 max-w-sm font-semibold leading-relaxed">
+          Thương hiệu hiện đang bị khóa tạm ngưng vận hành do thuê bao gói SaaS quá hạn thanh toán. Vui lòng liên hệ nhà quản trị tối cao.
+        </p>
+        <button onClick={handleLogout} className="btn btn-ghost py-3 px-6 text-xs flex items-center gap-2 shadow-xs"><LogOut size={14} /> Đăng xuất tài khoản</button>
+      </div>
+    );
+    switch (page) {
+      case "scanqr": return <ScanQrView />;
+      case "staff": {
+        const filteredStaff = staffList.filter((s: any) => s.roleId === 3);
+        return (
+          <div className="space-y-5 anim-fadeUp text-[#4B3621]">
+            <div className="border-b border-gray-200/50 pb-3">
+              <h2 className="text-xl font-bold uppercase tracking-tight text-[#7c4831]">Quản Lý Nhân Sự</h2>
+              <p className="text-[10px] font-bold text-[#7c4831]/60 uppercase mt-0.5">Thêm mới và xem danh sách nhân sự của chi nhánh</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {/* Add Staff Form */}
+              <div className="card p-4 space-y-3 h-fit border border-gray-100">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 text-[#7c4831]">
+                  <Plus size={14} className="text-[#7c4831]" /> Thêm Nhân Viên Mới
+                </h3>
+                <form onSubmit={handleRegisterStaff} className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Họ và Tên *</label>
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: Nguyễn Văn A"
+                      required
+                      value={newStaffName}
+                      onChange={e => setNewStaffName(e.target.value)}
+                      className="input w-full py-1.5 px-3 text-xs font-semibold"
+                      id="new-staff-name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Số Điện Thoại *</label>
+                    <input
+                      type="tel"
+                      placeholder="Ví dụ: 0912345678"
+                      required
+                      value={newStaffPhone}
+                      onChange={e => setNewStaffPhone(e.target.value)}
+                      className="input w-full py-1.5 px-3 text-xs font-semibold"
+                      id="new-staff-phone"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Vai Trò / Quyền Hạn</label>
+                    <div className="input w-full py-1.5 px-3 text-xs font-semibold bg-gray-50/50 border border-gray-150 rounded-xl text-gray-500 select-none">
+                      Nhân viên (Staff)
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Lương theo giờ (VNĐ/giờ) *</label>
+                    <input
+                      type="number"
+                      placeholder="Ví dụ: 25000"
+                      required
+                      value={newStaffWage}
+                      onChange={e => setNewStaffWage(e.target.value)}
+                      className="input w-full py-1.5 px-3 text-xs font-semibold"
+                      id="new-staff-wage"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={staffLoading}
+                    className="btn btn-primary py-2.5 text-xs w-full mt-1 flex items-center justify-center gap-1.5"
+                  >
+                    {staffLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Plus size={13} /> Đăng Ký Nhân Sự</>}
+                  </button>
+                </form>
+              </div>
+
+              {/* Staff List */}
+              <div className="lg:col-span-2 card p-4 space-y-3 border border-gray-100">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 text-[#7c4831]">
+                  <Users size={14} className="text-[#7c4831]" /> Danh Sách Nhân Viên ({filteredStaff.length})
+                </h3>
+                {filteredStaff.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-[11px] text-gray-400 italic">Chưa có nhân viên nào được tải hoặc chưa được tạo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                    {filteredStaff.map((staff: any) => (
+                      <div
+                        key={staff.phoneNumber || staff.id}
+                        className="p-2.5 rounded-xl bg-[#FAF9F6] border border-gray-100 flex justify-between items-center transition-all hover:bg-white hover:border-gray-200"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[9px] border ${getAvatarBg(staff.fullName || "")}`}>
+                            {getInitials(staff.fullName || "")}
+                          </div>
+                          <div>
+                            <p className="font-extrabold text-xs text-[#4B3621] uppercase tracking-tight">{staff.fullName}</p>
+                            <p className="text-[10px] font-semibold text-gray-400 mt-0.5">
+                              {staff.phoneNumber || staff.phone} • <span className="text-emerald-700 font-bold">{staff.hourlyWage ? staff.hourlyWage.toLocaleString("vi-VN") : "0"}đ/giờ</span>
+                            </p>
+                          </div>
+                        </div>
+                        <span className="pill bg-amber-50 text-amber-700 border-amber-100 font-black text-[8px] border">
+                          STAFF
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+      case "promos": return <PromosView />;
+      case "schedule": return <SchedView />;
+      case "payroll": return <PayrollView />;
+      case "requests": return <ReqsView />;
+      case "loyalty": return <LoyaltyView />;
+      case "feedback": return <FeedbackView />;
+      case "config": return <ConfigView />;
+      default: return <DashView />;
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen  text-[#4B3621] relative overflow-hidden font-sans">
+      {/* Toast Alert */}
+      {showNotification && (
+        <div className="fixed top-5 right-5 z-99 bg-white border border-gray-150 p-4 rounded-2xl shadow-xl max-w-xs anim-fadeUp flex items-start gap-3 border-l-4 border-amber-500">
+          <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+            <Bell size={15} className="text-amber-600" />
+          </div>
+          <div>
+            <div className="flex justify-between items-center">
+              <span className="font-extrabold text-xs uppercase tracking-tight text-[#4B3621]">Thông báo hệ thống</span>
+              <button onClick={() => setShowNotification(false)} className="text-gray-400 hover:text-gray-600"><X size={12} /></button>
+            </div>
+            <p className="text-[10px] text-gray-500 font-semibold mt-1 leading-relaxed">Bạn không có thông báo chưa đọc nào tại thời điểm này.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Sidebar Backdrop */}
+      {sideOpen && (
+        <div
+          onClick={() => setSideOpen(false)}
+          className="fixed inset-0 bg-[#4B3621]/30 backdrop-blur-sm z-45 lg:hidden transition-all duration-300"
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed lg:relative top-0 bottom-0 left-0 z-50 bg-[#FFFFFF] border-r border-gray-200/50 flex flex-col shrink-0 transition-all duration-300 ${sideOpen
+            ? "w-64 translate-x-0 shadow-2xl"
+            : `-translate-x-full lg:translate-x-0 ${desktopExpanded ? "lg:w-64" : "lg:w-20"}`
+          }`}
+      >
+        <div className="p-4 flex items-center justify-between border-b border-gray-100 min-h-[73px] shrink-0">
+          {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) ? (
+            <>
+              <Link href="/" className="flex items-center gap-2.5 pl-1.5">
+                <span className="w-9 h-9 rounded-2xl bg-[#7c4831] flex items-center justify-center shadow-sm">
+                  <Coffee size={17} className="text-white" />
+                </span>
+                <span className="text-sm font-extrabold uppercase tracking-tight text-[#7c4831]">Quản trị quán</span>
+              </Link>
+              <button
+                onClick={() => setDesktopExpanded(false)}
+                className="text-[#7c4831] hover:bg-[#7c4831]/5 transition-all p-1.5 rounded-lg ml-auto hidden lg:flex"
+                title="Thu gọn menu"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2 mx-auto">
+              <button
+                onClick={() => setDesktopExpanded(true)}
+                className="w-9 h-9 rounded-2xl bg-[#7c4831] flex items-center justify-center text-white transition-all shadow-sm"
+                title="Mở rộng menu"
+              >
+                <Coffee size={17} />
+              </button>
+            </div>
+          )}
+          {/* Mobile Close Button */}
+          <button
+            onClick={() => setSideOpen(false)}
+            className="text-[#7c4831] hover:bg-[#7c4831]/5 transition-all p-1.5 rounded-lg ml-auto lg:hidden flex"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <nav className="flex-grow py-5 space-y-1 px-3 overflow-y-auto">
+          {menuItems.map(({ key, icon: Icon, label }) => (
+            <button
+              key={key}
+              onClick={() => { setPage(key); if (typeof window !== "undefined" && window.innerWidth < 1024) setSideOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold uppercase transition-all ${page === key
+                  ? "sidebar-active"
+                  : "text-[#4B3621] hover:bg-[#7c4831]/5 hover:text-[#7c4831]"
+                } ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""}`}
+              id={`admin-nav-${key}`}
+              title={(!sideOpen && !desktopExpanded) ? label : undefined}
+            >
+              <Icon size={16} className="shrink-0" />
+              {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>{label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-gray-100 shrink-0">
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-2.5 text-xs font-extrabold uppercase text-[#7c4831] hover:underline p-1.5 rounded-xl hover:bg-[#7c4831]/5 transition-all ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""
+              }`}
+            title={(!sideOpen && !desktopExpanded) ? "Đăng xuất" : undefined}
+          >
+            <LogOut size={14} className="shrink-0" />
+            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>Đăng xuất</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Content */}
+      <main className="flex-grow flex flex-col min-h-screen overflow-y-auto max-h-screen relative z-10 w-full">
+        {/* Mobile Top Header */}
+        <header className="flex items-center justify-between px-4 py-3 bg-[#FFFFFF] border-b border-gray-150/70 lg:hidden shrink-0 shadow-xs">
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setSideOpen(true)}
+              className="p-2.5 text-[#7c4831] hover:bg-[#7c4831]/5 rounded-xl transition-all mr-1"
+              id="mobile-menu-toggle"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-2xl bg-[#7c4831] flex items-center justify-center shadow-sm">
+                <Coffee size={15} className="text-white" />
+              </span>
+              <div>
+                <span className="text-xs font-extrabold uppercase tracking-tight text-[#7c4831] block leading-none">Quản trị quán</span>
+                <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block leading-none">THE MOODS</span>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowNotification(true)}
+            className="p-2.5 text-[#7c4831] hover:bg-[#7c4831]/5 rounded-xl transition-all relative"
+          >
+            <Bell size={18} />
+            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full absolute top-2 right-2 border border-white" />
+          </button>
+        </header>
+
+        <div className="flex-grow p-4 md:p-8 w-full max-w-7xl mx-auto pb-12">
+          {renderPage()}
+        </div>
+      </main>
+    </div>
+  );
+}
