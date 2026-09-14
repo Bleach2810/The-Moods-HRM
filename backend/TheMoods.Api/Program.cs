@@ -27,19 +27,24 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Seed database on startup
+// Seed database and apply migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<TenantDbContext>();
+        
+        // Tự động cập nhật Database (chạy các file Migration chưa chạy)
+        context.Database.Migrate();
+        
+        // Tạo dữ liệu mẫu nếu cần
         DbInitializer.Initialize(context);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "An error occurred while seeding or migrating the database.");
     }
 }
 
