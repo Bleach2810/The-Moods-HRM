@@ -354,12 +354,12 @@ namespace TheMoods.Api.Controllers
                     fullName = u.FullName,
                     roleId = u.RoleId,
                     roleName = u.RoleId == 1 ? "Super Admin" : u.RoleId == 2 ? "Admin" : "Nhân viên ca trực",
-                    hasPin = !string.IsNullOrWhiteSpace(u.PinHash),
-                    bioEnabled = !string.IsNullOrWhiteSpace(u.BiometricKey),
-                    hourlyWage = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault().HourlyWage : 0,
-                    locationId = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault().LocationId : "",
+                    hasPin = u.PinHash != null && u.PinHash != "",
+                    bioEnabled = u.BiometricKey != null && u.BiometricKey != "",
+                    hourlyWage = u.UserLocations.Select(ul => (decimal?)ul.HourlyWage).FirstOrDefault() ?? 0m,
+                    locationId = u.UserLocations.Select(ul => ul.LocationId).FirstOrDefault() ?? "",
                     locationIds = u.UserLocations.Select(ul => ul.LocationId).ToList(),
-                    skills = u.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => new { id = us.Skill.Id, name = us.Skill.Name }).ToList()
+                    skills = u.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => new { id = us.Skill!.Id, name = us.Skill!.Name }).ToList()
                 })
                 .ToListAsync();
 
