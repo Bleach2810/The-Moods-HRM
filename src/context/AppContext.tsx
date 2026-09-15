@@ -872,11 +872,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Actions - Select Tenant
   const selectBrandAndLocation = (brandId: string, locationId: string) => {
-    const brand = brands.find(b => b.id === brandId);
+    const brand = brands.find(b => b.id === brandId || b.code === brandId);
     const loc = locations.find(l => l.id === locationId);
     if (brand && loc) {
       setActiveBrand(brand);
       setActiveLocation(loc);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("moods_saas_active_loc", JSON.stringify(loc));
+        localStorage.setItem("moods_saas_active_brand", JSON.stringify(brand));
+      }
+    } else if (loc) {
+      setActiveLocation(loc);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("moods_saas_active_loc", JSON.stringify(loc));
+      }
     }
   };
 
