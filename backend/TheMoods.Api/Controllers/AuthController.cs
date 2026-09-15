@@ -19,6 +19,10 @@ namespace TheMoods.Api.Controllers
             _context = context;
         }
 
+        // =====================================================================
+        // CUSTOMER APIs — Business logic không thay đổi
+        // =====================================================================
+
         // 1. Đăng ký khách hàng mới
         [HttpPost("customer/register")]
         public async Task<IActionResult> RegisterCustomer([FromBody] CustomerRegisterDto dto)
@@ -29,7 +33,7 @@ namespace TheMoods.Api.Controllers
             }
 
             var phone = dto.PhoneNumber.Trim();
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone);
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone && u.RoleId == 4);
 
             if (existingUser != null)
             {
@@ -37,21 +41,19 @@ namespace TheMoods.Api.Controllers
             }
 
             var customerId = Guid.NewGuid().ToString();
-            // Tạo User mới với Role Customer (ID = 4)
             var customer = new User
             {
                 Id = customerId,
                 RoleId = 4, // Customer
                 PhoneNumber = phone,
                 FullName = dto.FullName.Trim(),
-                QrCode = "{\"id\":\"" + customerId + "\",\"phone\":\"" + phone + "\"}", // Set to JSON structure
+                QrCode = "{\"id\":\"" + customerId + "\",\"phone\":\"" + phone + "\"}",
                 IsDeleted = false
             };
 
             _context.Users.Add(customer);
             await _context.SaveChangesAsync();
 
-            // Khởi tạo ví điểm cho khách hàng tại chi nhánh hiện tại (nếu có truyền LocationId)
             var locId = "govap-branch";
             if (!string.IsNullOrWhiteSpace(dto.LocationId))
             {
@@ -88,7 +90,7 @@ namespace TheMoods.Api.Controllers
             });
         }
 
-        // 2. Đăng nhập khách hàng bằng SĐT (Tạm thời bỏ qua gửi OTP thật, mock thành công)
+        // 2. Đăng nhập khách hàng bằng SĐT
         [HttpPost("customer/login")]
         public async Task<IActionResult> LoginCustomer([FromBody] CustomerLoginDto dto)
         {
@@ -102,7 +104,6 @@ namespace TheMoods.Api.Controllers
                 return NotFound(new { message = "Số điện thoại chưa đăng ký thành viên. Vui lòng đăng ký mới!" });
             }
 
-            // Lấy điểm số tại chi nhánh hiện tại
             var locId = "govap-branch";
             if (!string.IsNullOrWhiteSpace(dto.LocationId))
             {
@@ -136,25 +137,23 @@ namespace TheMoods.Api.Controllers
             });
         }
 
-        // 3. Đăng nhập Admin / Super Admin (Chỉ kiểm tra phone và quyền hạn)
+        // 3. Đăng nhập Admin / Super Admin
         [HttpPost("admin/login")]
         public async Task<IActionResult> LoginAdmin([FromBody] AdminLoginDto dto)
         {
             var val = dto.Identifier.Trim().ToLower();
 
-            // Cho phép gõ "admin", "super" để dev nhanh như frontend
             User? user = null;
             if (val == "super" || val == "saas")
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 1); // Super Admin
+                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 1);
             }
             else if (val == "admin")
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 2); // Admin
+                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 2);
             }
             else
             {
-                // Tìm kiếm theo số điện thoại hoặc tên đăng nhập chính xác
                 user = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == dto.Identifier || u.FullName.ToLower() == val);
             }
 
@@ -177,14 +176,45 @@ namespace TheMoods.Api.Controllers
             });
         }
 
-        // 4. Kiểm tra luồng Nhân viên (Staff Flow) khi gõ SĐT ở Landing
+        // =====================================================================
+        // STAFF APIs — Áp dụng Staff-per-Branch logic
+        // =====================================================================
+
+        // Helper: Tìm Staff trong Branch context (hoặc fallback toàn hệ thống nếu không có locationId)
+        // Staff-per-Branch: mỗi User record chỉ thuộc 1 Branch, xác định qua UserLocations
+        private async Task<User?> FindStaffByPhoneInBranch(string phone, string? locationId)
+        {
+            // Nếu có locationId → tìm trong Branch cụ thể (Staff-per-Branch)
+            if (!string.IsNullOrWhiteSpace(locationId))
+            {
+                var userLoc = await _context.UserLocations
+                    .Include(ul => ul.User)
+                    .FirstOrDefaultAsync(ul =>
+                        ul.LocationId == locationId &&
+                        ul.IsActive &&
+                        ul.User != null &&
+                        !ul.User.IsDeleted &&
+                        (ul.User.PhoneNumber == phone || ul.User.FullName.ToLower() == phone.ToLower()) &&
+                        (ul.User.RoleId == 1 || ul.User.RoleId == 2 || ul.User.RoleId == 3));
+
+                return userLoc?.User;
+            }
+
+            // Fallback: không có locationId → tìm toàn hệ thống (backward-compatible)
+            // Dùng cho các API client cũ chưa gửi locationId
+            return await _context.Users.FirstOrDefaultAsync(u =>
+                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) &&
+                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) &&
+                !u.IsDeleted);
+        }
+
+        // 4. Kiểm tra luồng Nhân viên khi gõ SĐT ở Landing
+        // Staff-per-Branch: tìm Staff trong Branch context
         [HttpPost("staff/check")]
         public async Task<IActionResult> CheckStaff([FromBody] StaffCheckDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -217,14 +247,13 @@ namespace TheMoods.Api.Controllers
             }
         }
 
-        // 5. Cài đặt mã PIN lần đầu cho nhân viên (Momo-style setup PIN)
+        // 5. Cài đặt mã PIN lần đầu cho nhân viên
+        // Staff-per-Branch: PIN độc lập theo từng User/Branch record
         [HttpPost("staff/setup-pin")]
         public async Task<IActionResult> SetupPin([FromBody] SetupPinDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -236,20 +265,19 @@ namespace TheMoods.Api.Controllers
                 return BadRequest(new { message = "Mã PIN phải gồm đúng 6 chữ số!" });
             }
 
-            user.PinHash = HashPin(dto.Pin); // Lưu mã PIN đã hash
+            user.PinHash = HashPin(dto.Pin);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Cài đặt mã PIN thành công!" });
         }
 
         // 6. Xác thực mã PIN nhân viên (Fallback)
+        // Staff-per-Branch: chỉ xác thực PIN của Staff trong đúng Branch
         [HttpPost("staff/verify-pin")]
         public async Task<IActionResult> VerifyPin([FromBody] VerifyPinDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -266,13 +294,12 @@ namespace TheMoods.Api.Controllers
         }
 
         // 6b. Đổi mã PIN của nhân viên
+        // Staff-per-Branch: đổi PIN của Staff trong đúng Branch
         [HttpPost("staff/change-pin")]
         public async Task<IActionResult> ChangePin([FromBody] ChangePinDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -296,14 +323,13 @@ namespace TheMoods.Api.Controllers
             return Ok(new { message = "Đổi mã PIN thành công!" });
         }
 
-        // 7. Bật/Liên kết xác thực Vân tay cho những lần sau (Momo-style biometric linkage)
+        // 7. Bật/Liên kết xác thực Vân tay
+        // Staff-per-Branch: Biometric độc lập theo từng User/Branch record
         [HttpPost("staff/setup-biometric")]
         public async Task<IActionResult> SetupBiometric([FromBody] SetupBiometricDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -316,14 +342,13 @@ namespace TheMoods.Api.Controllers
             return Ok(new { message = "Liên kết vân tay thành công!" });
         }
 
-        // 8. Xác thực Vân tay (0.5 giây vô ca chấm công)
+        // 8. Xác thực Vân tay
+        // Staff-per-Branch: chỉ xác thực Biometric của Staff trong đúng Branch
         [HttpPost("staff/verify-biometric")]
         public async Task<IActionResult> VerifyBiometric([FromBody] VerifyBiometricDto dto)
         {
             var phone = dto.PhoneNumber.Trim();
-            var user = await _context.Users.FirstOrDefaultAsync(u => 
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) && 
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3 || u.RoleId == 4));
+            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
 
             if (user == null)
             {
@@ -339,14 +364,23 @@ namespace TheMoods.Api.Controllers
         }
 
         // 9. Lấy danh sách nhân viên
+        // Staff-per-Branch: lọc theo locationId nếu có, trả toàn bộ nếu không có (Super Admin)
         [HttpGet("staff")]
-        public async Task<IActionResult> GetStaff()
+        public async Task<IActionResult> GetStaff([FromQuery] string? locationId = null)
         {
-            var staffList = await _context.Users
+            var query = _context.Users
                 .Include(u => u.UserLocations)
                 .Include(u => u.UserSkills)
                     .ThenInclude(us => us.Skill)
-                .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted)
+                .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted);
+
+            // Staff-per-Branch: nếu có locationId → chỉ trả Staff thuộc Branch đó
+            if (!string.IsNullOrWhiteSpace(locationId))
+            {
+                query = query.Where(u => u.UserLocations.Any(ul => ul.LocationId == locationId && ul.IsActive));
+            }
+
+            var staffList = await query
                 .Select(u => new
                 {
                     id = u.Id,
@@ -356,10 +390,10 @@ namespace TheMoods.Api.Controllers
                     roleName = u.RoleId == 1 ? "Super Admin" : u.RoleId == 2 ? "Admin" : "Nhân viên ca trực",
                     hasPin = !string.IsNullOrWhiteSpace(u.PinHash),
                     bioEnabled = !string.IsNullOrWhiteSpace(u.BiometricKey),
-                    hourlyWage = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault().HourlyWage : 0,
-                    locationId = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault().LocationId : "",
+                    hourlyWage = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault()!.HourlyWage : 0,
+                    locationId = u.UserLocations.Any() ? u.UserLocations.FirstOrDefault()!.LocationId : "",
                     locationIds = u.UserLocations.Select(ul => ul.LocationId).ToList(),
-                    skills = u.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => new { id = us.Skill.Id, name = us.Skill.Name }).ToList()
+                    skills = u.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => new { id = us.Skill!.Id, name = us.Skill!.Name }).ToList()
                 })
                 .ToListAsync();
 
@@ -401,6 +435,7 @@ namespace TheMoods.Api.Controllers
         }
 
         // 10. Đăng ký nhân viên mới
+        // Staff-per-Branch: Phone chỉ unique trong cùng Branch, được phép trùng ở Branch khác
         [HttpPost("staff/register")]
         public async Task<IActionResult> RegisterStaff([FromBody] StaffRegisterDto dto)
         {
@@ -410,18 +445,38 @@ namespace TheMoods.Api.Controllers
             }
 
             var phone = dto.PhoneNumber.Trim();
-            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone);
 
-            if (existingUser != null)
+            // Xác định Branch đang tạo Staff
+            var targetLocationId = dto.LocationId;
+            if (string.IsNullOrWhiteSpace(targetLocationId) && dto.LocationIds != null && dto.LocationIds.Any())
             {
-                return BadRequest(new { message = "Số điện thoại này đã tồn tại trên hệ thống!" });
+                targetLocationId = dto.LocationIds.First();
+            }
+            if (string.IsNullOrWhiteSpace(targetLocationId))
+            {
+                targetLocationId = "govap-branch";
+            }
+
+            // Staff-per-Branch: chỉ kiểm tra trùng Phone trong cùng Branch, không chặn ở Branch khác
+            var existingInBranch = await _context.UserLocations
+                .AnyAsync(ul =>
+                    ul.LocationId == targetLocationId &&
+                    ul.IsActive &&
+                    ul.User != null &&
+                    ul.User.PhoneNumber == phone &&
+                    !ul.User.IsDeleted &&
+                    (ul.User.RoleId == 1 || ul.User.RoleId == 2 || ul.User.RoleId == 3));
+
+            if (existingInBranch)
+            {
+                return BadRequest(new { message = "Số điện thoại này đã tồn tại trong chi nhánh!" });
             }
 
             var userId = "st-" + Guid.NewGuid().ToString().Substring(0, 8);
             var user = new User
             {
                 Id = userId,
-                RoleId = dto.RoleId, // 2: Admin, 3: Staff/Nhân viên, 1: Super Admin
+                RoleId = dto.RoleId, // 2: Admin, 3: Staff, 1: Super Admin
                 PhoneNumber = phone,
                 FullName = dto.FullName.Trim(),
                 IsDeleted = false
@@ -430,7 +485,7 @@ namespace TheMoods.Api.Controllers
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Khởi tạo UserLocation cho nhân viên tại chi nhánh
+            // Gán UserLocation cho Staff — Staff chỉ thuộc 1 Branch (targetLocationId)
             var locIds = dto.LocationIds ?? new System.Collections.Generic.List<string>();
             if (locIds.Count == 0 && !string.IsNullOrWhiteSpace(dto.LocationId))
             {
@@ -481,6 +536,9 @@ namespace TheMoods.Api.Controllers
             });
         }
 
+        // 11. Cập nhật thông tin nhân viên
+        // Staff-per-Branch: chỉ cập nhật đúng User record đang được chọn (theo Id)
+        // Phone unique chỉ kiểm tra trong cùng Branch của User đó
         [HttpPost("staff/update")]
         public async Task<IActionResult> UpdateStaff([FromBody] StaffUpdateDto dto)
         {
@@ -508,11 +566,38 @@ namespace TheMoods.Api.Controllers
             if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))
             {
                 var phone = dto.PhoneNumber.Trim();
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone && u.Id != dto.Id);
-                if (existingUser != null)
+
+                // Staff-per-Branch: Phone chỉ kiểm tra unique trong Branch của User hiện tại
+                // Lấy LocationId của User đang được cập nhật
+                var userLocationId = user.UserLocations.FirstOrDefault()?.LocationId;
+
+                if (!string.IsNullOrWhiteSpace(userLocationId))
                 {
-                    return BadRequest(new { message = "Số điện thoại này đã tồn tại trên hệ thống!" });
+                    // Kiểm tra Phone trong cùng Branch, loại trừ chính User này
+                    var phoneExistsInBranch = await _context.UserLocations
+                        .AnyAsync(ul =>
+                            ul.LocationId == userLocationId &&
+                            ul.IsActive &&
+                            ul.UserId != user.Id &&
+                            ul.User != null &&
+                            ul.User.PhoneNumber == phone &&
+                            !ul.User.IsDeleted);
+
+                    if (phoneExistsInBranch)
+                    {
+                        return BadRequest(new { message = "Số điện thoại này đã tồn tại trong chi nhánh!" });
+                    }
                 }
+                else
+                {
+                    // Fallback: User chưa có Branch → kiểm tra toàn hệ thống (backward-compatible)
+                    var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == phone && u.Id != dto.Id);
+                    if (existingUser != null)
+                    {
+                        return BadRequest(new { message = "Số điện thoại này đã tồn tại trên hệ thống!" });
+                    }
+                }
+
                 user.PhoneNumber = phone;
             }
 
@@ -528,6 +613,7 @@ namespace TheMoods.Api.Controllers
 
             if (dto.HourlyWage.HasValue)
             {
+                // Cập nhật lương tại Branch của User này
                 foreach (var userLoc in user.UserLocations)
                 {
                     userLoc.HourlyWage = dto.HourlyWage.Value;
@@ -648,33 +734,41 @@ namespace TheMoods.Api.Controllers
         public string Identifier { get; set; } = string.Empty;
     }
 
+    // Staff-per-Branch: thêm LocationId để xác định Branch context
     public class StaffCheckDto
     {
         public string PhoneNumber { get; set; } = string.Empty;
+        public string? LocationId { get; set; } // Branch context — null = backward-compatible fallback
     }
 
+    // Staff-per-Branch: PIN độc lập theo Branch, thêm LocationId
     public class SetupPinDto
     {
         public string PhoneNumber { get; set; } = string.Empty;
         public string Pin { get; set; } = string.Empty;
+        public string? LocationId { get; set; } // Branch context
     }
 
     public class VerifyPinDto
     {
         public string PhoneNumber { get; set; } = string.Empty;
         public string Pin { get; set; } = string.Empty;
+        public string? LocationId { get; set; } // Branch context
     }
 
+    // Staff-per-Branch: Biometric độc lập theo Branch, thêm LocationId
     public class SetupBiometricDto
     {
         public string PhoneNumber { get; set; } = string.Empty;
         public string? BiometricKey { get; set; }
+        public string? LocationId { get; set; } // Branch context
     }
 
     public class VerifyBiometricDto
     {
         public string PhoneNumber { get; set; } = string.Empty;
         public string BiometricKey { get; set; } = string.Empty;
+        public string? LocationId { get; set; } // Branch context
     }
 
     public class ChangePinDto
@@ -682,5 +776,6 @@ namespace TheMoods.Api.Controllers
         public string PhoneNumber { get; set; } = string.Empty;
         public string OldPin { get; set; } = string.Empty;
         public string NewPin { get; set; } = string.Empty;
+        public string? LocationId { get; set; } // Branch context
     }
 }
