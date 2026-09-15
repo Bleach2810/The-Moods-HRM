@@ -72,7 +72,7 @@ export default function RootLayout({
         />
       </head>
 
-      <body className={`${beVietnamPro.variable} ${spaceMono.variable} min-h-full bg-beige text-coffee antialiased selection:bg-coffee selection:text-beige`}>
+      <body suppressHydrationWarning className={`${beVietnamPro.variable} ${spaceMono.variable} min-h-full bg-beige text-coffee antialiased selection:bg-coffee selection:text-beige`}>
         <AppProvider>
           {children}
         </AppProvider>

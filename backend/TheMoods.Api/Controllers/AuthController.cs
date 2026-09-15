@@ -558,9 +558,13 @@ namespace TheMoods.Api.Controllers
 
             if (dto.IsDeleted == true)
             {
-                user.IsDeleted = true;
+                if (user.UserLocations != null)
+                {
+                    _context.UserLocations.RemoveRange(user.UserLocations);
+                }
+                _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
-                return Ok(new { message = "Đã cập nhật trạng thái nghỉ việc cho nhân viên!" });
+                return Ok(new { message = "Đã xóa hoàn toàn thông tin nhân viên!" });
             }
 
             if (!string.IsNullOrWhiteSpace(dto.PhoneNumber))

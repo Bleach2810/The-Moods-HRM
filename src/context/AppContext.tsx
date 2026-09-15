@@ -160,7 +160,7 @@ interface AppContextType {
   clockInStaff: (lat: number, lng: number) => Promise<{ success: boolean; lateMinutes: number }> | { success: boolean; lateMinutes: number };
   clockOutStaff: (autoAntiOt?: boolean) => void;
   registerShift: (date: string, shiftType: any, locationId: string) => void;
-  submitRequest: (type: "leave" | "swap", details: string, date: string, targetShiftId?: string, swapWithStaffName?: string, swapWithStaffId?: string, swapWithShiftId?: string) => void;
+  submitRequest: (type: "leave" | "swap" | "extension", details: string, date: string, targetShiftId?: string, swapWithStaffName?: string, swapWithStaffId?: string, swapWithShiftId?: string, extensionDurationMinutes?: number) => void;
   fetchNotifications: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   subscribeUserToPush: (userId: string) => Promise<void>;
@@ -1296,7 +1296,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const submitRequest = async (type: "leave" | "swap", details: string, date: string, targetShiftId?: string, swapWithStaffName?: string, swapWithStaffId?: string, swapWithShiftId?: string) => {
+  const submitRequest = async (type: "leave" | "swap" | "extension", details: string, date: string, targetShiftId?: string, swapWithStaffName?: string, swapWithStaffId?: string, swapWithShiftId?: string, extensionDurationMinutes?: number) => {
     if (!activeStaff) return;
 
     try {
@@ -1312,7 +1312,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           targetShiftId,
           swapWithStaffName,
           swapWithStaffId,
-          swapWithShiftId
+          swapWithShiftId,
+          extensionDurationMinutes
         })
       });
       if (res.ok) {

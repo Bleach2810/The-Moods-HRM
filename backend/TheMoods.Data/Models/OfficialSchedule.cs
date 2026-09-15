@@ -11,6 +11,9 @@ namespace TheMoods.Data.Models
         public DateTime Date { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+        public TimeSpan? OriginalStartTime { get; set; }
+        public TimeSpan? OriginalEndTime { get; set; }
+        public int ExtensionDurationMinutes { get; set; } = 0;
         public string CreatedBy { get; set; } = string.Empty; // ID của Admin tạo lịch
 
         // Navigation properties

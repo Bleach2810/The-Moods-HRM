@@ -1458,7 +1458,11 @@ namespace TheMoods.Api.Controllers
                 TargetShiftId = dto.TargetShiftId,
                 SwapWithStaffName = dto.SwapWithStaffName,
                 SwapWithStaffId = dto.SwapWithStaffId,
-                SwapWithShiftId = dto.SwapWithShiftId
+                SwapWithShiftId = dto.SwapWithShiftId,
+                OriginalStartTime = dto.OriginalStartTime != null ? TimeSpan.Parse(dto.OriginalStartTime) : null,
+                RequestedStartTime = dto.RequestedStartTime != null ? TimeSpan.Parse(dto.RequestedStartTime) : null,
+                RequestedEndTime = dto.RequestedEndTime != null ? TimeSpan.Parse(dto.RequestedEndTime) : null,
+                ExtensionDurationMinutes = dto.ExtensionDurationMinutes
             };
 
             _context.StaffRequests.Add(request);
@@ -1531,6 +1535,25 @@ namespace TheMoods.Api.Controllers
                         
                         // Send Web Push
                         await SendPushNotification(adminId, adminNotif.Title, adminNotif.Message);
+                    }
+                }
+                else if (dto.Type == "extension")
+                {
+                    // Notify target staff (Staff A)
+                    if (!string.IsNullOrEmpty(dto.SwapWithStaffId))
+                    {
+                        var targetUser = await _context.Users.FindAsync(dto.SwapWithStaffId);
+                        if (targetUser != null && initiator != null)
+                        {
+                            var targetNotif = new Notification
+                            {
+                                UserId = dto.SwapWithStaffId,
+                                Title = "Yêu cầu kéo ca trực",
+                                Message = $"Bạn nhận được yêu cầu kéo ca từ {initiator.FullName} cho ca ngày {dto.Date}. Vui lòng xác nhận."
+                            };
+                            _context.Notifications.Add(targetNotif);
+                            await SendPushNotification(dto.SwapWithStaffId, targetNotif.Title, targetNotif.Message);
+                        }
                     }
                 }
                 await _context.SaveChangesAsync();
@@ -1682,6 +1705,148 @@ namespace TheMoods.Api.Controllers
             return Ok(new { message = "Từ chối đơn thành công!" });
         }
 
+        [HttpPost("requests/{id}/accept-extension")]
+        public async Task<IActionResult> AcceptExtension(string id)
+        {
+            var request = await _context.StaffRequests
+                .Include(r => r.User)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (request == null || request.Type != "extension")
+            {
+                return NotFound(new { message = "Yêu cầu kéo ca không tồn tại!" });
+            }
+
+            if (request.Status != "pending")
+            {
+                return BadRequest(new { message = "Yêu cầu này đã được xử lý!" });
+            }
+
+            // Check if target shift exists (Staff A's shift that is being extended)
+            var targetShift = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
+            if (targetShift == null)
+            {
+                return NotFound(new { message = "Ca trực của người nhận không tồn tại!" });
+            }
+
+            // Check if requester shift exists (Staff B's shift that is being delayed)
+            var requesterShift = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
+            if (requesterShift == null)
+            {
+                return NotFound(new { message = "Ca trực của người yêu cầu không tồn tại!" });
+            }
+
+            // Check branch isolation
+            var requesterLocations = await _context.UserLocations.Where(ul => ul.UserId == request.UserId).Select(ul => ul.LocationId).ToListAsync();
+            var targetLocations = await _context.UserLocations.Where(ul => ul.UserId == request.SwapWithStaffId).Select(ul => ul.LocationId).ToListAsync();
+            
+            if (!requesterLocations.Intersect(targetLocations).Any())
+            {
+                return BadRequest(new { message = "Không thể kéo ca với nhân viên khác chi nhánh!" });
+            }
+
+            // Update Status
+            request.Status = "approved";
+
+            // Update target shift (Staff A - extends end time)
+            if (targetShift.OriginalStartTime == null) targetShift.OriginalStartTime = targetShift.StartTime;
+            if (targetShift.OriginalEndTime == null) targetShift.OriginalEndTime = targetShift.EndTime;
+            
+            // Update requester shift (Staff B - delays start time)
+            if (requesterShift.OriginalStartTime == null) requesterShift.OriginalStartTime = requesterShift.StartTime;
+            if (requesterShift.OriginalEndTime == null) requesterShift.OriginalEndTime = requesterShift.EndTime;
+
+            if (request.ExtensionDurationMinutes.HasValue)
+            {
+                targetShift.ExtensionDurationMinutes += request.ExtensionDurationMinutes.Value;
+                targetShift.EndTime = targetShift.EndTime.Add(TimeSpan.FromMinutes(request.ExtensionDurationMinutes.Value));
+                requesterShift.StartTime = requesterShift.StartTime.Add(TimeSpan.FromMinutes(request.ExtensionDurationMinutes.Value));
+            }
+
+            if (request.RequestedEndTime.HasValue)
+            {
+                targetShift.EndTime = request.RequestedEndTime.Value;
+            }
+            if (request.RequestedStartTime.HasValue)
+            {
+                requesterShift.StartTime = request.RequestedStartTime.Value;
+            }
+
+            try
+            {
+                var initiatorNotif = new Notification
+                {
+                    UserId = request.UserId,
+                    Title = "Yêu cầu kéo ca đã được chấp nhận",
+                    Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca ngày {request.Date}."
+                };
+                _context.Notifications.Add(initiatorNotif);
+                await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
+
+                // Notify branch admins
+                var branchAdmins = await _context.UserLocations
+                    .Include(ul => ul.User)
+                    .Where(ul => ul.LocationId == request.LocationId && (ul.User!.RoleId == 1 || ul.User!.RoleId == 2))
+                    .Select(ul => ul.UserId)
+                    .ToListAsync();
+
+                foreach (var adminId in branchAdmins)
+                {
+                    var adminNotif = new Notification
+                    {
+                        UserId = adminId,
+                        Title = "Thông báo kéo ca trực",
+                        Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca cho {request.User?.FullName} ngày {request.Date}."
+                    };
+                    _context.Notifications.Add(adminNotif);
+                    await SendPushNotification(adminId, adminNotif.Title, adminNotif.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error sending notifications: " + ex.Message);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã chấp nhận kéo ca thành công!" });
+        }
+
+        [HttpPost("requests/{id}/reject-extension")]
+        public async Task<IActionResult> RejectExtension(string id)
+        {
+            var request = await _context.StaffRequests.FindAsync(id);
+            if (request == null || request.Type != "extension")
+            {
+                return NotFound(new { message = "Yêu cầu kéo ca không tồn tại!" });
+            }
+
+            if (request.Status != "pending")
+            {
+                return BadRequest(new { message = "Yêu cầu này đã được xử lý!" });
+            }
+
+            request.Status = "rejected";
+
+            try
+            {
+                var initiatorNotif = new Notification
+                {
+                    UserId = request.UserId,
+                    Title = "Yêu cầu kéo ca bị từ chối",
+                    Message = $"Nhân viên {request.SwapWithStaffName} đã từ chối yêu cầu kéo ca ngày {request.Date} của bạn."
+                };
+                _context.Notifications.Add(initiatorNotif);
+                await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error sending notifications: " + ex.Message);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã từ chối kéo ca!" });
+        }
+
         // DTOs
         public class PayrollAdjustment
         {
@@ -1748,13 +1913,17 @@ namespace TheMoods.Api.Controllers
         {
             public string UserId { get; set; } = string.Empty;
             public string LocationId { get; set; } = string.Empty;
-            public string Type { get; set; } = string.Empty; // "leave" | "swap"
+            public string Type { get; set; } = string.Empty; // "leave" | "swap" | "extension"
             public string Details { get; set; } = string.Empty;
             public string Date { get; set; } = string.Empty; // YYYY-MM-DD
             public string? TargetShiftId { get; set; }
             public string? SwapWithStaffName { get; set; }
             public string? SwapWithStaffId { get; set; }
             public string? SwapWithShiftId { get; set; }
+            public string? OriginalStartTime { get; set; }
+            public string? RequestedStartTime { get; set; }
+            public string? RequestedEndTime { get; set; }
+            public int? ExtensionDurationMinutes { get; set; }
         }
 
         // 12. Chốt lương (Lưu bảng lương vào DB)

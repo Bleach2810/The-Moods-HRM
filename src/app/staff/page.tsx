@@ -392,7 +392,8 @@ export default function StaffPortal() {
 
 
   // Requests
-  const [reqType, setReqType] = useState<"leave" | "swap">("leave");
+  const [reqType, setReqType] = useState<"leave" | "swap" | "extension">("leave");
+  const [extensionDurationMinutes, setExtensionDurationMinutes] = useState("");
   const [reqDate, setReqDate] = useState("");
   const [reqDetails, setReqDetails] = useState("");
   const [swapShiftId, setSwapShiftId] = useState("");
@@ -640,13 +641,15 @@ export default function StaffPortal() {
       detailsText,
       reqDate,
       targetShiftId || undefined,
-      reqType === "swap" ? swapStaffName : undefined,
-      reqType === "swap" ? swapWithStaffId : undefined,
-      reqType === "swap" ? swapWithShiftId : undefined
+      (reqType === "swap" || reqType === "extension") ? swapStaffName : undefined,
+      (reqType === "swap" || reqType === "extension") ? swapWithStaffId : undefined,
+      (reqType === "swap" || reqType === "extension") ? swapWithShiftId : undefined,
+      reqType === "extension" ? parseInt(extensionDurationMinutes) : undefined
     );
     alert("Yêu cầu đã được gửi lên hệ thống phê duyệt!");
     setReqDate("");
     setReqDetails("");
+    setExtensionDurationMinutes("");
     setSwapShiftId("");
     setSwapStaffName("");
     setTargetShiftId("");
@@ -1341,8 +1344,26 @@ export default function StaffPortal() {
   };
   // === REQUESTS ===
   const ReqView = () => {
-    const myReqs = requests?.filter((r: any) => r.userId === activeStaff?.id || r.staffId === activeStaff?.id) || [];
+    const myReqs = requests?.filter((r: any) => r.userId === activeStaff?.id || r.staffId === activeStaff?.id || r.swapWithStaffId === activeStaff?.id) || [];
 
+    const handleExtensionAction = async (id: string, action: "accept" | "reject") => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/attendance/requests/${id}/${action}-extension`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          alert(`Đã ${action === "accept" ? "chấp nhận" : "từ chối"} kéo ca thành công!`);
+          window.location.reload();
+        } else {
+          const data = await res.json();
+          alert(data.message || "Có lỗi xảy ra");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Có lỗi xảy ra khi thực hiện hành động này");
+      }
+    };
     const formatShiftDisplay = (sched: any) => {
       const daysOfWeek = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
       const startDate = new Date(sched.date);
@@ -1351,13 +1372,23 @@ export default function StaffPortal() {
       const endHour = sched.endTime.slice(0, 5);
 
       const isOvernight = parseTimeToFloat(sched.endTime) < parseTimeToFloat(sched.startTime);
+      let displayStr = "";
       if (isOvernight) {
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
         const endDayStr = daysOfWeek[endDate.getDay()];
-        return `${startDayStr} (${sched.date}) ${startHour} - ${endDayStr} (${endDate.toISOString().split('T')[0]}) ${endHour}`;
+        displayStr = `${startDayStr} (${sched.date}) ${startHour} - ${endDayStr} (${endDate.toISOString().split('T')[0]}) ${endHour}`;
+      } else {
+        displayStr = `${startDayStr} (${sched.date}) ${startHour} - ${endHour}`;
       }
-      return `${startDayStr} (${sched.date}) ${startHour} - ${endHour}`;
+      
+      if (sched.originalStartTime || sched.originalEndTime || (sched.extensionDurationMinutes && sched.extensionDurationMinutes > 0)) {
+         const origStart = sched.originalStartTime ? sched.originalStartTime.slice(0, 5) : startHour;
+         const origEnd = sched.originalEndTime ? sched.originalEndTime.slice(0, 5) : endHour;
+         displayStr += ` (Gốc: ${origStart} - ${origEnd})`;
+      }
+      
+      return displayStr;
     };
 
     const now = new Date();
@@ -1440,12 +1471,14 @@ export default function StaffPortal() {
               setTargetShiftId("");
               setSwapWithStaffId("");
               setSwapWithShiftId("");
+              setExtensionDurationMinutes("");
             }}
             className="input w-full text-sm cursor-pointer font-semibold"
             id="req-type"
           >
             <option value="leave">Xin vắng mặt ca trực</option>
             <option value="swap">Đăng ký đổi ca trực</option>
+            <option value="extension">Xin kéo ca trực</option>
           </select>
 
           {reqType === "leave" && (
@@ -1455,28 +1488,20 @@ export default function StaffPortal() {
               onChange={e => {
                 const shiftId = e.target.value;
                 setTargetShiftId(shiftId);
-                const sh = (officialSchedulesList || []).find((s: any) => s.id === shiftId);
-                if (sh) {
-                  setReqDate(sh.date);
+                const matchedShift = (officialSchedulesList || []).find((s: any) => s.id === shiftId);
+                if (matchedShift) {
+                  setReqDate(matchedShift.date);
+                } else {
+                  setReqDate("");
                 }
               }}
-              className="input w-full text-sm font-semibold cursor-pointer"
+              className="input w-full text-sm cursor-pointer font-semibold"
             >
-              <option value="">Chọn ca trực của bạn muốn xin nghỉ</option>
+              <option value="">Chọn ca muốn xin nghỉ...</option>
               {(() => {
                 const now = new Date();
-                const todayStr = now.toISOString().split('T')[0];
-                const currentTimeStr = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
-
                 return (officialSchedulesList || [])
-                  .filter((s: any) => {
-                    if (s.userId !== activeStaff?.id) return false;
-                    if (s.date > todayStr) return true;
-                    if (s.date === todayStr) {
-                      return s.endTime > currentTimeStr;
-                    }
-                    return false;
-                  })
+                  .filter((s: any) => !s.clockedIn && isShiftInFuture(s))
                   .map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.date} (Ca: {s.startTime} - {s.endTime})
@@ -1486,7 +1511,7 @@ export default function StaffPortal() {
             </select>
           )}
 
-          {reqType === "swap" && (
+          {(reqType === "swap" || reqType === "extension") && (
             <input
               type="date"
               required
@@ -1502,7 +1527,7 @@ export default function StaffPortal() {
           )}
 
           {/* Swap selects shown under date only if date is chosen */}
-          {reqType === "swap" && (
+          {(reqType === "swap" || reqType === "extension") && (
             <>
               {/* Own shifts collapsible list */}
               <div className="border border-[#7c4831]/10 rounded-2xl p-3 bg-[#FAF9F6]/50">
@@ -1620,6 +1645,19 @@ export default function StaffPortal() {
             </>
           )}
 
+          {reqType === "extension" && (
+            <input
+              type="number"
+              min="1"
+              max="480"
+              placeholder="Thời gian kéo ca (phút)..."
+              required
+              value={extensionDurationMinutes}
+              onChange={e => setExtensionDurationMinutes(e.target.value)}
+              className="input w-full text-sm font-semibold"
+            />
+          )}
+
           <textarea
             placeholder="Lý do chi tiết gửi Ban Quản Trị..."
             required
@@ -1641,12 +1679,30 @@ export default function StaffPortal() {
           ) : myReqs.map((r: any) => (
             <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-[#7c4831]/5 text-xs space-y-1.5 shadow-sm">
               <div className="flex justify-between items-center">
-                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"}`}>{r.type === "leave" ? "Nghỉ phép" : "Đổi ca"}</span>
+                <span className={`pill ${r.type === "leave" ? "pill-violet" : r.type === "extension" ? "pill-amber" : "pill-blue"}`}>{r.type === "leave" ? "Nghỉ phép" : r.type === "extension" ? "Kéo ca" : "Đổi ca"}</span>
                 <span className={`pill ${r.status === "approved" ? "pill-green" : r.status === "rejected" ? "pill-red" : "pill-amber"} text-[8px]`}>
                   {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : "Chờ"}
                 </span>
               </div>
               <p className="text-[#4B3621] font-semibold mt-1">{r.date} — {r.details}</p>
+              
+              {/* Action buttons for target staff (Staff A) when status is pending and type is extension */}
+              {r.type === "extension" && r.status === "pending" && r.swapWithStaffId === activeStaff?.id && (
+                <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-[#7c4831]/10">
+                  <button 
+                    onClick={() => handleExtensionAction(r.id, "reject")}
+                    className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
+                  >
+                    Từ chối
+                  </button>
+                  <button 
+                    onClick={() => handleExtensionAction(r.id, "accept")}
+                    className="px-3 py-1.5 text-[10px] font-bold text-green-600 bg-green-50 rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
+                  >
+                    Đồng ý kéo ca
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -2054,93 +2110,6 @@ export default function StaffPortal() {
                   <Bell size={13} /> Bật Nhận Thông Báo Màn Hình Chờ
                 </button>
               )}
-
-              {/* Push Debug Panel */}
-              <div className="border border-dashed border-[#7c4831]/30 rounded-xl p-3 space-y-2 bg-[#7c4831]/3 shrink-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black uppercase text-[#7c4831]/70 tracking-wider">🛠 Debug Push Notification</span>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setLoadingPushDebug(true);
-                      setPushTestResult(null);
-                      const [subs, endpoint] = await Promise.all([
-                        getDeviceSubscriptions?.(activeStaff.id),
-                        getCurrentPushEndpoint?.()
-                      ]);
-                      setPushDebugInfo({ subs, currentEndpoint: endpoint });
-                      setLoadingPushDebug(false);
-                    }}
-                    className="text-[8px] font-bold text-[#7c4831] bg-white border border-[#7c4831]/20 px-2 py-0.5 rounded-lg hover:bg-[#7c4831]/5"
-                  >
-                    {loadingPushDebug ? '⏳...' : '🔍 Kiểm tra'}
-                  </button>
-                </div>
-
-                {pushDebugInfo && (
-                  <div className="space-y-2 text-[9px]">
-                    <div className="bg-white rounded-lg p-2 border border-gray-100">
-                      <span className="font-bold text-gray-500 block">📱 Endpoint thiết bị này:</span>
-                      <span className="font-mono text-[8px] text-gray-600 break-all block mt-0.5">
-                        {pushDebugInfo.currentEndpoint
-                          ? pushDebugInfo.currentEndpoint.substring(0, 80) + '...'
-                          : '❌ Chưa đăng ký push trên thiết bị này'}
-                      </span>
-                    </div>
-                    <div className="bg-white rounded-lg p-2 border border-gray-100">
-                      <span className="font-bold text-gray-500 block">📋 Tất cả thiết bị đã đăng ký ({pushDebugInfo.subs?.count || 0}):</span>
-                      {pushDebugInfo.subs?.subscriptions?.map((s: any, i: number) => (
-                        <div key={s.id} className={`mt-1 p-1.5 rounded border text-[8px] font-mono ${pushDebugInfo.currentEndpoint && s.endpoint.includes(pushDebugInfo.currentEndpoint?.substring(40, 60))
-                          ? 'border-green-300 bg-green-50 text-green-700'
-                          : 'border-gray-100 text-gray-500'
-                          }`}>
-                          #{i + 1} {s.endpoint}
-                          {s.hasP256Dh && s.hasAuth ? ' ✅' : ' ❌ thiếu key'}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setPushTestResult(null);
-                      const result = await testPushNotification?.(activeStaff.id);
-                      setPushTestResult(result);
-                    }}
-                    className="flex-1 text-[9px] font-bold text-white bg-[#7c4831] px-2 py-1.5 rounded-lg hover:bg-[#7c4831]/90"
-                  >
-                    🔔 Gửi Test Push
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await subscribeUserToPush?.(activeStaff.id);
-                      if (typeof window !== 'undefined' && 'Notification' in window) {
-                        setPushPermission(Notification.permission);
-                      }
-                      // Re-check after subscribe
-                      const [subs, endpoint] = await Promise.all([
-                        getDeviceSubscriptions?.(activeStaff.id),
-                        getCurrentPushEndpoint?.()
-                      ]);
-                      setPushDebugInfo({ subs, currentEndpoint: endpoint });
-                    }}
-                    className="flex-1 text-[9px] font-bold text-[#7c4831] bg-white border border-[#7c4831]/20 px-2 py-1.5 rounded-lg hover:bg-[#7c4831]/5"
-                  >
-                    🔄 Đăng ký lại
-                  </button>
-                </div>
-
-                {pushTestResult && (
-                  <div className={`p-2 rounded-lg border text-[8px] font-mono ${pushTestResult.results?.some((r: any) => r.status === 'SUCCESS') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                    <span className="font-bold block">Kết quả test:</span>
-                    {JSON.stringify(pushTestResult, null, 1)}
-                  </div>
-                )}
-              </div>
 
               <div className="flex-grow overflow-y-auto space-y-2.5 pr-1">
                 {notifications && notifications.length > 0 ? (

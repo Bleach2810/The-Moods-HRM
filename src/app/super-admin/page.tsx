@@ -39,6 +39,12 @@ export default function SuperAdminPortal() {
   const [newStaffWage, setNewStaffWage] = useState("25000");
   const [newStaffLocationId, setNewStaffLocationId] = useState("");
   const [staffLoading, setStaffLoading] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [editStaffName, setEditStaffName] = useState("");
+  const [editStaffPhone, setEditStaffPhone] = useState("");
+  const [editStaffWage, setEditStaffWage] = useState("25000");
+  const [editStaffRole, setEditStaffRole] = useState(3);
+  const [editStaffLocationId, setEditStaffLocationId] = useState("");
 
   const getApiBaseUrl = () => {
     if (typeof window !== "undefined") {
@@ -80,7 +86,7 @@ export default function SuperAdminPortal() {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
       const storedStaff = localStorage.getItem("moods_active_staff");
-      
+
       if (!storedUser && !storedStaff) {
         // Chưa đăng nhập, đá văng ra trang chủ (login)
         router.push("/");
@@ -128,6 +134,61 @@ export default function SuperAdminPortal() {
       alert("Lỗi kết nối máy chủ khi đăng ký nhân sự!");
     } finally {
       setStaffLoading(false);
+    }
+  };
+
+  const handleUpdateStaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editStaffPhone.trim() || !editStaffName.trim() || !editStaffLocationId) {
+      alert("Vui lòng nhập đầy đủ thông tin!");
+      return;
+    }
+    setStaffLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingStaffId,
+          phoneNumber: editStaffPhone.trim(),
+          fullName: editStaffName.trim(),
+          roleId: Number(editStaffRole),
+          locationId: editStaffLocationId,
+          hourlyWage: Number(editStaffWage || 25000)
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("Cập nhật thành công!");
+        setEditingStaffId(null);
+        fetchStaff();
+      } else {
+        alert(data.message || "Cập nhật thất bại!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối máy chủ!");
+    } finally {
+      setStaffLoading(false);
+    }
+  };
+
+  const handleSetResigned = async (staffId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn cho nhân viên này nghỉ việc? Nhân viên sẽ bị ẩn khỏi danh sách.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: staffId,
+          isDeleted: true
+        })
+      });
+      if (res.ok) fetchStaff();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -535,7 +596,7 @@ export default function SuperAdminPortal() {
       case "tenants": return TenantsView();
       case "billing": return BillingView();
       case "staff": {
-        const filteredStaff = staffList.filter((s: any) => s.roleId === 2 || s.roleId === 3);
+        const filteredStaff = staffList;
         return (
           <div className="space-y-5 anim-fadeUp text-[#4B3621]">
             <div className="border-b border-gray-200/50 pb-3">
@@ -662,10 +723,168 @@ export default function SuperAdminPortal() {
                               <MapPin size={12} /> {loc.name} {brand ? <span className="text-[9px] font-bold text-gray-400">({brand.name.split(" - ")[0]})</span> : ""}
                             </h4>
                             <div className="space-y-2">
-                              {locStaff.map((staff: any) => (
+                              {locStaff.map((staff: any) => {
+                                const isEditing = editingStaffId === staff.id;
+                                if (isEditing) {
+                                  return (
+                                    <form key={staff.id} onSubmit={handleUpdateStaff} className="p-3 bg-white border border-[#7c4831]/20 rounded-xl space-y-3 relative z-10 shadow-sm">
+                                      <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                        <h4 className="text-[11px] font-black uppercase tracking-wider text-[#7c4831]">Cập Nhật Nhân Viên</h4>
+                                        <button type="button" onClick={() => setEditingStaffId(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                        <div>
+                                          <label className="text-[9px] font-black uppercase text-[#7c4831] block">Họ và Tên</label>
+                                          <input type="text" value={editStaffName} onChange={e => setEditStaffName(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" required />
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] font-black uppercase text-[#7c4831] block">Số Điện Thoại</label>
+                                          <input type="tel" value={editStaffPhone} onChange={e => setEditStaffPhone(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" required />
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] font-black uppercase text-[#7c4831] block">Vai Trò</label>
+                                          <select value={editStaffRole} onChange={e => setEditStaffRole(Number(e.target.value))} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white cursor-pointer">
+                                            <option value={3}>Nhân viên</option>
+                                            <option value={2}>Admin</option>
+                                            <option value={1}>Super Admin</option>
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] font-black uppercase text-[#7c4831] block">Chi Nhánh</label>
+                                          <select value={editStaffLocationId} onChange={e => setEditStaffLocationId(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white cursor-pointer" required>
+                                            <option value="">-- Chọn chi nhánh --</option>
+                                            {(locations || []).map((l: any) => {
+                                              const b = (brands || []).find((brand: any) => brand.id === l.brandId || brand.code === l.brandId);
+                                              return <option key={l.id} value={l.id}>{l.name} {b ? `(${b.name.split(" - ")[0]})` : ""}</option>;
+                                            })}
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] font-black uppercase text-[#7c4831] block">Lương/giờ</label>
+                                          <input type="number" value={editStaffWage} onChange={e => setEditStaffWage(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" />
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2 pt-1 justify-between items-center">
+                                        <button type="button" onClick={() => handleSetResigned(staff.id)} className="btn btn-danger py-1 px-2.5 text-[10px] font-bold shadow-xs mr-auto cursor-pointer">Cho Nghỉ Việc</button>
+                                        <div className="flex gap-2">
+                                          <button type="button" onClick={() => setEditingStaffId(null)} className="btn btn-ghost py-1 px-2.5 text-[10px] font-bold shadow-xs">Hủy</button>
+                                          <button type="submit" disabled={staffLoading} className="btn btn-primary py-1 px-4 text-[10px] font-bold shadow-xs">Lưu</button>
+                                        </div>
+                                      </div>
+                                    </form>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={staff.phoneNumber || staff.id}
+                                    className="p-2.5 rounded-xl bg-[#FAF9F6] border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-all hover:bg-white hover:border-gray-200"
+                                  >
+                                    <div className="flex items-center gap-2.5">
+                                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[9px] border ${getAvatarBg(staff.fullName || "")}`}>
+                                        {getInitials(staff.fullName || "")}
+                                      </div>
+                                      <div>
+                                        <p className="font-extrabold text-xs text-[#4B3621] uppercase tracking-tight">{staff.fullName}</p>
+                                        <p className="text-[10px] font-semibold text-gray-400 mt-0.5">
+                                          {staff.phoneNumber || staff.phone} • <span className="text-emerald-700 font-bold">{staff.hourlyWage ? staff.hourlyWage.toLocaleString("vi-VN") : "0"}đ/giờ</span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                      <span className={`pill font-black text-[8px] border ${staff.roleId === 1
+                                        ? "bg-purple-50 text-purple-700 border-purple-100"
+                                        : staff.roleId === 2
+                                          ? "bg-blue-50 text-blue-700 border-blue-100"
+                                          : "bg-amber-50 text-amber-700 border-amber-100"
+                                        }`}>
+                                        {staff.roleId === 1 ? "SUPER ADMIN" : staff.roleId === 2 ? "ADMIN" : "STAFF"}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingStaffId(staff.id);
+                                          setEditStaffName(staff.fullName || "");
+                                          setEditStaffPhone(staff.phoneNumber || staff.phone || "");
+                                          setEditStaffWage(String(staff.hourlyWage || 25000));
+                                          setEditStaffRole(staff.roleId || 3);
+                                          setEditStaffLocationId(loc.id);
+                                        }}
+                                        className="btn btn-ghost py-1 px-2 text-[10px] font-bold border border-gray-250 hover:bg-gray-100 cursor-pointer"
+                                      >
+                                        Sửa
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {unassigned.length > 0 && (
+                        <div className="space-y-2 border-l-2 border-gray-300 pl-3">
+                          <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                            <MapPin size={12} className="text-gray-400" /> Chưa Phân Chi Nhánh
+                          </h4>
+                          <div className="space-y-2">
+                            {unassigned.map((staff: any) => {
+                              const isEditing = editingStaffId === staff.id;
+                              if (isEditing) {
+                                return (
+                                  <form key={staff.id} onSubmit={handleUpdateStaff} className="p-3 bg-white border border-[#7c4831]/20 rounded-xl space-y-3 relative z-10 shadow-sm">
+                                    <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                      <h4 className="text-[11px] font-black uppercase tracking-wider text-[#7c4831]">Cập Nhật Nhân Viên</h4>
+                                      <button type="button" onClick={() => setEditingStaffId(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                      <div>
+                                        <label className="text-[9px] font-black uppercase text-[#7c4831] block">Họ và Tên</label>
+                                        <input type="text" value={editStaffName} onChange={e => setEditStaffName(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" required />
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] font-black uppercase text-[#7c4831] block">Số Điện Thoại</label>
+                                        <input type="tel" value={editStaffPhone} onChange={e => setEditStaffPhone(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" required />
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] font-black uppercase text-[#7c4831] block">Vai Trò</label>
+                                        <select value={editStaffRole} onChange={e => setEditStaffRole(Number(e.target.value))} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white cursor-pointer">
+                                          <option value={3}>Nhân viên</option>
+                                          <option value={2}>Admin</option>
+                                          <option value={1}>Super Admin</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] font-black uppercase text-[#7c4831] block">Chi Nhánh</label>
+                                        <select value={editStaffLocationId} onChange={e => setEditStaffLocationId(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white cursor-pointer" required>
+                                          <option value="">-- Chọn chi nhánh --</option>
+                                          {(locations || []).map((l: any) => {
+                                            const b = (brands || []).find((brand: any) => brand.id === l.brandId || brand.code === l.brandId);
+                                            return <option key={l.id} value={l.id}>{l.name} {b ? `(${b.name.split(" - ")[0]})` : ""}</option>;
+                                          })}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-[9px] font-black uppercase text-[#7c4831] block">Lương/giờ</label>
+                                        <input type="number" value={editStaffWage} onChange={e => setEditStaffWage(e.target.value)} className="input w-full text-xs font-semibold py-1 px-2.5 mt-0.5 bg-white" />
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 pt-1 justify-between items-center">
+                                      <button type="button" onClick={() => handleSetResigned(staff.id)} className="btn btn-danger py-1 px-2.5 text-[10px] font-bold shadow-xs mr-auto cursor-pointer">Cho Nghỉ Việc</button>
+                                      <div className="flex gap-2">
+                                        <button type="button" onClick={() => setEditingStaffId(null)} className="btn btn-ghost py-1 px-2.5 text-[10px] font-bold shadow-xs">Hủy</button>
+                                        <button type="submit" disabled={staffLoading} className="btn btn-primary py-1 px-4 text-[10px] font-bold shadow-xs">Lưu</button>
+                                      </div>
+                                    </div>
+                                  </form>
+                                );
+                              }
+
+                              return (
                                 <div
                                   key={staff.phoneNumber || staff.id}
-                                  className="p-2.5 rounded-xl bg-[#FAF9F6] border border-gray-100 flex justify-between items-center transition-all hover:bg-white hover:border-gray-200"
+                                  className="p-2.5 rounded-xl bg-[#FAF9F6] border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 transition-all hover:bg-white hover:border-gray-200"
                                 >
                                   <div className="flex items-center gap-2.5">
                                     <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[9px] border ${getAvatarBg(staff.fullName || "")}`}>
@@ -678,53 +897,33 @@ export default function SuperAdminPortal() {
                                       </p>
                                     </div>
                                   </div>
-                                  <span className={`pill font-black text-[8px] border ${staff.roleId === 1
-                                    ? "bg-purple-50 text-purple-700 border-purple-100"
-                                    : staff.roleId === 2
-                                      ? "bg-blue-50 text-blue-700 border-blue-100"
-                                      : "bg-amber-50 text-amber-700 border-amber-100"
-                                    }`}>
-                                    {staff.roleId === 1 ? "SUPER ADMIN" : staff.roleId === 2 ? "ADMIN" : "STAFF"}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      {unassigned.length > 0 && (
-                        <div className="space-y-2 border-l-2 border-gray-300 pl-3">
-                          <h4 className="text-[11px] font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-                            <MapPin size={12} className="text-gray-400" /> Chưa Phân Chi Nhánh
-                          </h4>
-                          <div className="space-y-2">
-                            {unassigned.map((staff: any) => (
-                              <div
-                                key={staff.phoneNumber || staff.id}
-                                className="p-2.5 rounded-xl bg-[#FAF9F6] border border-gray-100 flex justify-between items-center transition-all hover:bg-white hover:border-gray-200"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-[9px] border ${getAvatarBg(staff.fullName || "")}`}>
-                                    {getInitials(staff.fullName || "")}
-                                  </div>
-                                  <div>
-                                    <p className="font-extrabold text-xs text-[#4B3621] uppercase tracking-tight">{staff.fullName}</p>
-                                    <p className="text-[10px] font-semibold text-gray-400 mt-0.5">
-                                      {staff.phoneNumber || staff.phone} • <span className="text-emerald-700 font-bold">{staff.hourlyWage ? staff.hourlyWage.toLocaleString("vi-VN") : "0"}đ/giờ</span>
-                                    </p>
+                                  <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                    <span className={`pill font-black text-[8px] border ${staff.roleId === 1
+                                      ? "bg-purple-50 text-purple-700 border-purple-100"
+                                      : staff.roleId === 2
+                                        ? "bg-blue-50 text-blue-700 border-blue-100"
+                                        : "bg-amber-50 text-amber-700 border-amber-100"
+                                      }`}>
+                                      {staff.roleId === 1 ? "SUPER ADMIN" : staff.roleId === 2 ? "ADMIN" : "STAFF"}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingStaffId(staff.id);
+                                        setEditStaffName(staff.fullName || "");
+                                        setEditStaffPhone(staff.phoneNumber || staff.phone || "");
+                                        setEditStaffWage(String(staff.hourlyWage || 25000));
+                                        setEditStaffRole(staff.roleId || 3);
+                                        setEditStaffLocationId("");
+                                      }}
+                                      className="btn btn-ghost py-1 px-2 text-[10px] font-bold border border-gray-250 hover:bg-gray-100 cursor-pointer"
+                                    >
+                                      Sửa
+                                    </button>
                                   </div>
                                 </div>
-                                <span className={`pill font-black text-[8px] border ${staff.roleId === 1
-                                  ? "bg-purple-50 text-purple-700 border-purple-100"
-                                  : staff.roleId === 2
-                                    ? "bg-blue-50 text-blue-700 border-blue-100"
-                                    : "bg-amber-50 text-amber-700 border-amber-100"
-                                  }`}>
-                                  {staff.roleId === 1 ? "SUPER ADMIN" : staff.roleId === 2 ? "ADMIN" : "STAFF"}
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -782,8 +981,8 @@ export default function SuperAdminPortal() {
                   key={n.id}
                   onClick={() => !n.isRead && markNotificationAsRead?.(n.id)}
                   className={`p-3 rounded-2xl border text-xs transition-all relative ${n.isRead
-                      ? "bg-gray-50 border-gray-100 opacity-75"
-                      : "bg-[#7c4831]/5 border-[#7c4831]/20 font-bold cursor-pointer hover:bg-[#7c4831]/10"
+                    ? "bg-gray-50 border-gray-100 opacity-75"
+                    : "bg-[#7c4831]/5 border-[#7c4831]/20 font-bold cursor-pointer hover:bg-[#7c4831]/10"
                     }`}
                 >
                   {!n.isRead && (

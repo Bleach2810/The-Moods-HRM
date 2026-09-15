@@ -17,6 +17,13 @@ namespace TheMoods.Data.Models
         public string? SwapWithStaffName { get; set; }
         public string? SwapWithStaffId { get; set; }
         public string? SwapWithShiftId { get; set; }
+        
+        // Fields for Shift Extension
+        public TimeSpan? OriginalStartTime { get; set; }
+        public TimeSpan? RequestedStartTime { get; set; }
+        public TimeSpan? RequestedEndTime { get; set; }
+        public int? ExtensionDurationMinutes { get; set; }
+        
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
