@@ -19,11 +19,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/proxy/osm-tiles/:z/:x/:y.png',
-        destination: 'https://tile.openstreetmap.org/:z/:x/:y.png',
+        destination: 'https://basemaps.cartocdn.com/rastertiles/voyager/:z/:x/:y.png',
       },
       {
         source: '/proxy/nominatim/:path*',
-        destination: 'https://nominatim.openstreetmap.org/:path*',
+        destination: 'https://nominatim.qgis.org/:path*',
       },
       {
         source: '/api/:path*',
