@@ -93,7 +93,7 @@ export default function LandingPage() {
         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneNumber: identifier.trim() })
+          body: JSON.stringify({ phoneNumber: identifier.trim(), locationId: activeLocation?.id || "" }) // Staff-per-Branch
         });
 
         if (res.ok) {
@@ -192,7 +192,7 @@ export default function LandingPage() {
       const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-pin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: identifier.trim(), pin: pinCode })
+        body: JSON.stringify({ phoneNumber: identifier.trim(), pin: pinCode, locationId: activeLocation?.id || "" }) // Staff-per-Branch
       });
       if (res.ok) {
         console.log("PIN saved to DB successfully");
@@ -283,7 +283,7 @@ export default function LandingPage() {
           const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: bioKey })
+            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: bioKey, locationId: activeLocation?.id || "" }) // Staff-per-Branch
           });
           if (res.ok) {
             console.log("Biometric linked to DB successfully");
@@ -364,7 +364,7 @@ export default function LandingPage() {
           const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/verify-biometric`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: savedCredStr })
+            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: savedCredStr, locationId: activeLocation?.id || "" }) // Staff-per-Branch
           });
 
           if (res.ok) {
@@ -450,7 +450,7 @@ export default function LandingPage() {
       const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/verify-pin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: identifier.trim(), pin: pinVal })
+        body: JSON.stringify({ phoneNumber: identifier.trim(), pin: pinVal, locationId: activeLocation?.id || "" }) // Staff-per-Branch
       });
 
       setIsLoading(false);
@@ -707,7 +707,7 @@ export default function LandingPage() {
                         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/check`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ phoneNumber: identifier.trim() })
+                          body: JSON.stringify({ phoneNumber: identifier.trim(), locationId: activeLocation?.id || "" }) // Staff-per-Branch
                         });
 
                         setIsLoading(false);

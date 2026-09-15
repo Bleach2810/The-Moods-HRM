@@ -219,7 +219,7 @@ export default function StaffPortal() {
         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey })
+          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey, locationId: activeStaff?.locationId || activeLocation?.id || "govap-branch" }) // Staff-per-Branch
         });
         if (res.ok) {
           console.log("Biometric linked to DB successfully");
@@ -268,7 +268,8 @@ export default function StaffPortal() {
         body: JSON.stringify({
           phoneNumber: activeStaff?.phone || activeStaff?.phoneNumber || "",
           oldPin: oldPin,
-          newPin: newPin
+          newPin: newPin,
+          locationId: activeStaff?.locationId || activeLocation?.id || "govap-branch" // Staff-per-Branch
         })
       });
       const data = await res.json();
@@ -504,13 +505,14 @@ export default function StaffPortal() {
 
   const fetchColleagues = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff`);
+      // Staff-per-Branch: chỉ lấy đồng nghiệp cùng Branch qua API
+      const locId = activeLocation?.id || "govap-branch";
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
         const filtered = data.filter((u: any) =>
           u.id !== activeStaff?.id &&
-          u.roleId !== 1 && u.roleId !== 2 &&
-          (u.locationId === activeLocation?.id || (u.locationIds && u.locationIds.includes(activeLocation?.id)))
+          u.roleId !== 1 && u.roleId !== 2
         );
         setColleagues(filtered);
       }

@@ -601,7 +601,7 @@ export default function AdminPortal() {
         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey })
+          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey, locationId: activeLocation?.id || "govap-branch" }) // Staff-per-Branch
         });
         if (res.ok) {
           console.log("Biometric linked to DB successfully");
@@ -668,7 +668,9 @@ export default function AdminPortal() {
 
   const fetchStaff = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff`);
+      // Staff-per-Branch: lọc Staff theo Branch hiện tại
+      const locId = activeLocation?.id || "govap-branch";
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
         setStaffList(data);

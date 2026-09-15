@@ -178,6 +178,7 @@ export default function SuperAdminPortal() {
           phoneNumber: currentUserPhone,
           oldPin: oldPin,
           newPin: newPin
+          // Không gửi locationId - Super Admin không thuộc Branch cố định
         })
       });
       const data = await res.json();
