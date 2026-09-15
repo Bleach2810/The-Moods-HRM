@@ -6,7 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add TenantDbContext with a default PostgreSQL connection for design-time/migrations
 builder.Services.AddDbContext<TenantDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Host=localhost;Database=themoods_tie;Username=themoods_ti_usr;Password=Thuytien965002"));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Host=localhost;Port=5432;Database=themoods_tie;Username=postgres;Password="));
 
 // Add services to the container.
 builder.Services.AddControllers();
