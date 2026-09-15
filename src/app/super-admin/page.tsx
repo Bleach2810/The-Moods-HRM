@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { LayoutDashboard, Building2, CreditCard, Power, ArrowLeft, Menu, X, Plus, CheckCircle, AlertTriangle, Shield, TrendingUp, DollarSign, MapPin, Coffee, Bell, Sparkles, LogOut, Users, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
+import { useRouter } from "next/navigation";
 
 export default function SuperAdminPortal() {
   const { brands, locations, invoices, toggleTenantStatus, paySubscription, createBrand, createLocation, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
@@ -13,6 +14,7 @@ export default function SuperAdminPortal() {
   const [sideOpen, setSideOpen] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [pushPermission, setPushPermission] = useState<string>("");
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   React.useEffect(() => {
     if (showPushNotificationPrompt) {
@@ -44,14 +46,9 @@ export default function SuperAdminPortal() {
       if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
         return "http://localhost:5078";
       }
-      const parts = hostname.split(".");
-      if (parts.length >= 3) {
-        parts[0] = "api";
-        return `https://${parts.join(".")}`;
-      }
-      return `https://api.${hostname}`;
+      return ""; // Use Next.js rewrites to proxy /api directly
     }
-    return "https://api.themoods.tieenz.site";
+    return "http://127.0.0.1:5078"; // SSR fallback
   };
 
   const fetchStaff = async () => {
@@ -77,11 +74,24 @@ export default function SuperAdminPortal() {
     }
   };
 
+  const router = useRouter();
+
   React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("moods_auth_user");
+      const storedStaff = localStorage.getItem("moods_active_staff");
+      
+      if (!storedUser && !storedStaff) {
+        // Chưa đăng nhập, đá văng ra trang chủ (login)
+        router.push("/");
+        return;
+      }
+      setIsAuthChecking(false);
+    }
     if (page === "staff") {
       fetchStaff();
     }
-  }, [page]);
+  }, [page, router]);
 
   const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -730,6 +740,10 @@ export default function SuperAdminPortal() {
       default: return DashView();
     }
   };
+
+  if (isAuthChecking) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen  text-[#4B3621] relative overflow-hidden font-sans">

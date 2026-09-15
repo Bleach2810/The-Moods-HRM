@@ -6,6 +6,7 @@ import { ScanLine, Clock, Calendar, ArrowLeftRight, Activity, ArrowLeft, Coffee,
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import WheelPicker from "@/components/WheelPicker";
+import { useRouter } from "next/navigation";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -122,17 +123,30 @@ export default function StaffPortal() {
   const [currentMonth, setCurrentMonth] = useState(5); // June (0-indexed)
   const [oldPin, setOldPin] = useState("");
   const [newPin, setNewPin] = useState("");
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  const router = useRouter();
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("moods_active_staff");
+      const storedUser = localStorage.getItem("moods_auth_user");
+      
+      if (!stored && !storedUser) {
+        // Chưa đăng nhập, đá văng ra trang chủ (login)
+        router.push("/");
+        return;
+      }
+      
+      setIsAuthChecking(false);
+
       if (stored) {
         setLocalStaff(JSON.parse(stored));
       } else {
         setLocalStaff(contextActiveStaff);
       }
     }
-  }, [contextActiveStaff]);
+  }, [contextActiveStaff, router]);
 
   const activeStaff = localStaff || contextActiveStaff;
 
@@ -142,14 +156,9 @@ export default function StaffPortal() {
       if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
         return "http://localhost:5078";
       }
-      const parts = hostname.split(".");
-      if (parts.length >= 3) {
-        parts[0] = "api";
-        return `https://${parts.join(".")}`;
-      }
-      return `https://api.${hostname}`;
+      return ""; // Use Next.js rewrites to proxy /api directly
     }
-    return "https://api.themoods.tieenz.site";
+    return "http://127.0.0.1:5078"; // SSR fallback
   };
 
   const getRpId = () => {
@@ -1952,6 +1961,10 @@ export default function StaffPortal() {
       default: return ScanView();
     }
   };
+
+  if (isAuthChecking) {
+    return null;
+  }
 
   return (
     <div className="h-[100dvh] w-screen overflow-hidden text-[#4B3621] flex flex-col antialiased">

@@ -15,6 +15,22 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/proxy/osm-tiles/:z/:x/:y.png',
+        destination: 'https://tile.openstreetmap.org/:z/:x/:y.png',
+      },
+      {
+        source: '/proxy/nominatim/:path*',
+        destination: 'https://nominatim.openstreetmap.org/:path*',
+      },
+      {
+        source: '/api/:path*',
+        destination: 'http://127.0.0.1:5078/api/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

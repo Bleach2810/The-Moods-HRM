@@ -500,7 +500,7 @@ export default function AdminPortal() {
       const map = L.map("map-picker").setView([latNum, lngNum], 16);
       mapRef.current = map;
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer("/proxy/osm-tiles/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors"
       }).addTo(map);
 
@@ -687,7 +687,7 @@ export default function AdminPortal() {
 
   const fetchAddressFromCoords = async (lat: string, lon: string) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+      const res = await fetch(`/proxy/nominatim/reverse?format=json&lat=${lat}&lon=${lon}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.display_name) {
@@ -899,7 +899,7 @@ export default function AdminPortal() {
     if (!addressSearchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearchQuery)}&limit=1`);
+      const res = await fetch(`/proxy/nominatim/search?format=json&q=${encodeURIComponent(addressSearchQuery)}&limit=1`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.length > 0) {
@@ -4182,14 +4182,9 @@ export default function AdminPortal() {
       if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
         return "http://localhost:5078";
       }
-      const parts = hostname.split(".");
-      if (parts.length >= 3) {
-        parts[0] = "api";
-        return `https://${parts.join(".")}`;
-      }
-      return `https://api.${hostname}`;
+      return ""; // Use Next.js rewrites to proxy /api directly
     }
-    return "https://api.themoods.tieenz.site";
+    return "http://127.0.0.1:5078"; // SSR fallback
   };
 
 

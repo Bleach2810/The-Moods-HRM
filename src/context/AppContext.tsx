@@ -427,14 +427,9 @@ const getApiBaseUrl = () => {
     if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
       return "http://localhost:5078";
     }
-    const parts = hostname.split(".");
-    if (parts.length >= 3) {
-      parts[0] = "api";
-      return `https://${parts.join(".")}`;
-    }
-    return `https://api.${hostname}`;
+    return ""; // Use Next.js rewrites to proxy /api directly
   }
-  return "https://api.themoods.tieenz.site";
+  return "http://127.0.0.1:5078"; // SSR fallback
 };
 
 

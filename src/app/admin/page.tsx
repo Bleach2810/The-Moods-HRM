@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
+import { useRouter } from "next/navigation";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -134,6 +135,7 @@ export default function AdminPortal() {
   };
   const [showNotification, setShowNotification] = useState(false);
   const [pushPermission, setPushPermission] = useState<string>("");
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   React.useEffect(() => {
     if (showPushNotificationPrompt) {
@@ -387,9 +389,20 @@ export default function AdminPortal() {
 
 
   const [currentUserPhone, setCurrentUserPhone] = useState("");
+  const router = useRouter();
+
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
+      const storedStaff = localStorage.getItem("moods_active_staff");
+      
+      if (!storedUser && !storedStaff) {
+        // Chưa đăng nhập, đá văng ra trang chủ (login)
+        router.push("/");
+        return;
+      }
+      setIsAuthChecking(false);
+
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
@@ -397,19 +410,16 @@ export default function AdminPortal() {
         } catch {
           setCurrentUserPhone("admin");
         }
-      } else {
-        const storedStaff = localStorage.getItem("moods_active_staff");
-        if (storedStaff) {
-          try {
-            const parsed = JSON.parse(storedStaff);
-            setCurrentUserPhone(parsed.phone || "admin");
-          } catch {
-            setCurrentUserPhone("admin");
-          }
+      } else if (storedStaff) {
+        try {
+          const parsed = JSON.parse(storedStaff);
+          setCurrentUserPhone(parsed.phone || "admin");
+        } catch {
+          setCurrentUserPhone("admin");
         }
       }
     }
-  }, []);
+  }, [router]);
 
   // Leaflet map picker initialization
   const mapRef = React.useRef<any>(null);
@@ -464,7 +474,7 @@ export default function AdminPortal() {
       const map = L.map("map-picker").setView([latNum, lngNum], 16);
       mapRef.current = map;
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer("/proxy/osm-tiles/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors"
       }).addTo(map);
 
@@ -651,7 +661,7 @@ export default function AdminPortal() {
 
   const fetchAddressFromCoords = async (lat: string, lon: string) => {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+      const res = await fetch(`/proxy/nominatim/reverse?format=json&lat=${lat}&lon=${lon}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.display_name) {
@@ -854,7 +864,7 @@ export default function AdminPortal() {
     if (!addressSearchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearchQuery)}&limit=1`);
+      const res = await fetch(`/proxy/nominatim/search?format=json&q=${encodeURIComponent(addressSearchQuery)}&limit=1`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.length > 0) {
@@ -4053,14 +4063,9 @@ export default function AdminPortal() {
       if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
         return "http://localhost:5078";
       }
-      const parts = hostname.split(".");
-      if (parts.length >= 3) {
-        parts[0] = "api";
-        return `https://${parts.join(".")}`;
-      }
-      return `https://api.${hostname}`;
+      return ""; // Use Next.js rewrites to proxy /api directly
     }
-    return "https://api.themoods.tieenz.site";
+    return "http://127.0.0.1:5078"; // SSR fallback
   };
 
 
@@ -4817,6 +4822,10 @@ export default function AdminPortal() {
       default: return DashView();
     }
   };
+
+  if (isAuthChecking) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen  text-[#4B3621] relative overflow-hidden font-sans">

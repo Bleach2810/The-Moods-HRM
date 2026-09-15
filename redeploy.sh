@@ -10,12 +10,13 @@ echo "========================================="
 # 1. Build & Restart Backend
 echo "--> Đang biên dịch và build Backend..."
 cd "$SCRIPT_DIR/backend"
-dotnet publish -c Release -o ./publish
+dotnet publish TheMoods.Api/TheMoods.Api.csproj -c Release -o ./publish
 
 echo "--> Đang restart Backend trên PM2..."
 pm2 delete themoods-be 2>/dev/null || true
 killall dotnet 2>/dev/null || true
-pm2 start "dotnet ./publish/TheMoods.Api.dll --urls http://127.0.0.1:5078" --name "themoods-be"
+cd "$SCRIPT_DIR/backend/publish"
+pm2 start "dotnet TheMoods.Api.dll --urls http://127.0.0.1:5078" --name "themoods-be"
 
 # 2. Build & Restart Frontend
 echo "--> Đang build Frontend (Next.js)..."
