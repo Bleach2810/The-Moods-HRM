@@ -2451,7 +2451,7 @@ export default function AdminPortal() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+            <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                   <th className="p-4">TÃªn</th>
@@ -2540,7 +2540,7 @@ export default function AdminPortal() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+            <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                   <th className="p-4">TÃªn</th>
@@ -3199,7 +3199,7 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+                  <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                         <th className="p-4">TÃªn</th>
@@ -3288,7 +3288,7 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+                  <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                         <th className="p-4">TÃªn</th>
@@ -3511,7 +3511,7 @@ export default function AdminPortal() {
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+                <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                       <th className="p-3">TÃªn</th>
@@ -3583,7 +3583,7 @@ export default function AdminPortal() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+                    <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                           <th className="p-3">NgÃ y</th>
@@ -3831,7 +3831,7 @@ export default function AdminPortal() {
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
+                <table className="w-full min-w-max whitespace-nowrap [&_th]:whitespace-nowrap [&_td]:whitespace-nowrap text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                       <th className="p-3">NgÃ y lá»…</th>
