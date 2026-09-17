@@ -2450,19 +2450,19 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto pb-4">
+            <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                  <th className="p-4">Tên</th>
-                  <th className="p-4">Số điện thoại</th>
-                  <th className="p-4 text-right">Lương/giờ</th>
-                  <th className="p-4 text-right">Giờ làm</th>
-                  <th className="p-4 text-right">Lương cơ bản</th>
-                  <th className="p-4 text-right">Thưởng</th>
-                  <th className="p-4 text-right">Phạt</th>
-                  <th className="p-4 text-right">Tạm ứng</th>
-                  <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                  <th className="px-6 py-4">Tên</th>
+                  <th className="px-6 py-4">Số điện thoại</th>
+                  <th className="px-6 py-4 text-right">Lương/giờ</th>
+                  <th className="px-6 py-4 text-right">Giờ làm</th>
+                  <th className="px-6 py-4 text-right">Lương cơ bản</th>
+                  <th className="px-6 py-4 text-right">Thưởng</th>
+                  <th className="px-6 py-4 text-right">Phạt</th>
+                  <th className="px-6 py-4 text-right">Tạm ứng</th>
+                  <th className="px-6 py-4 text-right font-black text-[#7c4831]">Thực nhận</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -2539,16 +2539,16 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500"></span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto pb-4">
+            <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                  <th className="p-4">Tên</th>
-                  <th className="p-4">Ngày</th>
-                  <th className="p-4">Ca</th>
-                  <th className="p-4 text-center">Giờ vào</th>
-                  <th className="p-4 text-center">Giờ ra</th>
-                  <th className="p-4 text-center">Trạng thái</th>
+                  <th className="px-6 py-4">Tên</th>
+                  <th className="px-6 py-4">Ngày</th>
+                  <th className="px-6 py-4">Ca</th>
+                  <th className="px-6 py-4 text-center">Giờ vào</th>
+                  <th className="px-6 py-4 text-center">Giờ ra</th>
+                  <th className="px-6 py-4 text-center">Trạng thái</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
