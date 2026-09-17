@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
@@ -98,7 +98,7 @@ export default function AdminPortal() {
   const [page, setPage] = useState("dashboard");
   const [sideOpen, setSideOpen] = useState(false);
 
-  // === NOTE QUẢN LÝ ===
+  // === NOTE QUáº¢N LÃ ===
   const [managerNote, setManagerNote] = React.useState("");
   const [managerNoteSaved, setManagerNoteSaved] = React.useState(false);
   const [devTab, setDevTab] = useState("matrix");
@@ -129,14 +129,14 @@ export default function AdminPortal() {
         ])
       });
       if (res.ok) {
-        alert("Cập nhật ghi chú của quản lý thành công!");
+        alert("Cáº­p nháº­t ghi chÃº cá»§a quáº£n lÃ½ thÃ nh cÃ´ng!");
         fetchHrmConfigs();
       } else {
-        alert("Không thể cập nhật ghi chú!");
+        alert("KhÃ´ng thá»ƒ cáº­p nháº­t ghi chÃº!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi cập nhật ghi chú!");
+      alert("Lá»—i káº¿t ná»‘i khi cáº­p nháº­t ghi chÃº!");
     }
   };
 
@@ -209,20 +209,20 @@ export default function AdminPortal() {
   const [availabilitiesList, setAvailabilitiesList] = useState<any[]>([]);
   const [officialSchedulesList, setOfficialSchedulesList] = useState<any[]>([]);
   const [filterByAvailability, setFilterByAvailability] = useState(true);
-  const [weekOffset, setWeekOffset] = useState(0); // 0 = tuần này, 1 = tuần sau
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = tuáº§n nÃ y, 1 = tuáº§n sau
   const [showSchedModal, setShowSchedModal] = useState(false);
   const [editingSchedId, setEditingSchedId] = useState<string | null>(null);
   const [staffSearchQuery, setStaffSearchQuery] = useState("");
 
   const handleCreateOrUpdateSchedule = async () => {
     if (!schedStartTime || !schedEndTime) {
-      alert("Vui lòng chọn giờ bắt đầu và kết thúc!");
+      alert("Vui lÃ²ng chá»n giá» báº¯t Ä‘áº§u vÃ  káº¿t thÃºc!");
       return;
     }
 
     if (editingSchedId) {
       if (selectedScheduleStaffIds.length === 0) {
-        alert("Vui lòng chọn ít nhất một nhân sự để xếp ca!");
+        alert("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t nhÃ¢n sá»± Ä‘á»ƒ xáº¿p ca!");
         return;
       }
       const firstUid = selectedScheduleStaffIds[0];
@@ -243,7 +243,7 @@ export default function AdminPortal() {
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.message || "Cập nhật ca trực thất bại!");
+          alert(data.message || "Cáº­p nháº­t ca trá»±c tháº¥t báº¡i!");
           return;
         }
 
@@ -267,12 +267,12 @@ export default function AdminPortal() {
           const results = await Promise.all(promises);
           const failed = results.filter(r => !r.ok);
           if (failed.length > 0) {
-            alert(`Cập nhật thành công. Tuy nhiên, đã xảy ra lỗi khi thêm ${failed.length} nhân viên khác.`);
+            alert(`Cáº­p nháº­t thÃ nh cÃ´ng. Tuy nhiÃªn, Ä‘Ã£ xáº£y ra lá»—i khi thÃªm ${failed.length} nhÃ¢n viÃªn khÃ¡c.`);
           } else {
-            alert("Cập nhật lịch trực thành công!");
+            alert("Cáº­p nháº­t lá»‹ch trá»±c thÃ nh cÃ´ng!");
           }
         } else {
-          alert("Cập nhật lịch trực thành công!");
+          alert("Cáº­p nháº­t lá»‹ch trá»±c thÃ nh cÃ´ng!");
         }
 
         fetchOfficialSchedules();
@@ -280,12 +280,12 @@ export default function AdminPortal() {
         setEditingSchedId(null);
       } catch (err) {
         console.error(err);
-        alert("Lỗi kết nối khi cập nhật ca trực!");
+        alert("Lá»—i káº¿t ná»‘i khi cáº­p nháº­t ca trá»±c!");
       }
     } else {
       // Creating new schedule(s)
       if (selectedScheduleStaffIds.length === 0) {
-        alert("Vui lòng chọn ít nhất một nhân sự để xếp ca!");
+        alert("Vui lÃ²ng chá»n Ã­t nháº¥t má»™t nhÃ¢n sá»± Ä‘á»ƒ xáº¿p ca!");
         return;
       }
 
@@ -310,9 +310,9 @@ export default function AdminPortal() {
         const failed = results.filter(r => !r.ok);
 
         if (failed.length === 0) {
-          alert("Xếp  chính thức thành công cho các nhân viên đã chọn!");
+          alert("Xáº¿p  chÃ­nh thá»©c thÃ nh cÃ´ng cho cÃ¡c nhÃ¢n viÃªn Ä‘Ã£ chá»n!");
         } else {
-          alert(`Xếp ca hoàn tất với ${failed.length} ca thất bại (do đã tồn tại lịch hoặc lỗi).`);
+          alert(`Xáº¿p ca hoÃ n táº¥t vá»›i ${failed.length} ca tháº¥t báº¡i (do Ä‘Ã£ tá»“n táº¡i lá»‹ch hoáº·c lá»—i).`);
         }
 
         fetchOfficialSchedules();
@@ -320,27 +320,27 @@ export default function AdminPortal() {
         setEditingSchedId(null);
       } catch (err) {
         console.error(err);
-        alert("Lỗi kết nối khi xếp ca!");
+        alert("Lá»—i káº¿t ná»‘i khi xáº¿p ca!");
       }
     }
   };
 
   const handleDeleteSchedule = async (schedId: string) => {
-    if (!confirm("Bạn có chắc muốn xóa lịch trực này?")) return;
+    if (!confirm("Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a lá»‹ch trá»±c nÃ y?")) return;
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules/${schedId}`, { method: "DELETE" });
       const data = await res.json();
       if (res.ok) {
-        alert("Xóa lịch trực thành công!");
+        alert("XÃ³a lá»‹ch trá»±c thÃ nh cÃ´ng!");
         fetchOfficialSchedules();
         setShowSchedModal(false);
         setEditingSchedId(null);
       } else {
-        alert(data.message || "Xóa lịch trực thất bại!");
+        alert(data.message || "XÃ³a lá»‹ch trá»±c tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
 
@@ -501,7 +501,7 @@ export default function AdminPortal() {
       mapRef.current = map;
 
       L.tileLayer("/proxy/osm-tiles/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors"
+        attribution: "Â© OpenStreetMap contributors"
       }).addTo(map);
 
       const marker = L.marker([latNum, lngNum], { draggable: true }).addTo(map);
@@ -589,11 +589,11 @@ export default function AdminPortal() {
   const handleRegisterBiometricDirectly = async () => {
     if (typeof window === "undefined") return;
     if (!window.isSecureContext) {
-      alert("Thiết lập sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost).");
+      alert("Thiáº¿t láº­p sinh tráº¯c há»c yÃªu cáº§u káº¿t ná»‘i báº£o máº­t HTTPS (hoáº·c localhost).");
       return;
     }
     if (!navigator.credentials) {
-      alert("Thiết bị hoặc trình duyệt của bạn không hỗ trợ bảo mật sinh trắc học Touch ID!");
+      alert("Thiáº¿t bá»‹ hoáº·c trÃ¬nh duyá»‡t cá»§a báº¡n khÃ´ng há»— trá»£ báº£o máº­t sinh tráº¯c há»c Touch ID!");
       return;
     }
 
@@ -633,7 +633,7 @@ export default function AdminPortal() {
         const rawIdArray = Array.from(new Uint8Array(credential.rawId));
         const bioKey = JSON.stringify(rawIdArray);
 
-        // Gọi API setup-biometric
+        // Gá»i API setup-biometric
         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -645,11 +645,11 @@ export default function AdminPortal() {
 
         localStorage.setItem(`moods_bio_cred_${phone}`, bioKey);
         localStorage.setItem(`moods_bio_${phone}`, "enabled");
-        alert("Kích hoạt sinh trắc học (vân tay) thành công cho thiết bị này!");
+        alert("KÃ­ch hoáº¡t sinh tráº¯c há»c (vÃ¢n tay) thÃ nh cÃ´ng cho thiáº¿t bá»‹ nÃ y!");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+      alert("KÃ­ch hoáº¡t sinh tráº¯c há»c khÃ´ng thÃ nh cÃ´ng: " + (err.message || ""));
     }
   };
 
@@ -693,7 +693,7 @@ export default function AdminPortal() {
         if (data && data.display_name) {
           let addr = data.display_name;
           addr = addr.replace(/, 7\d{5}/g, "");
-          addr = addr.replace(/, Việt Nam$/g, "");
+          addr = addr.replace(/, Viá»‡t Nam$/g, "");
           setAddressSearchQuery(addr);
         }
       }
@@ -704,7 +704,7 @@ export default function AdminPortal() {
 
   const fetchStaff = async () => {
     try {
-      // Staff-per-Branch: lọc Staff theo Branch hiện tại
+      // Staff-per-Branch: lá»c Staff theo Branch hiá»‡n táº¡i
       const locId = activeLocation?.id || "govap-branch";
       const res = await fetch(`${getApiBaseUrl()}/api/auth/staff?locationId=${locId}`);
       if (res.ok) {
@@ -852,21 +852,21 @@ export default function AdminPortal() {
         ])
       });
       if (res.ok) {
-        alert("Cập nhật cấu hình tính lương thành công!");
+        alert("Cáº­p nháº­t cáº¥u hÃ¬nh tÃ­nh lÆ°Æ¡ng thÃ nh cÃ´ng!");
         fetchHrmConfigs();
       } else {
-        alert("Không thể cập nhật cấu hình!");
+        alert("KhÃ´ng thá»ƒ cáº­p nháº­t cáº¥u hÃ¬nh!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi cập nhật cấu hình!");
+      alert("Lá»—i káº¿t ná»‘i khi cáº­p nháº­t cáº¥u hÃ¬nh!");
     }
   };
 
   const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (oldPin.length !== 6 || isNaN(Number(oldPin)) || newPin.length !== 6 || isNaN(Number(newPin))) {
-      alert("Mã PIN phải gồm đúng 6 chữ số!");
+      alert("MÃ£ PIN pháº£i gá»“m Ä‘Ãºng 6 chá»¯ sá»‘!");
       return;
     }
     try {
@@ -882,15 +882,15 @@ export default function AdminPortal() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Đổi mã PIN thành công!");
+        alert("Äá»•i mÃ£ PIN thÃ nh cÃ´ng!");
         setOldPin("");
         setNewPin("");
       } else {
-        alert(data.message || "Đổi mã PIN thất bại!");
+        alert(data.message || "Äá»•i mÃ£ PIN tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối máy chủ khi đổi mã PIN!");
+      alert("Lá»—i káº¿t ná»‘i mÃ¡y chá»§ khi Ä‘á»•i mÃ£ PIN!");
     }
   };
 
@@ -914,12 +914,12 @@ export default function AdminPortal() {
             mapRef.current.setView([lat, lon], 16);
           }
         } else {
-          alert("Không tìm thấy địa chỉ này. Vui lòng nhập chi tiết hơn!");
+          alert("KhÃ´ng tÃ¬m tháº¥y Ä‘á»‹a chá»‰ nÃ y. Vui lÃ²ng nháº­p chi tiáº¿t hÆ¡n!");
         }
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi khi kết nối dịch vụ bản đồ!");
+      alert("Lá»—i khi káº¿t ná»‘i dá»‹ch vá»¥ báº£n Ä‘á»“!");
     } finally {
       setSearchLoading(false);
     }
@@ -928,7 +928,7 @@ export default function AdminPortal() {
   const handleGetCurrentLocation = (e: React.MouseEvent) => {
     e.preventDefault();
     if (typeof window === "undefined" || !navigator.geolocation) {
-      alert("Trình duyệt của bạn không hỗ trợ định vị GPS!");
+      alert("TrÃ¬nh duyá»‡t cá»§a báº¡n khÃ´ng há»— trá»£ Ä‘á»‹nh vá»‹ GPS!");
       return;
     }
 
@@ -943,7 +943,7 @@ export default function AdminPortal() {
         mapRef.current.setView([lat, lon], 16);
       }
       fetchAddressFromCoords(lat.toFixed(6), lon.toFixed(6));
-      alert("Đã lấy vị trí hiện tại thành công!");
+      alert("ÄÃ£ láº¥y vá»‹ trÃ­ hiá»‡n táº¡i thÃ nh cÃ´ng!");
     };
 
     const errorCallback = (error: any) => {
@@ -954,13 +954,13 @@ export default function AdminPortal() {
         (fallbackError) => {
           console.error("Fallback geolocation also failed:", fallbackError);
           if (fallbackError.code === 1) {
-            alert("Trình duyệt từ chối quyền truy cập GPS. Vui lòng cấp quyền ở thanh địa chỉ!");
+            alert("TrÃ¬nh duyá»‡t tá»« chá»‘i quyá»n truy cáº­p GPS. Vui lÃ²ng cáº¥p quyá»n á»Ÿ thanh Ä‘á»‹a chá»‰!");
           } else if (fallbackError.code === 2) {
-            alert("Vị trí không khả dụng. Trình duyệt PC (cắm dây LAN) không có Wi-Fi/GPS có thể gặp lỗi này. Bạn có thể kéo thả ghim trên bản đồ để chọn thủ công nhé!");
+            alert("Vá»‹ trÃ­ khÃ´ng kháº£ dá»¥ng. TrÃ¬nh duyá»‡t PC (cáº¯m dÃ¢y LAN) khÃ´ng cÃ³ Wi-Fi/GPS cÃ³ thá»ƒ gáº·p lá»—i nÃ y. Báº¡n cÃ³ thá»ƒ kÃ©o tháº£ ghim trÃªn báº£n Ä‘á»“ Ä‘á»ƒ chá»n thá»§ cÃ´ng nhÃ©!");
           } else if (fallbackError.code === 3) {
-            alert("Yêu cầu lấy vị trí hết thời gian chờ (Timeout). Bạn hãy thử lại hoặc kéo thả ghim trên bản đồ nhé!");
+            alert("YÃªu cáº§u láº¥y vá»‹ trÃ­ háº¿t thá»i gian chá» (Timeout). Báº¡n hÃ£y thá»­ láº¡i hoáº·c kÃ©o tháº£ ghim trÃªn báº£n Ä‘á»“ nhÃ©!");
           } else {
-            alert("Không thể định vị tự động. Vui lòng kéo thả ghim trên bản đồ để chọn tọa độ quán nhé!");
+            alert("KhÃ´ng thá»ƒ Ä‘á»‹nh vá»‹ tá»± Ä‘á»™ng. Vui lÃ²ng kÃ©o tháº£ ghim trÃªn báº£n Ä‘á»“ Ä‘á»ƒ chá»n tá»a Ä‘á»™ quÃ¡n nhÃ©!");
           }
         },
         { enableHighAccuracy: false, timeout: 15000 }
@@ -977,7 +977,7 @@ export default function AdminPortal() {
   const handleAddDetailedHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHolidayDate || !newHolidayNote.trim()) {
-      alert("Vui lòng nhập ngày và ghi chú ngày lễ!");
+      alert("Vui lÃ²ng nháº­p ngÃ y vÃ  ghi chÃº ngÃ y lá»…!");
       return;
     }
     const updated = [
@@ -994,11 +994,11 @@ export default function AdminPortal() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify([
-          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sách ngày lễ chi tiết có ghi chú (JSON)" }
+          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sÃ¡ch ngÃ y lá»… chi tiáº¿t cÃ³ ghi chÃº (JSON)" }
         ])
       });
       if (res.ok) {
-        alert("Thêm ngày lễ thành công!");
+        alert("ThÃªm ngÃ y lá»… thÃ nh cÃ´ng!");
         setNewHolidayDate("");
         setNewHolidayNote("");
         setNewHolidayMultiplier("2.0");
@@ -1007,43 +1007,43 @@ export default function AdminPortal() {
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
 
   const handleDeleteDetailedHoliday = async (holidayIndex: number) => {
-    if (!confirm("Bạn có chắc muốn xóa ngày lễ này?")) return;
+    if (!confirm("Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a ngÃ y lá»… nÃ y?")) return;
     const updated = detailedHolidaysList.filter((_, idx) => idx !== holidayIndex);
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify([
-          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sách ngày lễ chi tiết có ghi chú (JSON)" }
+          { configKey: "Holidays_Detailed", configValue: JSON.stringify(updated), description: "Danh sÃ¡ch ngÃ y lá»… chi tiáº¿t cÃ³ ghi chÃº (JSON)" }
         ])
       });
       if (res.ok) {
-        alert("Xóa ngày lễ thành công!");
+        alert("XÃ³a ngÃ y lá»… thÃ nh cÃ´ng!");
         fetchHrmConfigs();
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
   const handleAddAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAdjEmployeeId) {
-      alert("Vui lòng chọn nhân viên!");
+      alert("Vui lÃ²ng chá»n nhÃ¢n viÃªn!");
       return;
     }
     if (!newAdjNote.trim()) {
-      alert("Vui lòng điền ghi chú lý do!");
+      alert("Vui lÃ²ng Ä‘iá»n ghi chÃº lÃ½ do!");
       return;
     }
 
     const emp = staffList.find((s: any) => s.id === newAdjEmployeeId);
-    const empName = emp ? emp.fullName : "Nhân viên";
+    const empName = emp ? emp.fullName : "NhÃ¢n viÃªn";
 
     const qty = parseFloat(newAdjQuantity) || 1;
     const price = parseFloat(newAdjAmountPerUnit) || 0;
@@ -1073,39 +1073,39 @@ export default function AdminPortal() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify([
-          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }
+          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sÃ¡ch thÆ°á»Ÿng pháº¡t riÃªng cá»§a nhÃ¢n viÃªn (JSON)" }
         ])
       });
       if (res.ok) {
-        alert(editingAdjIndex !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
+        alert(editingAdjIndex !== null ? "Cáº­p nháº­t khoáº£n thÆ°á»Ÿng/pháº¡t thÃ nh cÃ´ng!" : "ThÃªm khoáº£n thÆ°á»Ÿng/pháº¡t thÃ nh cÃ´ng!");
         setNewAdjNote("");
         setEditingAdjIndex(null);
         fetchHrmConfigs();
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
 
   const handleDeleteAdjustment = async (adjIndex: number) => {
-    if (!confirm("Bạn có chắc muốn xóa khoản thưởng/phạt này?")) return;
+    if (!confirm("Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a khoáº£n thÆ°á»Ÿng/pháº¡t nÃ y?")) return;
     const updated = adjustmentsList.filter((_, idx) => idx !== adjIndex);
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify([
-          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }
+          { configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sÃ¡ch thÆ°á»Ÿng pháº¡t riÃªng cá»§a nhÃ¢n viÃªn (JSON)" }
         ])
       });
       if (res.ok) {
-        alert("Xóa khoản thưởng/phạt thành công!");
+        alert("XÃ³a khoáº£n thÆ°á»Ÿng/pháº¡t thÃ nh cÃ´ng!");
         fetchHrmConfigs();
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
 
@@ -1121,11 +1121,11 @@ export default function AdminPortal() {
       });
       if (res.ok) {
         setIsRegGateLocked(nextState);
-        alert(nextState ? "Đã khóa cổng đăng ký ca rảnh của nhân viên!" : "Đã mở cổng đăng ký ca rảnh cho nhân viên!");
+        alert(nextState ? "ÄÃ£ khÃ³a cá»•ng Ä‘Äƒng kÃ½ ca ráº£nh cá»§a nhÃ¢n viÃªn!" : "ÄÃ£ má»Ÿ cá»•ng Ä‘Äƒng kÃ½ ca ráº£nh cho nhÃ¢n viÃªn!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi thay đổi trạng thái cổng!");
+      alert("Lá»—i káº¿t ná»‘i khi thay Ä‘á»•i tráº¡ng thÃ¡i cá»•ng!");
     }
   };
   const fetchSkills = async () => {
@@ -1156,11 +1156,11 @@ export default function AdminPortal() {
         setSelectedEditStaffSkills(prev => [...prev, data.skill.id]);
         setNewSkillInput("");
       } else {
-        alert(data.message || "Tạo kỹ năng thất bại!");
+        alert(data.message || "Táº¡o ká»¹ nÄƒng tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi tạo kỹ năng!");
+      alert("Lá»—i káº¿t ná»‘i khi táº¡o ká»¹ nÄƒng!");
     }
   };
 
@@ -1189,7 +1189,7 @@ export default function AdminPortal() {
   const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffPhone.trim() || !newStaffName.trim()) {
-      alert("Vui lòng nhập đầy đủ Số điện thoại và Họ tên!");
+      alert("Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ Sá»‘ Ä‘iá»‡n thoáº¡i vÃ  Há» tÃªn!");
       return;
     }
     setStaffLoading(true);
@@ -1208,18 +1208,18 @@ export default function AdminPortal() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Đăng ký nhân sự thành công!");
+        alert("ÄÄƒng kÃ½ nhÃ¢n sá»± thÃ nh cÃ´ng!");
         setNewStaffPhone("");
         setNewStaffName("");
         setNewStaffWage("25000");
         setSelectedNewStaffSkills([]);
         fetchStaff();
       } else {
-        alert(data.message || "Đăng ký nhân sự thất bại!");
+        alert(data.message || "ÄÄƒng kÃ½ nhÃ¢n sá»± tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối máy chủ khi đăng ký nhân sự!");
+      alert("Lá»—i káº¿t ná»‘i mÃ¡y chá»§ khi Ä‘Äƒng kÃ½ nhÃ¢n sá»±!");
     } finally {
       setStaffLoading(false);
     }
@@ -1227,7 +1227,7 @@ export default function AdminPortal() {
 
   const handleUpdateStaff = async (staffId: string) => {
     if (!editStaffName.trim() || !editStaffPhone.trim() || !editStaffWage) {
-      alert("Vui lòng nhập đầy đủ thông tin!");
+      alert("Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin!");
       return;
     }
     try {
@@ -1244,21 +1244,21 @@ export default function AdminPortal() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Cập nhật thông tin nhân viên thành công!");
+        alert("Cáº­p nháº­t thÃ´ng tin nhÃ¢n viÃªn thÃ nh cÃ´ng!");
         setEditingStaffId(null);
         setSelectedEditStaffSkills([]);
         fetchStaff();
       } else {
-        alert(data.message || "Cập nhật thất bại!");
+        alert(data.message || "Cáº­p nháº­t tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi cập nhật thông tin nhân viên!");
+      alert("Lá»—i káº¿t ná»‘i khi cáº­p nháº­t thÃ´ng tin nhÃ¢n viÃªn!");
     }
   };
 
   const handleSetResigned = async (staffId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn cho nhân viên này nghỉ việc? Nhân viên sẽ bị ẩn khỏi danh sách và bảng lương.")) {
+    if (!confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n cho nhÃ¢n viÃªn nÃ y nghá»‰ viá»‡c? NhÃ¢n viÃªn sáº½ bá»‹ áº©n khá»i danh sÃ¡ch vÃ  báº£ng lÆ°Æ¡ng.")) {
       return;
     }
     try {
@@ -1272,28 +1272,28 @@ export default function AdminPortal() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("Đã cập nhật trạng thái nghỉ việc!");
+        alert("ÄÃ£ cáº­p nháº­t tráº¡ng thÃ¡i nghá»‰ viá»‡c!");
         setEditingStaffId(null);
         fetchStaff();
       } else {
-        alert(data.message || "Thao tác thất bại!");
+        alert(data.message || "Thao tÃ¡c tháº¥t báº¡i!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối!");
+      alert("Lá»—i káº¿t ná»‘i!");
     }
   };
 
   const menuItems = [
-    { key: "dashboard", icon: LayoutDashboard, label: "Tổng quan" },
-    { key: "scanqr", icon: ScanLine, label: "Quét QR" },
-    { key: "staff", icon: Users, label: "Nhân viên" },
-    { key: "adjustments", icon: DollarSign, label: "Tính lương" },
-    { key: "promos", icon: Megaphone, label: "Khuyến mãi" },
-    { key: "schedule", icon: Calendar, label: "Lịch trực" },
-    { key: "requests", icon: FileCheck, label: "Duyệt đơn" },
-    { key: "feedback", icon: MessageSquare, label: "Ý kiến góp ý" },
-    { key: "config", icon: Settings, label: "Cấu hình" },
+    { key: "dashboard", icon: LayoutDashboard, label: "Tá»•ng quan" },
+    { key: "scanqr", icon: ScanLine, label: "QuÃ©t QR" },
+    { key: "staff", icon: Users, label: "NhÃ¢n viÃªn" },
+    { key: "adjustments", icon: DollarSign, label: "TÃ­nh lÆ°Æ¡ng" },
+    { key: "promos", icon: Megaphone, label: "Khuyáº¿n mÃ£i" },
+    { key: "schedule", icon: Calendar, label: "Lá»‹ch trá»±c" },
+    { key: "requests", icon: FileCheck, label: "Duyá»‡t Ä‘Æ¡n" },
+    { key: "feedback", icon: MessageSquare, label: "Ã kiáº¿n gÃ³p Ã½" },
+    { key: "config", icon: Settings, label: "Cáº¥u hÃ¬nh" },
   ];
 
   const getAvatarBg = (name: string) => {
@@ -1315,10 +1315,10 @@ export default function AdminPortal() {
     const totalShifts = shifts?.length || 0;
 
     const kpis = [
-      { label: "Tổng Khách Hàng", value: totalCust, icon: Users, subText: "+4.2% so với tháng trước", subClass: "text-emerald-600" },
-      { label: "Tổng Điểm Tích Lũy", value: totalPts, icon: TrendingUp, subText: "+8.5% so với tháng trước", subClass: "text-emerald-600" },
-      { label: "Đơn Chờ Xét Duyệt", value: pendingReqs, icon: FileCheck, subText: "Yêu cầu cần giải quyết", subClass: pendingReqs > 0 ? "text-[#7A2F1E]" : "text-gray-400" },
-      { label: "Số Ca Trực Tuần", value: totalShifts, icon: Calendar, subText: "Đã phân bổ ca trực", subClass: "text-gray-400" },
+      { label: "Tá»•ng KhÃ¡ch HÃ ng", value: totalCust, icon: Users, subText: "+4.2% so vá»›i thÃ¡ng trÆ°á»›c", subClass: "text-emerald-600" },
+      { label: "Tá»•ng Äiá»ƒm TÃ­ch LÅ©y", value: totalPts, icon: TrendingUp, subText: "+8.5% so vá»›i thÃ¡ng trÆ°á»›c", subClass: "text-emerald-600" },
+      { label: "ÄÆ¡n Chá» XÃ©t Duyá»‡t", value: pendingReqs, icon: FileCheck, subText: "YÃªu cáº§u cáº§n giáº£i quyáº¿t", subClass: pendingReqs > 0 ? "text-[#7A2F1E]" : "text-gray-400" },
+      { label: "Sá»‘ Ca Trá»±c Tuáº§n", value: totalShifts, icon: Calendar, subText: "ÄÃ£ phÃ¢n bá»• ca trá»±c", subClass: "text-gray-400" },
     ];
 
     return (
@@ -1326,15 +1326,15 @@ export default function AdminPortal() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-100 pb-4">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-[#4B3621]">
-              Tổng quan vận hành
+              Tá»•ng quan váº­n hÃ nh
             </h2>
             <p className="text-xs text-[#7c4831]/80 mt-1">
-              Chuỗi: {activeBrand ? activeBrand.name.split(" - ")[0] : "The Moods"} • Chi nhánh: {activeLocation ? (activeLocation.name.split(" - ")[1] || activeLocation.name) : "Toàn hệ thống"}
+              Chuá»—i: {activeBrand ? activeBrand.name.split(" - ")[0] : "The Moods"} â€¢ Chi nhÃ¡nh: {activeLocation ? (activeLocation.name.split(" - ")[1] || activeLocation.name) : "ToÃ n há»‡ thá»‘ng"}
             </p>
           </div>
           <div className="flex items-center gap-2 bg-[#FAF9F6] border border-gray-100 py-1 px-3 rounded-full text-[10px] font-semibold text-[#4B3621]/80 shrink-0">
             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-            Trạng thái: Hoạt động bình thường
+            Tráº¡ng thÃ¡i: Hoáº¡t Ä‘á»™ng bÃ¬nh thÆ°á»ng
           </div>
         </div>
 
@@ -1345,7 +1345,7 @@ export default function AdminPortal() {
                 <span className="w-8 h-8 rounded-lg bg-[#FAF9F6] border border-gray-100 flex items-center justify-center">
                   <k.icon size={14} className="text-[#7c4831]" />
                 </span>
-                <span className="text-[9px] font-semibold text-[#7c4831]/60">Số liệu</span>
+                <span className="text-[9px] font-semibold text-[#7c4831]/60">Sá»‘ liá»‡u</span>
               </div>
               <p className="text-xl  font-bold text-[#4B3621] tracking-tight">{k.value.toLocaleString("vi-VN")}</p>
               <p className="text-xs font-semibold text-[#4B3621] mt-1">{k.label}</p>
@@ -1360,7 +1360,7 @@ export default function AdminPortal() {
           <div className="card space-y-4 flex flex-col justify-between border border-gray-100">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3.5 text-[#7c4831]">
-                <Clock size={14} className="text-[#7c4831]" /> Nhật ký hoạt động
+                <Clock size={14} className="text-[#7c4831]" /> Nháº­t kÃ½ hoáº¡t Ä‘á»™ng
               </h3>
               <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1 mt-3">
                 {(logs || []).slice(-8).reverse().map((l: any) => (
@@ -1373,7 +1373,7 @@ export default function AdminPortal() {
                         <span className="text-[#4B3621]/90 leading-relaxed text-xs">{l.description}</span>
                         <span className="pill bg-[#FAF3E0] text-[#7c4831] text-[8px] font-semibold shrink-0 border border-[#7c4831]/10">{l.action}</span>
                       </div>
-                      <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} • {l.time}</p>
+                      <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} â€¢ {l.time}</p>
                     </div>
                   </div>
                 ))}
@@ -1385,10 +1385,10 @@ export default function AdminPortal() {
           <div className="card space-y-4 flex flex-col justify-between border border-gray-100">
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3.5 text-[#7c4831]">
-                <TrendingUp size={14} className="text-[#7c4831]" /> Mật độ giao dịch trong tuần
+                <TrendingUp size={14} className="text-[#7c4831]" /> Máº­t Ä‘á»™ giao dá»‹ch trong tuáº§n
               </h3>
               <p className="text-xs text-[#4B3621]/80 leading-relaxed mt-2.5">
-                Thống kê lượng giao dịch tích điểm của khách hàng tại chi nhánh theo khung giờ trong tuần.
+                Thá»‘ng kÃª lÆ°á»£ng giao dá»‹ch tÃ­ch Ä‘iá»ƒm cá»§a khÃ¡ch hÃ ng táº¡i chi nhÃ¡nh theo khung giá» trong tuáº§n.
               </p>
 
               <div className="grid grid-cols-7 gap-2.5 pt-3.5">
@@ -1409,32 +1409,32 @@ export default function AdminPortal() {
 
             <div className="border-t border-gray-100 pt-3">
               <div className="flex justify-end gap-2.5 text-[8px] font-semibold text-[#7c4831]/60 uppercase tracking-widest">
-                <span>Thưa thớt</span>
+                <span>ThÆ°a thá»›t</span>
                 <div className="w-16 h-1.5 bg-gradient-to-r from-[#FAF9F6] to-[#7c4831] border border-gray-100 rounded-full" />
-                <span>Đông đúc</span>
+                <span>ÄÃ´ng Ä‘Ãºc</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* === NOTE GỢI NHÂN VIÊN === */}
+        {/* === NOTE Gá»¢I NHÃ‚N VIÃŠN === */}
         <div className="card space-y-4 border border-[#7c4831]/15 bg-gradient-to-br from-[#FEF3C7]/40 to-white">
           <div className="flex items-center justify-between border-b border-[#7c4831]/10 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xl">📋</span>
+              <span className="text-xl">ðŸ“‹</span>
               <div>
-                <h3 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Note gởi Nhân Viên</h3>
-                <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">Nhẫn tin nội bộ — hiển thị trên trang Hồ sơ của nhân viên</p>
+                <h3 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Note gá»Ÿi NhÃ¢n ViÃªn</h3>
+                <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">Nháº«n tin ná»™i bá»™ â€” hiá»ƒn thá»‹ trÃªn trang Há»“ sÆ¡ cá»§a nhÃ¢n viÃªn</p>
               </div>
             </div>
             {managerNoteSaved && (
-              <span className="pill pill-green border text-[10px] font-bold animate-fadeIn">✓ Đã lưu</span>
+              <span className="pill pill-green border text-[10px] font-bold animate-fadeIn">âœ“ ÄÃ£ lÆ°u</span>
             )}
           </div>
           <textarea
             value={managerNote}
             onChange={e => setManagerNote(e.target.value)}
-            placeholder="Nhập nội dung nhắc nhở, thông báo nội bộ gửi tới nhân viên..."
+            placeholder="Nháº­p ná»™i dung nháº¯c nhá»Ÿ, thÃ´ng bÃ¡o ná»™i bá»™ gá»­i tá»›i nhÃ¢n viÃªn..."
             className="input w-full text-sm font-semibold resize-none"
             rows={4}
             id="admin-manager-note"
@@ -1444,7 +1444,7 @@ export default function AdminPortal() {
             onClick={handleSaveManagerNote}
             className="btn btn-primary py-2.5 text-sm font-bold flex items-center gap-2"
           >
-            💾 Lưu & Gửi cho nhân viên
+            ðŸ’¾ LÆ°u & Gá»­i cho nhÃ¢n viÃªn
           </button>
         </div>
       </div>
@@ -1455,28 +1455,28 @@ export default function AdminPortal() {
   const PromosView = () => (
     <div className="space-y-6 anim-fadeUp text-[#4B3621]">
       <div className="border-b border-gray-200/50 pb-4">
-        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Khuyến Mãi & Bản Tin</h2>
-        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tạo các bài viết ưu đãi mới nhất trên thiết bị khách hàng</p>
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Khuyáº¿n MÃ£i & Báº£n Tin</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Táº¡o cÃ¡c bÃ i viáº¿t Æ°u Ä‘Ã£i má»›i nháº¥t trÃªn thiáº¿t bá»‹ khÃ¡ch hÃ ng</p>
       </div>
 
-      <form onSubmit={e => { e.preventDefault(); if (!promoTitle) return; addPromotion(promoTitle, promoDesc, promoImg, promoExpiry || undefined); alert("Đăng tải chiến dịch khuyến mãi thành công!"); setPromoTitle(""); setPromoDesc(""); setPromoExpiry(""); }} className="card space-y-4">
+      <form onSubmit={e => { e.preventDefault(); if (!promoTitle) return; addPromotion(promoTitle, promoDesc, promoImg, promoExpiry || undefined); alert("ÄÄƒng táº£i chiáº¿n dá»‹ch khuyáº¿n mÃ£i thÃ nh cÃ´ng!"); setPromoTitle(""); setPromoDesc(""); setPromoExpiry(""); }} className="card space-y-4">
         <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-          <Plus size={16} className="text-[#7c4831]" /> Tạo Chương Trình Mới
+          <Plus size={16} className="text-[#7c4831]" /> Táº¡o ChÆ°Æ¡ng TrÃ¬nh Má»›i
         </h3>
         <div className="space-y-3.5">
-          <input type="text" placeholder="Tiêu đề chương trình ưu đãi *" required value={promoTitle} onChange={e => setPromoTitle(e.target.value)} className="input w-full text-sm font-semibold" id="promo-title" />
-          <textarea placeholder="Mô tả nội dung chương trình khuyến mãi chi tiết..." value={promoDesc} onChange={e => setPromoDesc(e.target.value)} className="input w-full text-sm resize-none font-semibold" rows={3} id="promo-desc" />
-          <input type="url" placeholder="Đường dẫn hình ảnh quảng cáo (URL)" value={promoImg} onChange={e => setPromoImg(e.target.value)} className="input w-full text-sm font-semibold" id="promo-img" />
+          <input type="text" placeholder="TiÃªu Ä‘á» chÆ°Æ¡ng trÃ¬nh Æ°u Ä‘Ã£i *" required value={promoTitle} onChange={e => setPromoTitle(e.target.value)} className="input w-full text-sm font-semibold" id="promo-title" />
+          <textarea placeholder="MÃ´ táº£ ná»™i dung chÆ°Æ¡ng trÃ¬nh khuyáº¿n mÃ£i chi tiáº¿t..." value={promoDesc} onChange={e => setPromoDesc(e.target.value)} className="input w-full text-sm resize-none font-semibold" rows={3} id="promo-desc" />
+          <input type="url" placeholder="ÄÆ°á»ng dáº«n hÃ¬nh áº£nh quáº£ng cÃ¡o (URL)" value={promoImg} onChange={e => setPromoImg(e.target.value)} className="input w-full text-sm font-semibold" id="promo-img" />
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider block">Thời hạn bài đăng (Tự động lưu trữ khi hết hạn)</label>
+            <label className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider block">Thá»i háº¡n bÃ i Ä‘Äƒng (Tá»± Ä‘á»™ng lÆ°u trá»¯ khi háº¿t háº¡n)</label>
             <input type="date" value={promoExpiry} onChange={e => setPromoExpiry(e.target.value)} className="input w-full text-sm font-semibold" id="promo-expiry" />
           </div>
         </div>
-        <button type="submit" className="btn btn-primary py-3 text-xs w-full sm:w-auto"><Megaphone size={14} /> Đăng chiến dịch</button>
+        <button type="submit" className="btn btn-primary py-3 text-xs w-full sm:w-auto"><Megaphone size={14} /> ÄÄƒng chiáº¿n dá»‹ch</button>
       </form>
 
       <div className="space-y-4">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] pl-1">Các ưu đãi đang hiển thị</h3>
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] pl-1">CÃ¡c Æ°u Ä‘Ã£i Ä‘ang hiá»ƒn thá»‹</h3>
         {promotions?.map((p: any) => {
           const isExpired = p.expiryDate && new Date(p.expiryDate) < new Date();
           return (
@@ -1487,23 +1487,23 @@ export default function AdminPortal() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-extrabold uppercase text-[#4B3621]">{p.title}</h4>
-                    {p.status === "archived" && <span className="pill pill-amber border text-[8px]">Đã lưu trữ</span>}
-                    {isExpired && <span className="pill pill-red border text-[8px]">Hết hạn</span>}
+                    {p.status === "archived" && <span className="pill pill-amber border text-[8px]">ÄÃ£ lÆ°u trá»¯</span>}
+                    {isExpired && <span className="pill pill-red border text-[8px]">Háº¿t háº¡n</span>}
                   </div>
                   <p className="text-xs text-[#4B3621]/80 font-medium leading-relaxed line-clamp-2">{p.description}</p>
                   <div className="flex flex-wrap gap-2 pt-1">
-                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider block">Ngày đăng: {p.date}</span>
+                    <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider block">NgÃ y Ä‘Äƒng: {p.date}</span>
                     {p.expiryDate && (
-                      <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider block">Hạn dùng: {p.expiryDate}</span>
+                      <span className="text-[9px] font-black text-amber-600 uppercase tracking-wider block">Háº¡n dÃ¹ng: {p.expiryDate}</span>
                     )}
                   </div>
                 </div>
               </div>
               <div className="flex gap-2 shrink-0 sm:self-center">
                 {p.status !== "archived" && !isExpired && (
-                  <button onClick={() => { archivePromotion(p.id); alert("Đã thu hồi bài viết thành công!"); }} className="btn btn-danger py-1.5 px-3 text-[10px] font-bold">Thu hồi</button>
+                  <button onClick={() => { archivePromotion(p.id); alert("ÄÃ£ thu há»“i bÃ i viáº¿t thÃ nh cÃ´ng!"); }} className="btn btn-danger py-1.5 px-3 text-[10px] font-bold">Thu há»“i</button>
                 )}
-                <button onClick={() => { if (confirm("Xác nhận xóa vĩnh viễn bài đăng này?")) { deletePromotion(p.id); } }} className="btn btn-ghost py-1.5 px-3 text-[10px] font-bold text-red-600 border-red-200 hover:bg-red-50">Xóa</button>
+                <button onClick={() => { if (confirm("XÃ¡c nháº­n xÃ³a vÄ©nh viá»…n bÃ i Ä‘Äƒng nÃ y?")) { deletePromotion(p.id); } }} className="btn btn-ghost py-1.5 px-3 text-[10px] font-bold text-red-600 border-red-200 hover:bg-red-50">XÃ³a</button>
               </div>
             </div>
           );
@@ -1518,7 +1518,7 @@ export default function AdminPortal() {
     const staffOnly = staffList.filter((s: any) => s.roleId === 3);
 
     const getStaffSkill = (sIdx: number) => {
-      const skills = ["Pha chế", "Phục vụ", "Thu ngân"];
+      const skills = ["Pha cháº¿", "Phá»¥c vá»¥", "Thu ngÃ¢n"];
       return skills[sIdx % 3];
     };
 
@@ -1541,7 +1541,7 @@ export default function AdminPortal() {
       const staff = staffOnly.find((st: any) => st.id === s.userId);
       return {
         ...s,
-        staffName: staff ? staff.fullName : (s.user?.fullName || "Nhân viên")
+        staffName: staff ? staff.fullName : (s.user?.fullName || "NhÃ¢n viÃªn")
       };
     });
 
@@ -1560,14 +1560,14 @@ export default function AdminPortal() {
           body: JSON.stringify(body)
         });
         if (res.ok) {
-          alert("Xếp ca nhanh thành công!");
+          alert("Xáº¿p ca nhanh thÃ nh cÃ´ng!");
           fetchOfficialSchedules();
         } else {
-          alert("Lỗi khi xếp ca nhanh!");
+          alert("Lá»—i khi xáº¿p ca nhanh!");
         }
       } catch (err) {
         console.error(err);
-        alert("Lỗi mạng!");
+        alert("Lá»—i máº¡ng!");
       }
     };
 
@@ -1592,7 +1592,7 @@ export default function AdminPortal() {
       const monday = getMondayOfCurrentWeek();
       monday.setDate(monday.getDate() + offset * 7);
       const days = [];
-      const labels = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+      const labels = ["Thá»© 2", "Thá»© 3", "Thá»© 4", "Thá»© 5", "Thá»© 6", "Thá»© 7", "Chá»§ Nháº­t"];
       for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
@@ -1620,11 +1620,11 @@ export default function AdminPortal() {
 
     // Helper: Get shift status color and description
     const getShiftStatus = (userId: string, date: string, sched: any) => {
-      if (!sched) return { color: "gray", text: "OFF", label: "OFF", icon: "✓" };
+      if (!sched) return { color: "gray", text: "OFF", label: "OFF", icon: "âœ“" };
 
       const avails = devAvailsList.filter((a: any) => a.userId === userId && a.date === date);
       if (avails.length === 0) {
-        return { color: "red", text: "Ngoài thời gian đăng ký (Chưa đăng ký ca rảnh)", label: "Đỏ (Sai đăng ký)", icon: "⚠" };
+        return { color: "red", text: "NgoÃ i thá»i gian Ä‘Äƒng kÃ½ (ChÆ°a Ä‘Äƒng kÃ½ ca ráº£nh)", label: "Äá» (Sai Ä‘Äƒng kÃ½)", icon: "âš " };
       }
 
       const sStart = parseTime(sched.startTime);
@@ -1638,15 +1638,15 @@ export default function AdminPortal() {
 
         // Exact match
         if (Math.abs(sStart - aStart) < 0.05 && Math.abs(sEnd - aEnd) < 0.05) {
-          return { color: "green", text: "Đúng với thời gian đăng ký", label: "Xanh (Khớp 100%)", icon: "✓" };
+          return { color: "green", text: "ÄÃºng vá»›i thá»i gian Ä‘Äƒng kÃ½", label: "Xanh (Khá»›p 100%)", icon: "âœ“" };
         }
         // Partial overlap / changed shift
         if (sStart >= aStart && sEnd <= aEnd) {
-          return { color: "yellow", text: "Ca đã được thay đổi/thu nhỏ so với đăng ký", label: "Vàng (Thay đổi)", icon: "✎" };
+          return { color: "yellow", text: "Ca Ä‘Ã£ Ä‘Æ°á»£c thay Ä‘á»•i/thu nhá» so vá»›i Ä‘Äƒng kÃ½", label: "VÃ ng (Thay Ä‘á»•i)", icon: "âœŽ" };
         }
       }
 
-      return { color: "red", text: "Xếp vào thời gian không đăng ký", label: "Đỏ (Sai đăng ký)", icon: "⚠" };
+      return { color: "red", text: "Xáº¿p vÃ o thá»i gian khÃ´ng Ä‘Äƒng kÃ½", label: "Äá» (Sai Ä‘Äƒng kÃ½)", icon: "âš " };
     };
 
     // KPI Calculations
@@ -1679,13 +1679,13 @@ export default function AdminPortal() {
           if (existing) {
             const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules/${existing.id}`, { method: "DELETE" });
             if (res.ok) {
-              alert("Đã cập nhật: OFF");
+              alert("ÄÃ£ cáº­p nháº­t: OFF");
               fetchOfficialSchedules();
             } else {
-              alert("Lỗi khi cập nhật OFF!");
+              alert("Lá»—i khi cáº­p nháº­t OFF!");
             }
           } else {
-            alert("Đã là ca OFF");
+            alert("ÄÃ£ lÃ  ca OFF");
           }
         } else {
           // Save / Update schedule
@@ -1710,26 +1710,26 @@ export default function AdminPortal() {
           });
 
           if (res.ok) {
-            alert("Lưu ca làm việc thành công!");
+            alert("LÆ°u ca lÃ m viá»‡c thÃ nh cÃ´ng!");
             fetchOfficialSchedules();
           } else {
-            alert("Lỗi khi lưu ca làm việc!");
+            alert("Lá»—i khi lÆ°u ca lÃ m viá»‡c!");
           }
         }
         setEditingCell(null);
       } catch (err) {
         console.error(err);
-        alert("Lỗi mạng khi lưu!");
+        alert("Lá»—i máº¡ng khi lÆ°u!");
       }
     };
 
     // Preset options for quick register/matrix setup
     const presetOptions = [
       { value: "OFF", label: "OFF" },
-      { value: "06:00-14:00", label: "Sáng (06-14)" },
-      { value: "07:00-14:00", label: "Sáng (07-14)" },
-      { value: "14:00-23:00", label: "Chiều (14-23)" },
-      { value: "17:00-23:00", label: "Tối (17-23)" },
+      { value: "06:00-14:00", label: "SÃ¡ng (06-14)" },
+      { value: "07:00-14:00", label: "SÃ¡ng (07-14)" },
+      { value: "14:00-23:00", label: "Chiá»u (14-23)" },
+      { value: "17:00-23:00", label: "Tá»‘i (17-23)" },
       { value: "23:00-07:00", label: "Khuya (23-07)" }
     ];
 
@@ -1775,23 +1775,23 @@ export default function AdminPortal() {
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 pb-4">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">QUẢN LÝ LỊCH CA</h2>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">QUáº¢N LÃ Lá»ŠCH CA</h2>
             <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">
-              Tuần {weekDays[0].dayNum} – {weekDays[6].dayNum} ({weekDays[0].dateStr.split('-')[0]})
+              Tuáº§n {weekDays[0].dayNum} â€“ {weekDays[6].dayNum} ({weekDays[0].dateStr.split('-')[0]})
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5">
             {/* Week offsets */}
             <div className="flex gap-1 bg-[#FAF9F6] border border-gray-150 p-1 rounded-2xl">
-              <button onClick={() => setWeekOffset(weekOffset - 1)} className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#4B3621] hover:bg-[#7c4831]/5">Tuần trước</button>
-              <button onClick={() => setWeekOffset(0)} className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${weekOffset === 0 ? "bg-[#7c4831] text-white shadow-xs" : "text-[#4B3621] hover:bg-[#7c4831]/5"}`}>Tuần này</button>
-              <button onClick={() => setWeekOffset(weekOffset + 1)} className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#4B3621] hover:bg-[#7c4831]/5">Tuần sau</button>
+              <button onClick={() => setWeekOffset(weekOffset - 1)} className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#4B3621] hover:bg-[#7c4831]/5">Tuáº§n trÆ°á»›c</button>
+              <button onClick={() => setWeekOffset(0)} className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all ${weekOffset === 0 ? "bg-[#7c4831] text-white shadow-xs" : "text-[#4B3621] hover:bg-[#7c4831]/5"}`}>Tuáº§n nÃ y</button>
+              <button onClick={() => setWeekOffset(weekOffset + 1)} className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#4B3621] hover:bg-[#7c4831]/5">Tuáº§n sau</button>
             </div>
 
             {/* Registration Gate Status */}
             <div className="flex items-center gap-2 bg-[#FAF9F6] border border-gray-150 py-1.5 px-3 rounded-2xl shadow-xs">
-              <span className="text-xs font-bold text-[#7c4831] uppercase">Cổng đăng ký:</span>
+              <span className="text-xs font-bold text-[#7c4831] uppercase">Cá»•ng Ä‘Äƒng kÃ½:</span>
               <button
                 onClick={handleToggleRegGate}
                 type="button"
@@ -1800,7 +1800,7 @@ export default function AdminPortal() {
                 <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${!isRegGateLocked ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
               <span className={`text-[10px] font-black uppercase ${!isRegGateLocked ? "text-emerald-700" : "text-gray-400"}`}>
-                {!isRegGateLocked ? "ĐANG MỞ" : "ĐÃ KHÓA"}
+                {!isRegGateLocked ? "ÄANG Má»ž" : "ÄÃƒ KHÃ“A"}
               </span>
             </div>
 
@@ -1811,7 +1811,7 @@ export default function AdminPortal() {
               onClick={() => window.open(`${getApiBaseUrl()}/api/attendance/schedules/export?locationId=${activeLocation?.id || "govap-branch"}&weekOffset=${weekOffset}`, "_blank")}
               className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
-              <span>Xuất Excel</span>
+              <span>Xuáº¥t Excel</span>
             </button>
           </div>
         </div>
@@ -1823,18 +1823,18 @@ export default function AdminPortal() {
               onClick={() => { setDevTab("matrix"); setSelectedDayDetail(null); }}
               className={`py-1.5 px-4 text-xs font-extrabold uppercase rounded-xl transition-all ${devTab === "matrix" && !selectedDayDetail ? "bg-white text-[#7c4831] shadow-xs" : "text-[#7c4831]/60 hover:bg-white/30 hover:text-[#7c4831]"}`}
             >
-              Bảng phân ca chính (Matrix)
+              Báº£ng phÃ¢n ca chÃ­nh (Matrix)
             </button>
             <button
               onClick={() => { setDevTab("avail_matrix"); setSelectedDayDetail(null); }}
               className={`py-1.5 px-4 text-xs font-extrabold uppercase rounded-xl transition-all ${devTab === "avail_matrix" ? "bg-white text-[#7c4831] shadow-xs" : "text-[#7c4831]/60 hover:bg-white/30 hover:text-[#7c4831]"}`}
             >
-              Bảng đăng ký ca rảnh
+              Báº£ng Ä‘Äƒng kÃ½ ca ráº£nh
             </button>
           </div>
           {selectedDayDetail && (
             <div className="bg-amber-50 border border-amber-250 py-1.5 px-4 text-xs font-extrabold text-[#7c4831] uppercase rounded-2xl shadow-xs">
-              Chi tiết ngày: {selectedDayDetail.split('-').reverse().join('/')}
+              Chi tiáº¿t ngÃ y: {selectedDayDetail.split('-').reverse().join('/')}
             </div>
           )}
         </div>
@@ -1843,23 +1843,23 @@ export default function AdminPortal() {
         {devTab === "matrix" && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
             <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
-              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
+              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tá»•ng nhÃ¢n viÃªn</span>
+              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} ngÆ°á»i</span>
             </div>
             <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
+              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tá»•ng sá»‘ ca tuáº§n</span>
               <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
             </div>
             <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
+              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khá»›p 100% (Xanh)</span>
               <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
             </div>
             <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
+              <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay Ä‘á»•i (VÃ ng)</span>
               <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
             </div>
             <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
+              <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai Ä‘Äƒng kÃ½ (Äá»)</span>
               <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
             </div>
           </div>
@@ -1871,23 +1871,23 @@ export default function AdminPortal() {
           <div className="card p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded-md bg-emerald-100 border border-emerald-250 inline-block" />
-              <span>Khớp 100% đăng ký</span>
+              <span>Khá»›p 100% Ä‘Äƒng kÃ½</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded-md bg-amber-100 border border-amber-250 inline-block" />
-              <span>Lệch khung giờ đăng ký</span>
+              <span>Lá»‡ch khung giá» Ä‘Äƒng kÃ½</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded-md bg-rose-100 border border-rose-250 inline-block" />
-              <span>Không đăng ký rảnh (Bận/Chưa đăng ký)</span>
+              <span>KhÃ´ng Ä‘Äƒng kÃ½ ráº£nh (Báº­n/ChÆ°a Ä‘Äƒng kÃ½)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded-md bg-blue-50 border border-dashed border-blue-200 inline-block" />
-              <span>OFF (Có đăng ký rảnh)</span>
+              <span>OFF (CÃ³ Ä‘Äƒng kÃ½ ráº£nh)</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-3.5 h-3.5 rounded-md bg-gray-100 border border-gray-250 inline-block" />
-              <span>OFF (Không đăng ký rảnh)</span>
+              <span>OFF (KhÃ´ng Ä‘Äƒng kÃ½ ráº£nh)</span>
             </div>
           </div>
         )}
@@ -1898,7 +1898,7 @@ export default function AdminPortal() {
               <table className="w-full min-w-[1000px] text-center border-collapse">
                 <thead>
                   <tr className="bg-[#FAF9F6] border-b border-gray-200 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                    <th className="p-3 text-left w-[15%]">Nhân viên</th>
+                    <th className="p-3 text-left w-[15%]">NhÃ¢n viÃªn</th>
                     {weekDays.map(day => (
                       <th
                         key={day.dateStr}
@@ -1969,37 +1969,37 @@ export default function AdminPortal() {
                               {sched ? (
                                 <div>
 {isLeaveApproved ? (
-                                    <div className="text-[7.5px] font-black tracking-tight mb-1 text-rose-800">🚨 XIN VẮNG</div>
+                                    <div className="text-[7.5px] font-black tracking-tight mb-1 text-rose-800">ðŸš¨ XIN Váº®NG</div>
                                   ) : (
                                     <div className={`text-[7.5px] font-black tracking-tight mb-1 ${
                                       status.color === "green" ? "text-emerald-800" :
                                       status.color === "yellow" ? "text-amber-800" :
                                       "text-rose-800"
                                     }`}>
-                                      {status.color === "green" ? "🟢 ĐÃ CHỐT" :
-                                       status.color === "yellow" ? "🟡 LỆCH GIỜ" :
-                                       "🔴 SAI LỊCH"}
+                                      {status.color === "green" ? "ðŸŸ¢ ÄÃƒ CHá»T" :
+                                       status.color === "yellow" ? "ðŸŸ¡ Lá»†CH GIá»œ" :
+                                       "ðŸ”´ SAI Lá»ŠCH"}
                                     </div>
                                   )}
 {isLeaveApproved ? (
                                     <>
                                       <div className="line-through text-stone-400">{sched.startTime}</div>
-                                      <div className="text-[8px] font-semibold text-stone-400 my-0.5">đến</div>
-                                      <div className="line-through text-stone-400">{sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</div>
+                                      <div className="text-[8px] font-semibold text-stone-400 my-0.5">Ä‘áº¿n</div>
+                                      <div className="line-through text-stone-400">{sched.endTime}{crossesMidnight ? " (HÃ´m sau)" : ""}</div>
                                     </>
                                   ) : (
                                     <>
                                       <div>{sched.startTime}</div>
-                                      <div className="text-[8px] font-semibold text-stone-500/80 my-0.5">đến</div>
-                                      <div>{sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</div>
+                                      <div className="text-[8px] font-semibold text-stone-500/80 my-0.5">Ä‘áº¿n</div>
+                                      <div>{sched.endTime}{crossesMidnight ? " (HÃ´m sau)" : ""}</div>
                                     </>
                                   )}
                                 </div>
                               ) : hasAvail ? (
                                 <>
-                                  <div className="text-blue-900 font-black tracking-wide">RẢNH</div>
+                                  <div className="text-blue-900 font-black tracking-wide">Ráº¢NH</div>
                                   <div className="text-[8px] font-extrabold text-blue-800 tracking-tight mt-1.5 leading-normal">
-                                    Rảnh: {avails.map((a: any) => parseTime(a.endTime) < parseTime(a.startTime) ? `${a.startTime}-${a.endTime} (Hôm sau)` : `${a.startTime}-${a.endTime}`).join(', ')}
+                                    Ráº£nh: {avails.map((a: any) => parseTime(a.endTime) < parseTime(a.startTime) ? `${a.startTime}-${a.endTime} (HÃ´m sau)` : `${a.startTime}-${a.endTime}`).join(', ')}
                                   </div>
                                 </>
                               ) : (
@@ -2022,9 +2022,9 @@ export default function AdminPortal() {
         {/* STAFF AVAILS REGISTRY MATRIX */}
         {devTab === "avail_matrix" && !selectedDayDetail && (() => {
           const shiftCategories = [
-            { key: "sang", title: "Sáng", hours: "06:00 - 12:00", startHour: 6, filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
-            { key: "chieu", title: "Chiều", hours: "12:00 - 18:00", startHour: 12, filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
-            { key: "toi", title: "Tối", hours: "18:00 - 00:00", startHour: 18, filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
+            { key: "sang", title: "SÃ¡ng", hours: "06:00 - 12:00", startHour: 6, filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
+            { key: "chieu", title: "Chiá»u", hours: "12:00 - 18:00", startHour: 12, filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
+            { key: "toi", title: "Tá»‘i", hours: "18:00 - 00:00", startHour: 18, filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
             { key: "khuya", title: "Khuya", hours: "00:00 - 06:00", startHour: 0, filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
           ];
 
@@ -2032,8 +2032,8 @@ export default function AdminPortal() {
             <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
               <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
                 <div>
-                  <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Đăng Ký Khung Giờ Rảnh</h3>
-                  <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Sắp xếp trực quan theo ca làm việc của từng nhân sự</p>
+                  <h3 className="text-xs font-black uppercase text-[#7c4831]">Báº£ng ÄÄƒng KÃ½ Khung Giá» Ráº£nh</h3>
+                  <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Sáº¯p xáº¿p trá»±c quan theo ca lÃ m viá»‡c cá»§a tá»«ng nhÃ¢n sá»±</p>
                 </div>
               </div>
 
@@ -2041,7 +2041,7 @@ export default function AdminPortal() {
                 <table className="w-full min-w-[1000px] text-center border-collapse">
                   <thead>
                     <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                      <th className="p-3 text-left w-[110px] min-w-[110px] whitespace-nowrap">Buổi ca</th>
+                      <th className="p-3 text-left w-[110px] min-w-[110px] whitespace-nowrap">Buá»•i ca</th>
                       {weekDays.map(day => (
                         <th key={day.dateStr} className="p-1.5 md:p-2.5 border-l border-gray-200">
                           <div className="text-[9px] md:text-[10px]">{day.label}</div>
@@ -2065,7 +2065,7 @@ export default function AdminPortal() {
                               <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
                                 {avails.length === 0 ? (
                                   <div className="py-7 px-1 text-center border border-dashed border-gray-200 rounded-2xl text-[8.5px] text-gray-400 font-extrabold uppercase select-none flex-grow flex items-center justify-center">
-                                    Trống
+                                    Trá»‘ng
                                   </div>
                                 ) : (
                                   avails.map((avail: any) => {
@@ -2091,12 +2091,12 @@ export default function AdminPortal() {
                                     return (
                                       <div key={avail.id} className={`p-2.5 rounded-2xl border ${col.bg} space-y-2 shadow-xs transition-transform duration-100 hover:scale-[1.02] touch-pan-x pointer-events-none`}>
                                         <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center gap-1">
-                                          <span>{skill === "Pha chế" ? "☕" : skill === "Phục vụ" ? "🛎" : "💵"}</span>
+                                          <span>{skill === "Pha cháº¿" ? "â˜•" : skill === "Phá»¥c vá»¥" ? "ðŸ›Ž" : "ðŸ’µ"}</span>
                                           <span>{s.fullName} [{skill}]</span>
                                         </div>
                                         <div className="space-y-1">
                                           <div className="text-[8px] font-black opacity-85">
-                                            {avail.startTime} - {avail.endTime}{crossesMidnight ? " (Hôm sau)" : ""}
+                                            {avail.startTime} - {avail.endTime}{crossesMidnight ? " (HÃ´m sau)" : ""}
                                           </div>
                                         </div>
                                         
@@ -2107,19 +2107,19 @@ export default function AdminPortal() {
                                             if (isLeaveApprovedForColleague) {
                                               return (
                                                 <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50/90 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
-                                                  🚨 XIN VẮNG
+                                                  ðŸš¨ XIN Váº®NG
                                                 </div>
                                               );
                                             }
                                             return (
                                               <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50/90 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
-                                                🟢 Đã chốt: {currentSched.startTime}-{currentSched.endTime}{parseTime(currentSched.endTime) < parseTime(currentSched.startTime) ? " (Hôm sau)" : ""}
+                                                ðŸŸ¢ ÄÃ£ chá»‘t: {currentSched.startTime}-{currentSched.endTime}{parseTime(currentSched.endTime) < parseTime(currentSched.startTime) ? " (HÃ´m sau)" : ""}
                                               </div>
                                             );
                                           })()
                                         ) : (
                                           <div className="text-[7.5px] font-black uppercase text-gray-500 bg-stone-50/90 px-1.5 py-0.5 rounded-md border border-stone-200 w-fit">
-                                            ⚪ Chưa chốt
+                                            âšª ChÆ°a chá»‘t
                                           </div>
                                         )}
                                       </div>
@@ -2148,10 +2148,10 @@ export default function AdminPortal() {
                   onClick={() => setSelectedDayDetail(null)}
                   className="px-3 py-1.5 rounded-xl border border-gray-250 bg-[#FAF9F6] text-xs font-black uppercase text-[#7c4831] hover:bg-gray-100"
                 >
-                  ← Quay lại
+                  â† Quay láº¡i
                 </button>
                 <h3 className="text-lg font-black uppercase text-[#7c4831]">
-                  CHI TIẾT PHÂN CA NGÀY {selectedDayDetail.split('-').reverse().join('/')}
+                  CHI TIáº¾T PHÃ‚N CA NGÃ€Y {selectedDayDetail.split('-').reverse().join('/')}
                 </h3>
               </div>
             </div>
@@ -2162,15 +2162,15 @@ export default function AdminPortal() {
               // Helper categorizer
               const categorizeShift = (startTime: string) => {
                 const hour = parseTime(startTime);
-                if (hour >= 5 && hour < 14) return "SÁNG (05:00 - 14:00)";
-                if (hour >= 14 && hour < 22) return "CHIỀU (14:00 - 22:00)";
+                if (hour >= 5 && hour < 14) return "SÃNG (05:00 - 14:00)";
+                if (hour >= 14 && hour < 22) return "CHIá»€U (14:00 - 22:00)";
                 return "KHUYA (22:00 - 05:00)";
               };
 
               const categories = [
-                { title: "SÁNG (06:00 - 12:00)", filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
-                { title: "CHIỀU (12:00 - 18:00)", filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
-                { title: "TỐI (18:00 - 00:00)", filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
+                { title: "SÃNG (06:00 - 12:00)", filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
+                { title: "CHIá»€U (12:00 - 18:00)", filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
+                { title: "Tá»I (18:00 - 00:00)", filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
                 { title: "KHUYA (00:00 - 06:00)", filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
               ];
 
@@ -2195,8 +2195,8 @@ export default function AdminPortal() {
                     });
 
                     const prefixId = cat.title.split(' ')[0]; // SANG, CHIEU, KHUYA, TOI
-                    const defaultStart = cat.title.includes("SÁNG") ? "06:00" : cat.title.includes("CHIỀU") ? "12:00" : cat.title.includes("TỐI") ? "18:00" : "00:00";
-                    const defaultEnd = cat.title.includes("SÁNG") ? "12:00" : cat.title.includes("CHIỀU") ? "18:00" : cat.title.includes("TỐI") ? "00:00" : "06:00";
+                    const defaultStart = cat.title.includes("SÃNG") ? "06:00" : cat.title.includes("CHIá»€U") ? "12:00" : cat.title.includes("Tá»I") ? "18:00" : "00:00";
+                    const defaultEnd = cat.title.includes("SÃNG") ? "12:00" : cat.title.includes("CHIá»€U") ? "18:00" : cat.title.includes("Tá»I") ? "00:00" : "06:00";
 
                     return (
                       <div key={cat.title} className="card border border-[#7c4831]/15 bg-[#FAF9F6] space-y-4 flex flex-col justify-between">
@@ -2204,13 +2204,13 @@ export default function AdminPortal() {
                           <div className="border-b border-[#7c4831]/10 pb-2 flex justify-between items-center">
                             <h4 className="text-xs font-black uppercase tracking-wider text-[#7c4831]">{cat.title}</h4>
                             <span className={`pill text-[8px] font-black uppercase border ${diff >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-150" : "bg-rose-50 text-rose-800 border-rose-150"}`}>
-                              {currentCount} / {requiredCount} Nhân viên
+                              {currentCount} / {requiredCount} NhÃ¢n viÃªn
                             </span>
                           </div>
 
                           <div className="space-y-2">
                             {scheds.length === 0 ? (
-                              <p className="text-[10px] text-gray-400 italic">Chưa xếp nhân sự nào ca này.</p>
+                              <p className="text-[10px] text-gray-400 italic">ChÆ°a xáº¿p nhÃ¢n sá»± nÃ o ca nÃ y.</p>
                             ) : (
                               scheds.map((s: any) => (
                                 <div key={s.id} className="flex justify-between items-center p-2.5 bg-white border border-gray-150 rounded-xl shadow-xs">
@@ -2226,7 +2226,7 @@ export default function AdminPortal() {
                           {/* Candidates list for quick assign */}
                           {availableCandidates.length > 0 && (
                             <div className="space-y-1.5">
-                              <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân sự rảnh khả dụng ({availableCandidates.length}):</span>
+                              <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">NhÃ¢n sá»± ráº£nh kháº£ dá»¥ng ({availableCandidates.length}):</span>
                               <div className="flex flex-wrap gap-1">
                                 {availableCandidates.map((cand: any) => {
                                   const candAvail = devAvailsList.find((a: any) => a.userId === cand.id && a.date === selectedDayDetail && cat.filter(a.startTime));
@@ -2236,7 +2236,7 @@ export default function AdminPortal() {
                                       key={cand.id}
                                       onClick={() => handleQuickAssign(cand.id, selectedDayDetail, candAvail?.startTime || defaultStart, candAvail?.endTime || defaultEnd)}
                                       className="bg-emerald-55/90 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase flex items-center gap-1 transition-all cursor-pointer"
-                                      title="Click xếp ca nhanh"
+                                      title="Click xáº¿p ca nhanh"
                                     >
                                       + {cand.fullName} ({timeRangeStr})
                                     </button>
@@ -2248,21 +2248,21 @@ export default function AdminPortal() {
 
                           {/* Custom Assign Form inline */}
                           <div className="bg-[#FAF9F6] border border-gray-200 p-2.5 rounded-2xl space-y-2">
-                            <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Xếp ca tùy chỉnh:</span>
+                            <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Xáº¿p ca tÃ¹y chá»‰nh:</span>
                             <div className="grid grid-cols-2 gap-1.5">
                               <select
                                 id={`assign-staff-${prefixId}`}
                                 className="select text-[9.5px] font-bold py-1 px-1.5 border border-gray-250 bg-white rounded-lg col-span-2"
                                 defaultValue=""
                               >
-                                <option value="">-- Chọn nhân sự --</option>
+                                <option value="">-- Chá»n nhÃ¢n sá»± --</option>
                                 {staffOnly.map((s: any) => (
                                   <option key={s.id} value={s.id}>{s.fullName}</option>
                                 ))}
                               </select>
 
                               <div className="space-y-0.5">
-                                <span className="text-[8px] font-bold text-gray-400 block">Bắt đầu:</span>
+                                <span className="text-[8px] font-bold text-gray-400 block">Báº¯t Ä‘áº§u:</span>
                                 <input
                                   type="time"
                                   id={`assign-start-${prefixId}`}
@@ -2272,7 +2272,7 @@ export default function AdminPortal() {
                               </div>
 
                               <div className="space-y-0.5">
-                                <span className="text-[8px] font-bold text-gray-400 block">Kết thúc:</span>
+                                <span className="text-[8px] font-bold text-gray-400 block">Káº¿t thÃºc:</span>
                                 <input
                                   type="time"
                                   id={`assign-end-${prefixId}`}
@@ -2292,23 +2292,23 @@ export default function AdminPortal() {
                                   handleQuickAssign(staffSelect.value, selectedDayDetail, startInput.value, endInput.value);
                                   staffSelect.value = "";
                                 } else {
-                                  alert("Vui lòng chọn nhân sự!");
+                                  alert("Vui lÃ²ng chá»n nhÃ¢n sá»±!");
                                 }
                               }}
                               className="btn btn-primary w-full py-1.5 text-[9px] font-extrabold uppercase tracking-wide cursor-pointer"
                             >
-                              Xếp Ca Tùy Chọn
+                              Xáº¿p Ca TÃ¹y Chá»n
                             </button>
                           </div>
 
                           <div>
                             {diff < 0 ? (
                               <div className="p-2 bg-rose-50/55 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-bold">
-                                ⚠️ Thiếu {Math.abs(diff)} nhân sự ca này!
+                                âš ï¸ Thiáº¿u {Math.abs(diff)} nhÃ¢n sá»± ca nÃ y!
                               </div>
                             ) : (
                               <div className="p-2 bg-emerald-50/55 border border-emerald-250 text-emerald-700 rounded-xl text-[10px] font-bold">
-                                ✅ Đủ chỉ tiêu nhân sự.
+                                âœ… Äá»§ chá»‰ tiÃªu nhÃ¢n sá»±.
                               </div>
                             )}
                           </div>
@@ -2328,7 +2328,7 @@ export default function AdminPortal() {
             <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 anim-scaleIn space-y-4">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                  <Calendar size={16} /> Chi Tiết Phân Ca
+                  <Calendar size={16} /> Chi Tiáº¿t PhÃ¢n Ca
                 </h3>
                 <button
                   type="button"
@@ -2341,21 +2341,21 @@ export default function AdminPortal() {
 
               <div className="space-y-3.5 text-xs text-[#4B3621] font-semibold">
                 <div>
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Nhân viên:</span>
+                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">NhÃ¢n viÃªn:</span>
                   <span className="text-sm font-extrabold uppercase text-[#7c4831]">{editingCell.userName}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Ngày trực:</span>
+                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">NgÃ y trá»±c:</span>
                   <span>{editingCell.dateLabel}</span>
                 </div>
 
                 {/* Registered Availability Info */}
                 <div className="p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl space-y-1">
-                  <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Giờ đăng ký rảnh:</span>
+                  <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Giá» Ä‘Äƒng kÃ½ ráº£nh:</span>
                   {(() => {
                     const avails = devAvailsList.filter((a: any) => a.userId === editingCell.userId && a.date === editingCell.date);
                     if (avails.length === 0) {
-                      return <span className="text-rose-600 font-bold uppercase text-[10px]">❌ Không đăng ký ca rảnh ngày này</span>;
+                      return <span className="text-rose-600 font-bold uppercase text-[10px]">âŒ KhÃ´ng Ä‘Äƒng kÃ½ ca ráº£nh ngÃ y nÃ y</span>;
                     }
                     return (
                       <div className="space-y-2 mt-1">
@@ -2370,8 +2370,8 @@ export default function AdminPortal() {
                             }}
                             className="w-full text-left p-2 rounded-xl border border-emerald-350 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 text-[10.5px] font-black uppercase flex items-center justify-between cursor-pointer transition-colors"
                           >
-                            <span>✓ {a.startTime} – {a.endTime}</span>
-                            <span className="text-[8px] bg-emerald-700 text-white py-0.5 px-1.5 rounded-md">Chọn nhanh</span>
+                            <span>âœ“ {a.startTime} â€“ {a.endTime}</span>
+                            <span className="text-[8px] bg-emerald-700 text-white py-0.5 px-1.5 rounded-md">Chá»n nhanh</span>
                           </button>
                         ))}
                       </div>
@@ -2381,7 +2381,7 @@ export default function AdminPortal() {
 
                 {/* Form controls */}
                 <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Ca được xếp:</span>
+                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Ca Ä‘Æ°á»£c xáº¿p:</span>
                   <div className="flex gap-4">
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
@@ -2391,7 +2391,7 @@ export default function AdminPortal() {
                         onChange={() => setCellIsOff(true)}
                         className="text-[#7c4831] focus:ring-[#7c4831]"
                       />
-                      <span>Nghỉ (OFF)</span>
+                      <span>Nghá»‰ (OFF)</span>
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
@@ -2401,7 +2401,7 @@ export default function AdminPortal() {
                         onChange={() => setCellIsOff(false)}
                         className="text-[#7c4831] focus:ring-[#7c4831]"
                       />
-                      <span>Có Đi Làm</span>
+                      <span>CÃ³ Äi LÃ m</span>
                     </label>
                   </div>
                 </div>
@@ -2409,7 +2409,7 @@ export default function AdminPortal() {
                 {!cellIsOff && (
                   <div className="grid grid-cols-2 gap-3 anim-fadeIn">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giờ bắt đầu:</label>
+                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giá» báº¯t Ä‘áº§u:</label>
                       <input
                         type="time"
                         value={cellStartTime}
@@ -2418,7 +2418,7 @@ export default function AdminPortal() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giờ kết thúc:</label>
+                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giá» káº¿t thÃºc:</label>
                       <input
                         type="time"
                         value={cellEndTime}
@@ -2436,14 +2436,14 @@ export default function AdminPortal() {
                   onClick={handleQuickSaveCell}
                   className="btn btn-primary flex-grow text-xs py-2.5 font-bold"
                 >
-                  Lưu thay đổi
+                  LÆ°u thay Ä‘á»•i
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingCell(null)}
                   className="btn btn-ghost text-xs py-2.5 font-bold px-4 border-gray-200"
                 >
-                  Hủy
+                  Há»§y
                 </button>
               </div>
             </div>
@@ -2462,8 +2462,8 @@ export default function AdminPortal() {
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 pb-4">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Tính Lương Nhân Sự</h2>
-            <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tính toán tự động tiền lương, thưởng/phạt đi trễ của nhân viên chi nhánh</p>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">TÃ­nh LÆ°Æ¡ng NhÃ¢n Sá»±</h2>
+            <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">TÃ­nh toÃ¡n tá»± Ä‘á»™ng tiá»n lÆ°Æ¡ng, thÆ°á»Ÿng/pháº¡t Ä‘i trá»… cá»§a nhÃ¢n viÃªn chi nhÃ¡nh</p>
           </div>
           <button
             onClick={exportPayrollToExcel}
@@ -2472,16 +2472,16 @@ export default function AdminPortal() {
             className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
           >
             <RefreshCw size={13} />
-            <span>Xuất Báo Cáo Bảng Lương (Excel)</span>
+            <span>Xuáº¥t BÃ¡o CÃ¡o Báº£ng LÆ°Æ¡ng (Excel)</span>
           </button>
         </div>
 
         {/* Date Selector Form */}
         <div className="card space-y-4">
-          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Chọn thời gian</h3>
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Chá»n thá»i gian</h3>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Từ ngày:</label>
+              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Tá»« ngÃ y:</label>
               <input
                 type="date"
                 value={payrollFromDate}
@@ -2490,7 +2490,7 @@ export default function AdminPortal() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Đến ngày:</label>
+              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Äáº¿n ngÃ y:</label>
               <input
                 type="date"
                 value={payrollToDate}
@@ -2504,7 +2504,7 @@ export default function AdminPortal() {
               type="button"
               className="btn btn-primary text-xs py-2 px-4 h-9 flex items-center gap-1.5"
             >
-              {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
+              {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "TÃ­nh LÆ°Æ¡ng"}
             </button>
           </div>
         </div>
@@ -2512,41 +2512,41 @@ export default function AdminPortal() {
         {/* Payroll Table */}
         <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
           <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Bảng lương chi nhánh</span>
-            <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Báº£ng lÆ°Æ¡ng chi nhÃ¡nh</span>
+            <span className="text-[10px] font-semibold text-gray-500 ">ÄÆ¡n vá»‹: VNÄ</span>
           </div>
 
           <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                  <th className="p-4">Tên</th>
-                  <th className="p-4">Số điện thoại</th>
-                  <th className="p-4 text-right">Lương/giờ</th>
-                  <th className="p-4 text-right">Giờ làm</th>
-                  <th className="p-4 text-right">Lương cơ bản</th>
-                  <th className="p-4 text-right">Thưởng</th>
-                  <th className="p-4 text-right">Phạt</th>
-                  <th className="p-4 text-right">Tạm ứng</th>
-                  <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                  <th className="p-4">TÃªn</th>
+                  <th className="p-4">Sá»‘ Ä‘iá»‡n thoáº¡i</th>
+                  <th className="p-4 text-right">LÆ°Æ¡ng/giá»</th>
+                  <th className="p-4 text-right">Giá» lÃ m</th>
+                  <th className="p-4 text-right">LÆ°Æ¡ng cÆ¡ báº£n</th>
+                  <th className="p-4 text-right">ThÆ°á»Ÿng</th>
+                  <th className="p-4 text-right">Pháº¡t</th>
+                  <th className="p-4 text-right">Táº¡m á»©ng</th>
+                  <th className="p-4 text-right font-black text-[#7c4831]">Thá»±c nháº­n</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                 {payrollList.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
+                    <td colSpan={9} className="p-8 text-center text-gray-400 italic">KhÃ´ng cÃ³ dá»¯ liá»‡u tÃ­nh lÆ°Æ¡ng trong khoáº£ng thá»i gian nÃ y. Báº¥m nÃºt "TÃ­nh LÆ°Æ¡ng" Ä‘á»ƒ táº£i dá»¯ liá»‡u.</td>
                   </tr>
                 ) : (
                   payrollList.map((p: any) => (
                     <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
                       <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
                       <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
-                      <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}Ä‘</td>
                       <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
-                      <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}Ä‘</td>
                       <td className="p-4 text-right  text-emerald-600">
                         <div className="flex items-center justify-end gap-1.5">
-                          <span>+{p.totalBonus?.toLocaleString("vi-VN")}đ</span>
+                          <span>+{p.totalBonus?.toLocaleString("vi-VN")}Ä‘</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -2561,7 +2561,7 @@ export default function AdminPortal() {
                       </td>
                       <td className="p-4 text-right  text-red-600">
                         <div className="flex items-center justify-end gap-1.5">
-                          <span>-{p.totalPenalty?.toLocaleString("vi-VN")}đ</span>
+                          <span>-{p.totalPenalty?.toLocaleString("vi-VN")}Ä‘</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -2576,7 +2576,7 @@ export default function AdminPortal() {
                       </td>
                       <td className="p-4 text-right  text-amber-700">
                         <div className="flex items-center justify-end gap-1.5">
-                          <span>-{p.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
+                          <span>-{p.totalAdvance?.toLocaleString("vi-VN") || 0}Ä‘</span>
                           <button
                             type="button"
                             onClick={() => {
@@ -2589,7 +2589,7 @@ export default function AdminPortal() {
                           </button>
                         </div>
                       </td>
-                      <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}Ä‘</td>
                     </tr>
                   ))
                 )}
@@ -2601,20 +2601,20 @@ export default function AdminPortal() {
         {/* Detailed Attendance Logs Table */}
         <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white mt-6">
           <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Lịch sử chấm công</span>
+            <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Lá»‹ch sá»­ cháº¥m cÃ´ng</span>
             <span className="text-[10px] font-semibold text-gray-500"></span>
           </div>
 
           <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                  <th className="p-4">Tên</th>
-                  <th className="p-4">Ngày</th>
+                  <th className="p-4">TÃªn</th>
+                  <th className="p-4">NgÃ y</th>
                   <th className="p-4">Ca</th>
-                  <th className="p-4 text-center">Giờ vào</th>
-                  <th className="p-4 text-center">Giờ ra</th>
-                  <th className="p-4 text-center">Trạng thái</th>
+                  <th className="p-4 text-center">Giá» vÃ o</th>
+                  <th className="p-4 text-center">Giá» ra</th>
+                  <th className="p-4 text-center">Tráº¡ng thÃ¡i</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -2623,7 +2623,7 @@ export default function AdminPortal() {
                   if (list.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-gray-400 italic">Không có dữ liệu ca trực & chấm công trong khoảng thời gian này.</td>
+                        <td colSpan={6} className="p-8 text-center text-gray-400 italic">KhÃ´ng cÃ³ dá»¯ liá»‡u ca trá»±c & cháº¥m cÃ´ng trong khoáº£ng thá»i gian nÃ y.</td>
                       </tr>
                     );
                   }
@@ -2638,11 +2638,11 @@ export default function AdminPortal() {
                       const startMin = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
                       const realMin = parseInt(realParts[0]) * 60 + parseInt(realParts[1]);
                       if (realMin > startMin) {
-                        lateInfo = `(Trễ ${realMin - startMin} phút)`;
+                        lateInfo = `(Trá»… ${realMin - startMin} phÃºt)`;
                       } else if (startMin - realMin > 720) {
                         const diff = (realMin + 1440) - startMin;
                         if (diff > 0) {
-                          lateInfo = `(Trễ ${diff} phút)`;
+                          lateInfo = `(Trá»… ${diff} phÃºt)`;
                         }
                       }
                     }
@@ -2653,11 +2653,11 @@ export default function AdminPortal() {
                       const endMin = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
                       const realMin = parseInt(realParts[0]) * 60 + parseInt(realParts[1]);
                       if (realMin < endMin) {
-                        earlyInfo = `(Về sớm ${endMin - realMin} phút)`;
+                        earlyInfo = `(Vá» sá»›m ${endMin - realMin} phÃºt)`;
                       } else if (realMin - endMin > 720) {
                         const diff = (endMin + 1440) - realMin;
                         if (diff > 0) {
-                          earlyInfo = `(Về sớm ${diff} phút)`;
+                          earlyInfo = `(Vá» sá»›m ${diff} phÃºt)`;
                         }
                       }
                     }
@@ -2677,11 +2677,11 @@ export default function AdminPortal() {
                         </td>
                         <td className="p-4 text-center">
                           {s.clockedOut ? (
-                            <span className="pill pill-green border border-emerald-200">Hoàn thành</span>
+                            <span className="pill pill-green border border-emerald-200">HoÃ n thÃ nh</span>
                           ) : s.clockedIn ? (
-                            <span className="pill pill-amber border border-amber-200">Đang làm việc</span>
+                            <span className="pill pill-amber border border-amber-200">Äang lÃ m viá»‡c</span>
                           ) : (
-                            <span className="pill pill-red border border-red-200">Vắng / Chưa checkin</span>
+                            <span className="pill pill-red border border-red-200">Váº¯ng / ChÆ°a checkin</span>
                           )}
                         </td>
                       </tr>
@@ -2703,16 +2703,16 @@ export default function AdminPortal() {
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="border-b border-gray-200/50 pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Phê Duyệt Đơn Nhân Sự</h2>
-          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Duyệt xin nghỉ phép và yêu cầu đổi ca trực của nhân viên</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">PhÃª Duyá»‡t ÄÆ¡n NhÃ¢n Sá»±</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Duyá»‡t xin nghá»‰ phÃ©p vÃ  yÃªu cáº§u Ä‘á»•i ca trá»±c cá»§a nhÃ¢n viÃªn</p>
         </div>
 
         <div className="card space-y-4">
           <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#92400E] border-b border-gray-100 pb-3">
-            <FileCheck size={16} /> Danh Sách Đơn Đang Chờ ({pending.length})
+            <FileCheck size={16} /> Danh SÃ¡ch ÄÆ¡n Äang Chá» ({pending.length})
           </h3>
           {pending.length === 0 ? (
-            <p className="text-xs text-gray-400 italic py-6 text-center">Hiện tại không có đơn nào đang chờ duyệt.</p>
+            <p className="text-xs text-gray-400 italic py-6 text-center">Hiá»‡n táº¡i khÃ´ng cÃ³ Ä‘Æ¡n nÃ o Ä‘ang chá» duyá»‡t.</p>
           ) : pending.map((r: any) => (
             <div key={r.id} className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100 space-y-3.5 shadow-xs anim-scaleIn">
               <div className="flex justify-between items-center">
@@ -2722,22 +2722,22 @@ export default function AdminPortal() {
                   </div>
                   <span className="font-extrabold text-sm uppercase tracking-tight text-[#4B3621]">{r.staffName}</span>
                 </div>
-                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"} border`}>{r.type === "leave" ? "Nghỉ phép" : "Đổi ca"}</span>
+                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"} border`}>{r.type === "leave" ? "Nghá»‰ phÃ©p" : "Äá»•i ca"}</span>
               </div>
-              <p className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{r.date} — Lý do: {r.details}</p>
+              <p className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{r.date} â€” LÃ½ do: {r.details}</p>
               <div className="flex gap-2.5 pt-1">
                 <button onClick={async () => {
                   await approveRequest(r.id);
                   fetchOfficialSchedules();
-                }} className="btn btn-success py-2 px-4 text-[10px] font-bold shadow-xs">Duyệt Đơn</button>
-                <button onClick={() => { rejectRequest(r.id); }} className="btn btn-danger py-2 px-4 text-[10px] font-bold shadow-xs">Từ Chối</button>
+                }} className="btn btn-success py-2 px-4 text-[10px] font-bold shadow-xs">Duyá»‡t ÄÆ¡n</button>
+                <button onClick={() => { rejectRequest(r.id); }} className="btn btn-danger py-2 px-4 text-[10px] font-bold shadow-xs">Tá»« Chá»‘i</button>
               </div>
             </div>
           ))}
         </div>
 
         <div className="card space-y-4">
-          <h3 className="text-xs font-extrabold uppercase text-gray-400 border-b border-gray-100 pb-2.5">Đơn Đã Xử Lý ({resolved.length})</h3>
+          <h3 className="text-xs font-extrabold uppercase text-gray-400 border-b border-gray-100 pb-2.5">ÄÆ¡n ÄÃ£ Xá»­ LÃ½ ({resolved.length})</h3>
           <div className="space-y-3">
             {resolved.map((r: any) => (
               <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6]/60 border border-gray-100 text-xs flex justify-between items-center opacity-85 shadow-xs">
@@ -2747,10 +2747,10 @@ export default function AdminPortal() {
                   </div>
                   <div>
                     <p className="font-extrabold uppercase text-[#4B3621] tracking-tight">{r.staffName}</p>
-                    <p className="text-[#7c4831]/70 font-semibold mt-0.5">{r.date} — {r.details}</p>
+                    <p className="text-[#7c4831]/70 font-semibold mt-0.5">{r.date} â€” {r.details}</p>
                   </div>
                 </div>
-                <span className={`pill ${r.status === "approved" ? "pill-green" : "pill-red"} text-[8px] font-bold border`}>{r.status === "approved" ? "Đã Duyệt" : "Bác Bỏ"}</span>
+                <span className={`pill ${r.status === "approved" ? "pill-green" : "pill-red"} text-[8px] font-bold border`}>{r.status === "approved" ? "ÄÃ£ Duyá»‡t" : "BÃ¡c Bá»"}</span>
               </div>
             ))}
           </div>
@@ -2763,27 +2763,27 @@ export default function AdminPortal() {
   const LoyaltyView = () => (
     <div className="space-y-6 anim-fadeUp text-[#4B3621]">
       <div className="border-b border-gray-200/50 pb-4">
-        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Điểm Loyalty & Thực Đơn</h2>
-        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Điều chỉnh điểm thành viên thủ công & Cập nhật Menu chi nhánh</p>
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Äiá»ƒm Loyalty & Thá»±c ÄÆ¡n</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Äiá»u chá»‰nh Ä‘iá»ƒm thÃ nh viÃªn thá»§ cÃ´ng & Cáº­p nháº­t Menu chi nhÃ¡nh</p>
       </div>
 
       {/* Edit Points */}
       <div className="card space-y-4">
         <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-          <Edit3 size={16} className="text-[#7c4831]" /> Sửa điểm khách hàng thủ công
+          <Edit3 size={16} className="text-[#7c4831]" /> Sá»­a Ä‘iá»ƒm khÃ¡ch hÃ ng thá»§ cÃ´ng
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <input type="tel" placeholder="Số điện thoại khách *" value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input text-sm font-semibold" id="edit-phone" />
-          <input type="number" placeholder="Số điểm mới *" value={editPts} onChange={e => setEditPts(e.target.value)} className="input text-sm font-semibold" id="edit-pts" />
-          <button onClick={() => { if (!editPhone || !editPts) return; adjustPointsManually(editPhone.trim(), parseInt(editPts)); alert("Cập nhật số điểm thành công!"); setEditPhone(""); setEditPts(""); }}
-            className="btn btn-primary py-2.5 text-xs" id="edit-pts-btn">Cập Nhật Ngay</button>
+          <input type="tel" placeholder="Sá»‘ Ä‘iá»‡n thoáº¡i khÃ¡ch *" value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input text-sm font-semibold" id="edit-phone" />
+          <input type="number" placeholder="Sá»‘ Ä‘iá»ƒm má»›i *" value={editPts} onChange={e => setEditPts(e.target.value)} className="input text-sm font-semibold" id="edit-pts" />
+          <button onClick={() => { if (!editPhone || !editPts) return; adjustPointsManually(editPhone.trim(), parseInt(editPts)); alert("Cáº­p nháº­t sá»‘ Ä‘iá»ƒm thÃ nh cÃ´ng!"); setEditPhone(""); setEditPts(""); }}
+            className="btn btn-primary py-2.5 text-xs" id="edit-pts-btn">Cáº­p Nháº­t Ngay</button>
         </div>
       </div>
 
       {/* Customer List */}
       <div className="card space-y-4">
         <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-          <Users size={16} className="text-[#7c4831]" /> Danh Sách Khách Hàng Đăng Ký ({customers?.length || 0})
+          <Users size={16} className="text-[#7c4831]" /> Danh SÃ¡ch KhÃ¡ch HÃ ng ÄÄƒng KÃ½ ({customers?.length || 0})
         </h3>
         <div className="space-y-3">
           {(customers || []).map((c: any) => (
@@ -2794,10 +2794,10 @@ export default function AdminPortal() {
                 </div>
                 <div>
                   <p className="font-extrabold text-sm text-[#4B3621] uppercase tracking-tight">{c.name}</p>
-                  <p className="text-[10px] font-bold text-gray-400 mt-0.5">{c.phone} • {c.email}</p>
+                  <p className="text-[10px] font-bold text-gray-400 mt-0.5">{c.phone} â€¢ {c.email}</p>
                 </div>
               </div>
-              <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100">{c.points}đ</span>
+              <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100">{c.points}Ä‘</span>
             </div>
           ))}
         </div>
@@ -2806,7 +2806,7 @@ export default function AdminPortal() {
       {/* Menu Upload */}
       <div className="card space-y-4">
         <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-          <ImagePlus size={16} className="text-[#7c4831]" /> Cấu Hình Hình Ảnh Thực Đơn
+          <ImagePlus size={16} className="text-[#7c4831]" /> Cáº¥u HÃ¬nh HÃ¬nh áº¢nh Thá»±c ÄÆ¡n
         </h3>
 
         {/* Responsive grid for multi menu images */}
@@ -2818,13 +2818,13 @@ export default function AdminPortal() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (confirm("Bạn có chắc chắn muốn xóa hình ảnh thực đơn này?")) {
+                    if (confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a hÃ¬nh áº£nh thá»±c Ä‘Æ¡n nÃ y?")) {
                       const updated = menuImages.filter((item: any) => item.id !== img.id);
                       updateMenuImages(updated);
                     }
                   }}
                   className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg opacity-90 transition-all hover:scale-105"
-                  title="Xóa ảnh"
+                  title="XÃ³a áº£nh"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -2843,7 +2843,7 @@ export default function AdminPortal() {
                   id={`check-${img.id}`}
                 />
                 <label htmlFor={`check-${img.id}`} className="text-xs font-bold text-gray-700 cursor-pointer select-none">
-                  Hoạt động
+                  Hoáº¡t Ä‘á»™ng
                 </label>
               </div>
             </div>
@@ -2851,7 +2851,7 @@ export default function AdminPortal() {
         </div>
 
         <div className="flex flex-col gap-2 pt-2 max-w-lg">
-          <label className="text-xs font-bold text-gray-500 uppercase">Tải các tệp hình ảnh thực đơn lên trực tiếp (Chọn nhiều ảnh):</label>
+          <label className="text-xs font-bold text-gray-500 uppercase">Táº£i cÃ¡c tá»‡p hÃ¬nh áº£nh thá»±c Ä‘Æ¡n lÃªn trá»±c tiáº¿p (Chá»n nhiá»u áº£nh):</label>
           <input
             type="file"
             accept="image/*"
@@ -2877,7 +2877,7 @@ export default function AdminPortal() {
                     active: true
                   }));
                   updateMenuImages([...(menuImages || []), ...newItems]);
-                  alert("Tải lên các hình ảnh thực đơn thành công!");
+                  alert("Táº£i lÃªn cÃ¡c hÃ¬nh áº£nh thá»±c Ä‘Æ¡n thÃ nh cÃ´ng!");
                 });
               }
             }}
@@ -2901,17 +2901,17 @@ export default function AdminPortal() {
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621] h-[calc(100vh-160px)] flex flex-col">
         <div className="border-b border-gray-200/50 pb-4 shrink-0">
-          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Ý Kiến Góp Ý Khách Hàng</h2>
-          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Phản hồi trực tiếp các ý kiến đóng góp từ thực khách</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Ã Kiáº¿n GÃ³p Ã KhÃ¡ch HÃ ng</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Pháº£n há»“i trá»±c tiáº¿p cÃ¡c Ã½ kiáº¿n Ä‘Ã³ng gÃ³p tá»« thá»±c khÃ¡ch</p>
         </div>
 
         {uniquePhones.length === 0 ? (
-          <div className="card text-center py-10 flex-grow flex items-center justify-center"><p className="text-xs text-[#4B3621]/60 font-bold italic">Chưa nhận được phản hồi góp ý nào.</p></div>
+          <div className="card text-center py-10 flex-grow flex items-center justify-center"><p className="text-xs text-[#4B3621]/60 font-bold italic">ChÆ°a nháº­n Ä‘Æ°á»£c pháº£n há»“i gÃ³p Ã½ nÃ o.</p></div>
         ) : (
           <div className="flex flex-col lg:flex-row flex-grow border border-gray-150 rounded-2xl overflow-hidden bg-white shadow-sm h-0">
             {/* Split Left: Customer List */}
             <div className="w-full lg:w-80 border-r border-gray-150 flex flex-col h-1/3 lg:h-full bg-[#FAF9F6]">
-              <div className="p-3 border-b border-gray-150 bg-white font-bold text-xs uppercase tracking-wider text-[#7c4831]">Danh sách hội thoại</div>
+              <div className="p-3 border-b border-gray-150 bg-white font-bold text-xs uppercase tracking-wider text-[#7c4831]">Danh sÃ¡ch há»™i thoáº¡i</div>
               <div className="overflow-y-auto flex-grow divide-y divide-gray-100">
                 {uniquePhones.map(phone => {
                   const userMessages = feedbacks.filter((f: any) => f.customerPhone === phone);
@@ -2970,7 +2970,7 @@ export default function AdminPortal() {
                             <p>{m.message}</p>
                           </div>
                           <span className="text-[8px] font-bold text-[#7c4831]/60 mt-1 uppercase tracking-wider">
-                            {isAdmin ? "Bạn" : "Khách hàng"} • {m.timestamp}
+                            {isAdmin ? "Báº¡n" : "KhÃ¡ch hÃ ng"} â€¢ {m.timestamp}
                           </span>
                         </div>
                       );
@@ -2982,7 +2982,7 @@ export default function AdminPortal() {
                     <div className="flex gap-2.5">
                       <input
                         type="text"
-                        placeholder={`Trả lời cho ${currentCustomerName}...`}
+                        placeholder={`Tráº£ lá»i cho ${currentCustomerName}...`}
                         className="input flex-grow text-xs font-semibold"
                         onKeyDown={e => {
                           if (e.key === "Enter" && (e.target as any).value) {
@@ -3008,7 +3008,7 @@ export default function AdminPortal() {
                   </div>
                 </>
               ) : (
-                <div className="flex-grow flex items-center justify-center text-gray-400 font-bold italic text-xs">Vui lòng chọn một cuộc trò chuyện để bắt đầu</div>
+                <div className="flex-grow flex items-center justify-center text-gray-400 font-bold italic text-xs">Vui lÃ²ng chá»n má»™t cuá»™c trÃ² chuyá»‡n Ä‘á»ƒ báº¯t Ä‘áº§u</div>
               )}
             </div>
           </div>
@@ -3038,7 +3038,7 @@ export default function AdminPortal() {
       if (!groupedAdjustments[key]) {
         groupedAdjustments[key] = {
           employeeKey: key,
-          employeeName: a.EmployeeName || "Nhân viên",
+          employeeName: a.EmployeeName || "NhÃ¢n viÃªn",
           adjustments: [],
           totalBonus: 0,
           totalPenalty: 0,
@@ -3056,7 +3056,7 @@ export default function AdminPortal() {
       groupedAdjustments[key].adjustments.push({ ...a, originalIndex: idx });
     });
 
-    // Thêm các ca đi trễ tự động vào bảng thưởng phạt
+    // ThÃªm cÃ¡c ca Ä‘i trá»… tá»± Ä‘á»™ng vÃ o báº£ng thÆ°á»Ÿng pháº¡t
     (officialSchedulesList || [])
       .filter((s: any) => s.checkInTime)
       .forEach((s: any) => {
@@ -3076,7 +3076,7 @@ export default function AdminPortal() {
           if (!groupedAdjustments[key]) {
             groupedAdjustments[key] = {
               employeeKey: key,
-              employeeName: s.staffName || "Nhân viên",
+              employeeName: s.staffName || "NhÃ¢n viÃªn",
               adjustments: [],
               totalBonus: 0,
               totalPenalty: 0,
@@ -3090,11 +3090,11 @@ export default function AdminPortal() {
             Type: "penalty",
             Amount: amount,
             Date: s.date,
-            Note: `Đi muộn ${lateMin} phút (Ca ${s.startTime} - ${s.endTime})`,
+            Note: `Äi muá»™n ${lateMin} phÃºt (Ca ${s.startTime} - ${s.endTime})`,
             IsAuto: true
           });
         }
-        // Tăng do đi làm vào ngày lễ (Thưởng lễ hệ số & flat bonus)
+        // TÄƒng do Ä‘i lÃ m vÃ o ngÃ y lá»… (ThÆ°á»Ÿng lá»… há»‡ sá»‘ & flat bonus)
         const matchedHoliday = detailedHolidaysList.find((h: any) => h.Date === s.date);
         if (matchedHoliday && s.clockedOut) {
           const mult = matchedHoliday.Multiplier > 0 ? matchedHoliday.Multiplier : 2.0;
@@ -3132,7 +3132,7 @@ export default function AdminPortal() {
               if (!groupedAdjustments[key]) {
                 groupedAdjustments[key] = {
                   employeeKey: key,
-                  employeeName: s.staffName || "Nhân viên",
+                  employeeName: s.staffName || "NhÃ¢n viÃªn",
                   adjustments: [],
                   totalBonus: 0,
                   totalPenalty: 0,
@@ -3146,7 +3146,7 @@ export default function AdminPortal() {
                 Type: "bonus",
                 Amount: totalHolidayBonus,
                 Date: s.date,
-                Note: `Đi làm ngày lễ ${matchedHoliday.Note} (Hệ số x${mult}${flat > 0 ? ` + ${flat.toLocaleString()}đ` : ''})`,
+                Note: `Äi lÃ m ngÃ y lá»… ${matchedHoliday.Note} (Há»‡ sá»‘ x${mult}${flat > 0 ? ` + ${flat.toLocaleString()}Ä‘` : ''})`,
                 IsAuto: true
               });
             }
@@ -3157,8 +3157,8 @@ export default function AdminPortal() {
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="border-b border-gray-200/50 pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Tính Lương & Thưởng Phạt</h2>
-          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tính toán tự động tiền lương, quản lý thưởng nóng, phạt hành chính và cấu hình hệ thống lương</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">TÃ­nh LÆ°Æ¡ng & ThÆ°á»Ÿng Pháº¡t</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">TÃ­nh toÃ¡n tá»± Ä‘á»™ng tiá»n lÆ°Æ¡ng, quáº£n lÃ½ thÆ°á»Ÿng nÃ³ng, pháº¡t hÃ nh chÃ­nh vÃ  cáº¥u hÃ¬nh há»‡ thá»‘ng lÆ°Æ¡ng</p>
         </div>
 
         {/* Sub-navigation Tabs */}
@@ -3171,7 +3171,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Bảng Lương
+            Báº£ng LÆ°Æ¡ng
           </button>
           <button
             onClick={() => setAdjActiveTab("history")}
@@ -3181,7 +3181,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Lịch sử Thưởng & Phạt
+            Lá»‹ch sá»­ ThÆ°á»Ÿng & Pháº¡t
           </button>
           <button
             onClick={() => setAdjActiveTab("rules")}
@@ -3191,7 +3191,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Cấu hình Phạt đi trễ
+            Cáº¥u hÃ¬nh Pháº¡t Ä‘i trá»…
           </button>
           <button
             onClick={() => setAdjActiveTab("holidays")}
@@ -3201,7 +3201,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Ngày nghỉ lễ chi tiết
+            NgÃ y nghá»‰ lá»… chi tiáº¿t
           </button>
         </div>
 
@@ -3216,7 +3216,7 @@ export default function AdminPortal() {
               {/* Date Selector Form */}
               <div className="card space-y-4">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex justify-between items-center time">
-                  <span>Chọn thời gian</span>
+                  <span>Chá»n thá»i gian</span>
                   <button
                     onClick={exportPayrollToExcel}
                     disabled={payrollList.length === 0}
@@ -3224,12 +3224,12 @@ export default function AdminPortal() {
                     className="btn btn-primary py-1.5 px-3 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw size={11} />
-                    <span>Xuất Excel</span>
+                    <span>Xuáº¥t Excel</span>
                   </button>
                 </h3>
                 <div className="flex flex-wrap gap-4 items-end">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Từ ngày:</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Tá»« ngÃ y:</label>
                     <input
                       type="date"
                       value={payrollFromDate}
@@ -3238,7 +3238,7 @@ export default function AdminPortal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Đến ngày:</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Äáº¿n ngÃ y:</label>
                     <input
                       type="date"
                       value={payrollToDate}
@@ -3252,7 +3252,7 @@ export default function AdminPortal() {
                     type="button"
                     className="btn btn-primary text-xs py-2 px-4 h-9 flex items-center gap-1.5"
                   >
-                    {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
+                    {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "TÃ­nh LÆ°Æ¡ng"}
                   </button>
                 </div>
               </div>
@@ -3260,41 +3260,41 @@ export default function AdminPortal() {
               {/* Payroll Table */}
               <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
                 <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Bảng lương chi nhánh</span>
-                  <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Báº£ng lÆ°Æ¡ng chi nhÃ¡nh</span>
+                  <span className="text-[10px] font-semibold text-gray-500 ">ÄÆ¡n vá»‹: VNÄ</span>
                 </div>
 
                 <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                  <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="p-4">Tên</th>
-                        <th className="p-4">Số điện thoại</th>
-                        <th className="p-4 text-right">Lương/giờ</th>
-                        <th className="p-4 text-right">Giờ làm</th>
-                        <th className="p-4 text-right">Lương cơ bản</th>
-                        <th className="p-4 text-right">Thưởng</th>
-                        <th className="p-4 text-right">Phạt</th>
-                        <th className="p-4 text-right">Tạm ứng</th>
-                        <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                        <th className="p-4">TÃªn</th>
+                        <th className="p-4">Sá»‘ Ä‘iá»‡n thoáº¡i</th>
+                        <th className="p-4 text-right">LÆ°Æ¡ng/giá»</th>
+                        <th className="p-4 text-right">Giá» lÃ m</th>
+                        <th className="p-4 text-right">LÆ°Æ¡ng cÆ¡ báº£n</th>
+                        <th className="p-4 text-right">ThÆ°á»Ÿng</th>
+                        <th className="p-4 text-right">Pháº¡t</th>
+                        <th className="p-4 text-right">Táº¡m á»©ng</th>
+                        <th className="p-4 text-right font-black text-[#7c4831]">Thá»±c nháº­n</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                       {payrollList.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
+                          <td colSpan={9} className="p-8 text-center text-gray-400 italic">KhÃ´ng cÃ³ dá»¯ liá»‡u tÃ­nh lÆ°Æ¡ng trong khoáº£ng thá»i gian nÃ y. Báº¥m nÃºt "TÃ­nh LÆ°Æ¡ng" Ä‘á»ƒ táº£i dá»¯ liá»‡u.</td>
                         </tr>
                       ) : (
                         payrollList.map((p: any) => (
                           <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
                             <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
-                            <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}Ä‘</td>
                             <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
-                            <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}Ä‘</td>
                             <td className="p-4 text-right  text-emerald-600">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>+{p.totalBonus?.toLocaleString("vi-VN")}đ</span>
+                                <span>+{p.totalBonus?.toLocaleString("vi-VN")}Ä‘</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3309,7 +3309,7 @@ export default function AdminPortal() {
                             </td>
                             <td className="p-4 text-right  text-red-600">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>-{p.totalPenalty?.toLocaleString("vi-VN")}đ</span>
+                                <span>-{p.totalPenalty?.toLocaleString("vi-VN")}Ä‘</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3324,7 +3324,7 @@ export default function AdminPortal() {
                             </td>
                             <td className="p-4 text-right  text-amber-700">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>-{p.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
+                                <span>-{p.totalAdvance?.toLocaleString("vi-VN") || 0}Ä‘</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3337,7 +3337,7 @@ export default function AdminPortal() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}Ä‘</td>
                           </tr>
                         ))
                       )}
@@ -3349,20 +3349,20 @@ export default function AdminPortal() {
               {/* Detailed Attendance Logs Table */}
               <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white mt-6">
                 <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Lịch sử chấm công</span>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Lá»‹ch sá»­ cháº¥m cÃ´ng</span>
                   <span className="text-[10px] font-semibold text-gray-500"></span>
                 </div>
 
                 <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                  <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="p-4">Tên</th>
-                        <th className="p-4">Ngày</th>
+                        <th className="p-4">TÃªn</th>
+                        <th className="p-4">NgÃ y</th>
                         <th className="p-4">Ca</th>
-                        <th className="p-4 text-center">Giờ vào</th>
-                        <th className="p-4 text-center">Giờ ra</th>
-                        <th className="p-4 text-center">Trạng thái</th>
+                        <th className="p-4 text-center">Giá» vÃ o</th>
+                        <th className="p-4 text-center">Giá» ra</th>
+                        <th className="p-4 text-center">Tráº¡ng thÃ¡i</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -3371,7 +3371,7 @@ export default function AdminPortal() {
                         if (list.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400 italic">Không có dữ liệu ca trực & chấm công trong khoảng thời gian này.</td>
+                              <td colSpan={6} className="p-8 text-center text-gray-400 italic">KhÃ´ng cÃ³ dá»¯ liá»‡u ca trá»±c & cháº¥m cÃ´ng trong khoáº£ng thá»i gian nÃ y.</td>
                             </tr>
                           );
                         }
@@ -3386,11 +3386,11 @@ export default function AdminPortal() {
                             const startMin = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
                             const realMin = parseInt(realParts[0]) * 60 + parseInt(realParts[1]);
                             if (realMin > startMin) {
-                              lateInfo = `(Trễ ${realMin - startMin} phút)`;
+                              lateInfo = `(Trá»… ${realMin - startMin} phÃºt)`;
                             } else if (startMin - realMin > 720) {
                               const diff = (realMin + 1440) - startMin;
                               if (diff > 0) {
-                                lateInfo = `(Trễ ${diff} phút)`;
+                                lateInfo = `(Trá»… ${diff} phÃºt)`;
                               }
                             }
                           }
@@ -3401,11 +3401,11 @@ export default function AdminPortal() {
                             const endMin = parseInt(endParts[0]) * 60 + parseInt(endParts[1]);
                             const realMin = parseInt(realParts[0]) * 60 + parseInt(realParts[1]);
                             if (realMin < endMin) {
-                              earlyInfo = `(Về sớm ${endMin - realMin} phút)`;
+                              earlyInfo = `(Vá» sá»›m ${endMin - realMin} phÃºt)`;
                             } else if (realMin - endMin > 720) {
                               const diff = (endMin + 1440) - realMin;
                               if (diff > 0) {
-                                earlyInfo = `(Về sớm ${diff} phút)`;
+                                earlyInfo = `(Vá» sá»›m ${diff} phÃºt)`;
                               }
                             }
                           }
@@ -3425,11 +3425,11 @@ export default function AdminPortal() {
                               </td>
                               <td className="p-4 text-center">
                                 {s.clockedOut ? (
-                                  <span className="pill pill-green border border-emerald-200">Hoàn thành</span>
+                                  <span className="pill pill-green border border-emerald-200">HoÃ n thÃ nh</span>
                                 ) : s.clockedIn ? (
-                                  <span className="pill pill-amber border border-amber-200">Đang làm việc</span>
+                                  <span className="pill pill-amber border border-amber-200">Äang lÃ m viá»‡c</span>
                                 ) : (
-                                  <span className="pill pill-red border border-red-200">Vắng / Chưa checkin</span>
+                                  <span className="pill pill-red border border-red-200">Váº¯ng / ChÆ°a checkin</span>
                                 )}
                               </td>
                             </tr>
@@ -3451,7 +3451,7 @@ export default function AdminPortal() {
             <div className="card space-y-4 border border-gray-150">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-2">
-                  <Plus size={15} /> {editingAdjIndex !== null ? "Sửa Thưởng / Phạt Nhân Viên" : "Thêm Thưởng / Phạt"}
+                  <Plus size={15} /> {editingAdjIndex !== null ? "Sá»­a ThÆ°á»Ÿng / Pháº¡t NhÃ¢n ViÃªn" : "ThÃªm ThÆ°á»Ÿng / Pháº¡t"}
                 </h3>
                 {editingAdjIndex !== null && (
                   <button
@@ -3462,20 +3462,20 @@ export default function AdminPortal() {
                     }}
                     className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-[10px] font-bold text-gray-500 uppercase transition-all cursor-pointer"
                   >
-                    Hủy Sửa / Thêm Mới
+                    Há»§y Sá»­a / ThÃªm Má»›i
                   </button>
                 )}
               </div>
 
               {editingAdjIndex !== null && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-bold">
-                  ⚠️ Bạn đang chỉnh sửa một khoản thưởng/phạt. Sau khi sửa xong hãy bấm nút "Cập nhật điều chỉnh" bên dưới.
+                  âš ï¸ Báº¡n Ä‘ang chá»‰nh sá»­a má»™t khoáº£n thÆ°á»Ÿng/pháº¡t. Sau khi sá»­a xong hÃ£y báº¥m nÃºt "Cáº­p nháº­t Ä‘iá»u chá»‰nh" bÃªn dÆ°á»›i.
                 </div>
               )}
 
               <form onSubmit={handleAddAdjustment} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân viên áp dụng:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">NhÃ¢n viÃªn Ã¡p dá»¥ng:</label>
                   <select
                     id="new-adj-employee-id"
                     value={newAdjEmployeeId}
@@ -3483,7 +3483,7 @@ export default function AdminPortal() {
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   >
-                    <option value="">-- Chọn nhân viên --</option>
+                    <option value="">-- Chá»n nhÃ¢n viÃªn --</option>
                     {staffList.filter((s: any) => s.roleId === 3).map((s: any) => (
                       <option key={s.id} value={s.id}>{s.fullName} ({s.phoneNumber})</option>
                     ))}
@@ -3491,33 +3491,33 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hình thức điều chỉnh:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">HÃ¬nh thá»©c Ä‘iá»u chá»‰nh:</label>
                   <select
                     value={newAdjType}
                     onChange={e => setNewAdjType(e.target.value)}
                     className="input w-full text-xs font-semibold bg-white"
                   >
-                    <option value="bonus">Thưởng (Bonus)</option>
-                    <option value="penalty">Phạt (Penalty)</option>
-                    <option value="advance">Tạm ứng lương (Advance)</option>
+                    <option value="bonus">ThÆ°á»Ÿng (Bonus)</option>
+                    <option value="penalty">Pháº¡t (Penalty)</option>
+                    <option value="advance">Táº¡m á»©ng lÆ°Æ¡ng (Advance)</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Đơn vị tính:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">ÄÆ¡n vá»‹ tÃ­nh:</label>
                   <select
                     value={newAdjUnit}
                     onChange={e => setNewAdjUnit(e.target.value)}
                     className="input w-full text-xs font-semibold bg-white"
                   >
-                    <option value="co_dinh">Cố định (Flat)</option>
-                    <option value="lan">Lần (Times)</option>
-                    <option value="phut">Phút (Minutes)</option>
+                    <option value="co_dinh">Cá»‘ Ä‘á»‹nh (Flat)</option>
+                    <option value="lan">Láº§n (Times)</option>
+                    <option value="phut">PhÃºt (Minutes)</option>
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số lượng (Quantity):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Sá»‘ lÆ°á»£ng (Quantity):</label>
                   <input
                     type="number"
                     step="any"
@@ -3529,19 +3529,19 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số tiền / Đơn vị (VNĐ):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Sá»‘ tiá»n / ÄÆ¡n vá»‹ (VNÄ):</label>
                   <input
                     type="number"
                     value={newAdjAmountPerUnit}
                     onChange={e => setNewAdjAmountPerUnit(e.target.value)}
-                    placeholder="Ví dụ: 50000"
+                    placeholder="VÃ­ dá»¥: 50000"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ngày áp dụng:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">NgÃ y Ã¡p dá»¥ng:</label>
                   <input
                     type="date"
                     value={newAdjDate}
@@ -3552,19 +3552,19 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="space-y-1 md:col-span-3 lg:col-span-2">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Lý do điều chỉnh (Note):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">LÃ½ do Ä‘iá»u chá»‰nh (Note):</label>
                   <input
                     type="text"
                     value={newAdjNote}
                     onChange={e => setNewAdjNote(e.target.value)}
-                    placeholder="Ví dụ: Thưởng nóng hiệu suất tuần / Phạt nghỉ tự do"
+                    placeholder="VÃ­ dá»¥: ThÆ°á»Ÿng nÃ³ng hiá»‡u suáº¥t tuáº§n / Pháº¡t nghá»‰ tá»± do"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-4 text-xs font-bold w-full cursor-pointer h-9">
-                  {editingAdjIndex !== null ? "Cập nhật điều chỉnh" : "Thêm điều chỉnh"}
+                  {editingAdjIndex !== null ? "Cáº­p nháº­t Ä‘iá»u chá»‰nh" : "ThÃªm Ä‘iá»u chá»‰nh"}
                 </button>
               </form>
             </div>
@@ -3573,33 +3573,33 @@ export default function AdminPortal() {
             <div className="card p-0 overflow-hidden border border-gray-150 bg-white shadow-sm">
               <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                  <Users size={14} /> Danh sách Thưởng/Phạt
+                  <Users size={14} /> Danh sÃ¡ch ThÆ°á»Ÿng/Pháº¡t
                 </span>
               </div>
               <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                      <th className="p-3">Tên</th>
-                      <th className="p-3 text-right">Tổng Thưởng</th>
-                      <th className="p-3 text-right">Tổng Phạt</th>
-                      <th className="p-3 text-right">Tổng Tạm Ứng</th>
-                      <th className="p-3 text-center">Số khoản ghi nhận</th>
-                      <th className="p-3 text-center">Thao tác</th>
+                      <th className="p-3">TÃªn</th>
+                      <th className="p-3 text-right">Tá»•ng ThÆ°á»Ÿng</th>
+                      <th className="p-3 text-right">Tá»•ng Pháº¡t</th>
+                      <th className="p-3 text-right">Tá»•ng Táº¡m á»¨ng</th>
+                      <th className="p-3 text-center">Sá»‘ khoáº£n ghi nháº­n</th>
+                      <th className="p-3 text-center">Thao tÃ¡c</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                     {Object.keys(groupedAdjustments).length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-6 text-center text-gray-400 italic">Chưa có khoản thưởng/phạt riêng nào cho nhân viên.</td>
+                        <td colSpan={5} className="p-6 text-center text-gray-400 italic">ChÆ°a cÃ³ khoáº£n thÆ°á»Ÿng/pháº¡t riÃªng nÃ o cho nhÃ¢n viÃªn.</td>
                       </tr>
                     ) : (
                       Object.values(groupedAdjustments).map((group: any) => (
                         <tr key={group.employeeKey} className="hover:bg-gray-50/50 transition-colors">
                           <td className="p-3 uppercase font-black tracking-tight">{group.employeeName}</td>
-                          <td className="p-3 text-right text-emerald-600 font-bold">+{group.totalBonus.toLocaleString("vi-VN")}đ</td>
-                          <td className="p-3 text-right text-red-600 font-bold">-{group.totalPenalty.toLocaleString("vi-VN")}đ</td>
-                          <td className="p-3 text-right text-amber-700 font-bold">-{group.totalAdvance?.toLocaleString("vi-VN") || 0}đ</td>
+                          <td className="p-3 text-right text-emerald-600 font-bold">+{group.totalBonus.toLocaleString("vi-VN")}Ä‘</td>
+                          <td className="p-3 text-right text-red-600 font-bold">-{group.totalPenalty.toLocaleString("vi-VN")}Ä‘</td>
+                          <td className="p-3 text-right text-amber-700 font-bold">-{group.totalAdvance?.toLocaleString("vi-VN") || 0}Ä‘</td>
                           <td className="p-3 text-center text-gray-500 font-bold">{group.adjustments.length}</td>
                           <td className="p-3 text-center">
                             <button
@@ -3615,7 +3615,7 @@ export default function AdminPortal() {
                               className="px-2.5 py-1 rounded bg-[#7c4831]/10 hover:bg-[#7c4831]/20 text-[#7c4831] text-[10px] font-black uppercase transition-all cursor-pointer"
                               type="button"
                             >
-                              Chi tiết
+                              Chi tiáº¿t
                             </button>
                           </td>
                         </tr>
@@ -3635,7 +3635,7 @@ export default function AdminPortal() {
                   <div className="p-4 border-b border-gray-150 bg-gradient-to-r from-[#FAF9F6] to-[#F5EDE4] flex justify-between items-center">
                     <div>
                       <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                        <Users size={16} /> Chi Tiết Các Khoản Thưởng / Phạt Riêng
+                        <Users size={16} /> Chi Tiáº¿t CÃ¡c Khoáº£n ThÆ°á»Ÿng / Pháº¡t RiÃªng
                       </h3>
                       <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{selectedAdjGroup.employeeName}</p>
                     </div>
@@ -3644,26 +3644,26 @@ export default function AdminPortal() {
                       onClick={() => { setSelectedAdjGroup(null); }}
                       className="px-2.5 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-black uppercase transition-all cursor-pointer border border-gray-200"
                     >
-                      Đóng / Ẩn chi tiết
+                      ÄÃ³ng / áº¨n chi tiáº¿t
                     </button>
                   </div>
 
                   <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                    <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                    <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                          <th className="p-3">Ngày</th>
-                          <th className="p-3">Loại</th>
-                          <th className="p-3">Chi tiết đơn vị</th>
-                          <th className="p-3 text-right">Tổng số tiền</th>
-                          <th className="p-3">Ghi chú</th>
-                          <th className="p-3 text-center">Thao tác</th>
+                          <th className="p-3">NgÃ y</th>
+                          <th className="p-3">Loáº¡i</th>
+                          <th className="p-3">Chi tiáº¿t Ä‘Æ¡n vá»‹</th>
+                          <th className="p-3 text-right">Tá»•ng sá»‘ tiá»n</th>
+                          <th className="p-3">Ghi chÃº</th>
+                          <th className="p-3 text-center">Thao tÃ¡c</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                         {currentGroupAdjs.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-4 text-center text-gray-400 italic">Không có dữ liệu thưởng phạt riêng.</td>
+                            <td colSpan={6} className="p-4 text-center text-gray-400 italic">KhÃ´ng cÃ³ dá»¯ liá»‡u thÆ°á»Ÿng pháº¡t riÃªng.</td>
                           </tr>
                         ) : (
                           currentGroupAdjs.map((item: any, idx: number) => {
@@ -3674,23 +3674,23 @@ export default function AdminPortal() {
                                 <td className="p-3 whitespace-nowrap">{item.Date}</td>
                                 <td className="p-3">
                                   <span className={`pill ${item.Type === "bonus" ? "pill-green" : item.Type === "advance" ? "pill-amber" : "pill-red"} border text-[8px] font-black uppercase`}>
-                                    {item.Type === "bonus" ? "Thưởng" : item.Type === "advance" ? "Tạm ứng" : "Phạt"}
+                                    {item.Type === "bonus" ? "ThÆ°á»Ÿng" : item.Type === "advance" ? "Táº¡m á»©ng" : "Pháº¡t"}
                                   </span>
                                 </td>
                                 <td className="p-3 text-gray-500 font-medium whitespace-nowrap">
                                   {item.Unit === "co_dinh"
-                                    ? "Số tiền cố định"
+                                    ? "Sá»‘ tiá»n cá»‘ Ä‘á»‹nh"
                                     : item.Unit
-                                      ? `${item.Quantity} ${item.Unit === "lan" ? "lần" : "phút"} x ${(item.AmountPerUnit || 0).toLocaleString("vi-VN")}đ`
-                                      : "Hệ thống tính toán"}
+                                      ? `${item.Quantity} ${item.Unit === "lan" ? "láº§n" : "phÃºt"} x ${(item.AmountPerUnit || 0).toLocaleString("vi-VN")}Ä‘`
+                                      : "Há»‡ thá»‘ng tÃ­nh toÃ¡n"}
                                 </td>
                                 <td className={`p-3 text-right font-bold whitespace-nowrap ${item.Type === "bonus" ? "text-emerald-600" : item.Type === "advance" ? "text-amber-600" : "text-red-600"}`}>
-                                  {item.Type === "bonus" ? "+" : "-"}{amount.toLocaleString("vi-VN")}đ
+                                  {item.Type === "bonus" ? "+" : "-"}{amount.toLocaleString("vi-VN")}Ä‘
                                 </td>
                                 <td className="p-3 italic text-gray-650 max-w-[150px] truncate" title={item.Note}>{item.Note}</td>
                                 <td className="p-3 text-center space-x-2.5">
                                   {item.IsAuto ? (
-                                    <span className="text-[10px] text-gray-400 font-bold italic uppercase">Tự động (Hệ thống)</span>
+                                    <span className="text-[10px] text-gray-400 font-bold italic uppercase">Tá»± Ä‘á»™ng (Há»‡ thá»‘ng)</span>
                                   ) : (
                                     <>
                                       <button
@@ -3713,7 +3713,7 @@ export default function AdminPortal() {
                                         className="text-xs font-bold text-amber-700 hover:underline cursor-pointer"
                                         type="button"
                                       >
-                                        Sửa
+                                        Sá»­a
                                       </button>
                                       <button
                                         onClick={async () => {
@@ -3722,7 +3722,7 @@ export default function AdminPortal() {
                                         className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
                                         type="button"
                                       >
-                                        Xóa
+                                        XÃ³a
                                       </button>
                                     </>
                                   )}
@@ -3745,71 +3745,71 @@ export default function AdminPortal() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 anim-fadeUp">
             <div className="card space-y-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-                <Gift size={16} className="text-[#7c4831]" /> Quy đổi Loyalty
+                <Gift size={16} className="text-[#7c4831]" /> Quy Ä‘á»•i Loyalty
               </h3>
               <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
-                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cách tích điểm:</span><span className="text-xs  text-[#4B3621]">50.000 VNĐ = 1 Điểm</span></div>
-                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cách đổi quà:</span><span className="text-xs  text-[#4B3621]">10 Điểm = Voucher 55K</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cÃ¡ch tÃ­ch Ä‘iá»ƒm:</span><span className="text-xs  text-[#4B3621]">50.000 VNÄ = 1 Äiá»ƒm</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Quy cÃ¡ch Ä‘á»•i quÃ :</span><span className="text-xs  text-[#4B3621]">10 Äiá»ƒm = Voucher 55K</span></div>
               </div>
             </div>
 
             <div className="card space-y-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-                <Settings size={16} className="text-[#7c4831]" /> Quản lý HRM
+                <Settings size={16} className="text-[#7c4831]" /> Quáº£n lÃ½ HRM
               </h3>
               <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
-                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Mức phạt mốc đầu:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyBaseAmount) || 50000).toLocaleString("vi-VN")}đ (trễ {latePenaltyStartMinutes}m)</span></div>
-                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Hệ số phạt tăng:</span><span className="text-sm text-[#4B3621]">x{latePenaltyMultiplier} (mỗi {latePenaltyIntervalMinutes}m)</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Má»©c pháº¡t má»‘c Ä‘áº§u:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyBaseAmount) || 50000).toLocaleString("vi-VN")}Ä‘ (trá»… {latePenaltyStartMinutes}m)</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Há»‡ sá»‘ pháº¡t tÄƒng:</span><span className="text-sm text-[#4B3621]">x{latePenaltyMultiplier} (má»—i {latePenaltyIntervalMinutes}m)</span></div>
               </div>
             </div>
 
             <div className="card space-y-4 md:col-span-2">
               <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-                <Settings size={16} className="text-[#7c4831]" /> Cấu hình Phạt đi trễ
+                <Settings size={16} className="text-[#7c4831]" /> Cáº¥u hÃ¬nh Pháº¡t Ä‘i trá»…
               </h3>
               <form onSubmit={handleSaveHrmConfigs} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Bắt đầu phạt (Số phút trễ):</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Báº¯t Ä‘áº§u pháº¡t (Sá»‘ phÃºt trá»…):</label>
                     <input
                       type="number"
                       value={latePenaltyStartMinutes}
                       onChange={e => setLatePenaltyStartMinutes(e.target.value)}
-                      placeholder="Ví dụ: 10"
+                      placeholder="VÃ­ dá»¥: 10"
                       className="input w-full text-xs font-semibold"
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Số tiền phạt mốc đầu (VNĐ):</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Sá»‘ tiá»n pháº¡t má»‘c Ä‘áº§u (VNÄ):</label>
                     <input
                       type="number"
                       value={latePenaltyBaseAmount}
                       onChange={e => setLatePenaltyBaseAmount(e.target.value)}
-                      placeholder="Ví dụ: 50000"
+                      placeholder="VÃ­ dá»¥: 50000"
                       className="input w-full text-xs font-semibold"
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Khoảng tăng trễ (Phút):</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Khoáº£ng tÄƒng trá»… (PhÃºt):</label>
                     <input
                       type="number"
                       value={latePenaltyIntervalMinutes}
                       onChange={e => setLatePenaltyIntervalMinutes(e.target.value)}
-                      placeholder="Ví dụ: 10"
+                      placeholder="VÃ­ dá»¥: 10"
                       className="input w-full text-xs font-semibold"
                       required
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hệ số nhân (Lũy tiến):</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Há»‡ sá»‘ nhÃ¢n (LÅ©y tiáº¿n):</label>
                     <input
                       type="number"
                       step="0.1"
                       value={latePenaltyMultiplier}
                       onChange={e => setLatePenaltyMultiplier(e.target.value)}
-                      placeholder="Ví dụ: 2"
+                      placeholder="VÃ­ dá»¥: 2"
                       className="input w-full text-xs font-semibold"
                       required
                     />
@@ -3817,13 +3817,13 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl text-[11px] font-medium text-gray-500 leading-relaxed space-y-1">
-                  <div><strong>Giải thích công thức:</strong> Đi trễ dưới <strong>{latePenaltyStartMinutes} phút</strong> không phạt.</div>
-                  <div>Trễ từ <strong>{latePenaltyStartMinutes} phút</strong> trở đi sẽ phạt mốc đầu là <strong>{(Number(latePenaltyBaseAmount) || 0).toLocaleString("vi-VN")} VNĐ</strong>.</div>
-                  <div>Cứ mỗi <strong>{latePenaltyIntervalMinutes} phút</strong> tăng thêm thì số tiền phạt sẽ nhân lên <strong>{latePenaltyMultiplier} lần</strong> (hệ số lũy tiến hình học).</div>
+                  <div><strong>Giáº£i thÃ­ch cÃ´ng thá»©c:</strong> Äi trá»… dÆ°á»›i <strong>{latePenaltyStartMinutes} phÃºt</strong> khÃ´ng pháº¡t.</div>
+                  <div>Trá»… tá»« <strong>{latePenaltyStartMinutes} phÃºt</strong> trá»Ÿ Ä‘i sáº½ pháº¡t má»‘c Ä‘áº§u lÃ  <strong>{(Number(latePenaltyBaseAmount) || 0).toLocaleString("vi-VN")} VNÄ</strong>.</div>
+                  <div>Cá»© má»—i <strong>{latePenaltyIntervalMinutes} phÃºt</strong> tÄƒng thÃªm thÃ¬ sá»‘ tiá»n pháº¡t sáº½ nhÃ¢n lÃªn <strong>{latePenaltyMultiplier} láº§n</strong> (há»‡ sá»‘ lÅ©y tiáº¿n hÃ¬nh há»c).</div>
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
-                  Lưu cấu hình phạt đi trễ
+                  LÆ°u cáº¥u hÃ¬nh pháº¡t Ä‘i trá»…
                 </button>
               </form>
             </div>
@@ -3836,11 +3836,11 @@ export default function AdminPortal() {
             {/* Form Holiday */}
             <div className="card space-y-4 h-fit border border-gray-150 bg-white">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] border-b border-gray-100 pb-3 flex items-center gap-2">
-                <Calendar size={15} /> Thêm Ngày Nghỉ Lễ Mới
+                <Calendar size={15} /> ThÃªm NgÃ y Nghá»‰ Lá»… Má»›i
               </h3>
               <form onSubmit={handleAddDetailedHoliday} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ngày nghỉ lễ:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">NgÃ y nghá»‰ lá»…:</label>
                   <input
                     type="date"
                     value={newHolidayDate}
@@ -3850,41 +3850,41 @@ export default function AdminPortal() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ghi chú tên ngày lễ:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ghi chÃº tÃªn ngÃ y lá»…:</label>
                   <input
                     type="text"
                     value={newHolidayNote}
                     onChange={e => setNewHolidayNote(e.target.value)}
-                    placeholder="Ví dụ: Tết Dương Lịch"
+                    placeholder="VÃ­ dá»¥: Táº¿t DÆ°Æ¡ng Lá»‹ch"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hệ số lương ngày này (ví dụ x2, x3):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Há»‡ sá»‘ lÆ°Æ¡ng ngÃ y nÃ y (vÃ­ dá»¥ x2, x3):</label>
                   <input
                     type="number"
                     step="0.1"
                     value={newHolidayMultiplier}
                     onChange={e => setNewHolidayMultiplier(e.target.value)}
-                    placeholder="Ví dụ: 2.0"
+                    placeholder="VÃ­ dá»¥: 2.0"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hoặc thưởng thêm cố định (VNĐ):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Hoáº·c thÆ°á»Ÿng thÃªm cá»‘ Ä‘á»‹nh (VNÄ):</label>
                   <input
                     type="number"
                     value={newHolidayFlatBonus}
                     onChange={e => setNewHolidayFlatBonus(e.target.value)}
-                    placeholder="Ví dụ: 100000"
+                    placeholder="VÃ­ dá»¥: 100000"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
                 <button type="submit" className="btn btn-primary py-2 px-4 text-xs font-bold w-full cursor-pointer">
-                  Thêm ngày lễ
+                  ThÃªm ngÃ y lá»…
                 </button>
               </form>
             </div>
@@ -3893,24 +3893,24 @@ export default function AdminPortal() {
             <div className="card p-0 lg:col-span-2 overflow-hidden border border-gray-150 bg-white">
               <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                  <Calendar size={14} /> Danh sách ngày nghỉ lễ chi tiết ({detailedHolidaysList.length})
+                  <Calendar size={14} /> Danh sÃ¡ch ngÃ y nghá»‰ lá»… chi tiáº¿t ({detailedHolidaysList.length})
                 </span>
               </div>
               <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                <table className="w-full min-w-[900px] whitespace-nowrap text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                      <th className="p-3">Ngày lễ</th>
-                      <th className="p-3">Mô tả / Tên ngày lễ</th>
-                      <th className="p-3 text-center">Hệ số lương</th>
-                      <th className="p-3 text-center">Thưởng cố định</th>
-                      <th className="p-3 text-right">Thao tác</th>
+                      <th className="p-3">NgÃ y lá»…</th>
+                      <th className="p-3">MÃ´ táº£ / TÃªn ngÃ y lá»…</th>
+                      <th className="p-3 text-center">Há»‡ sá»‘ lÆ°Æ¡ng</th>
+                      <th className="p-3 text-center">ThÆ°á»Ÿng cá»‘ Ä‘á»‹nh</th>
+                      <th className="p-3 text-right">Thao tÃ¡c</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                     {detailedHolidaysList.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-6 text-center text-gray-400 italic">Chưa có ngày lễ nào được thiết lập.</td>
+                        <td colSpan={5} className="p-6 text-center text-gray-400 italic">ChÆ°a cÃ³ ngÃ y lá»… nÃ o Ä‘Æ°á»£c thiáº¿t láº­p.</td>
                       </tr>
                     ) : (
                       detailedHolidaysList.map((h: any, idx: number) => (
@@ -3918,14 +3918,14 @@ export default function AdminPortal() {
                           <td className="p-3  text-xs text-[#7c4831]">{h.Date}</td>
                           <td className="p-3 text-xs">{h.Note}</td>
                           <td className="p-3 text-center text-xs">x{h.Multiplier ?? "2.0"}</td>
-                          <td className="p-3 text-center text-xs">{(h.FlatBonus ?? 0).toLocaleString("vi-VN")}đ</td>
+                          <td className="p-3 text-center text-xs">{(h.FlatBonus ?? 0).toLocaleString("vi-VN")}Ä‘</td>
                           <td className="p-3 text-right">
                             <button
                               onClick={() => handleDeleteDetailedHoliday(idx)}
                               className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
                               type="button"
                             >
-                              Xóa
+                              XÃ³a
                             </button>
                           </td>
                         </tr>
@@ -3947,8 +3947,8 @@ export default function AdminPortal() {
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="border-b border-gray-200/50 pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Cấu Hình Hệ Thống</h2>
-          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Quản lý định vị GPS, đăng ký ca rảnh và bảo mật sinh trắc học</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Cáº¥u HÃ¬nh Há»‡ Thá»‘ng</h2>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Quáº£n lÃ½ Ä‘á»‹nh vá»‹ GPS, Ä‘Äƒng kÃ½ ca ráº£nh vÃ  báº£o máº­t sinh tráº¯c há»c</p>
         </div>
 
         {/* Sub-navigation Tabs */}
@@ -3961,7 +3961,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Vị trí GPS & Bản đồ
+            Vá»‹ trÃ­ GPS & Báº£n Ä‘á»“
           </button>
           <button
             onClick={() => setConfigActiveTab("biometrics")}
@@ -3971,7 +3971,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Bảo mật sinh trắc học
+            Báº£o máº­t sinh tráº¯c há»c
           </button>
           <button
             onClick={() => setConfigActiveTab("pin")}
@@ -3981,7 +3981,7 @@ export default function AdminPortal() {
               : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
               }`}
           >
-            Thay đổi mã PIN
+            Thay Ä‘á»•i mÃ£ PIN
           </button>
         </div>
 
@@ -3989,57 +3989,57 @@ export default function AdminPortal() {
         {configActiveTab === "gps" && (
           <div className="card space-y-4 border border-gray-150 bg-white anim-fadeUp">
             <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-              <MapPin size={16} className="text-[#7c4831]" /> Cấu hình vị trí GPS & Bản đồ giới hạn check-in
+              <MapPin size={16} className="text-[#7c4831]" /> Cáº¥u hÃ¬nh vá»‹ trÃ­ GPS & Báº£n Ä‘á»“ giá»›i háº¡n check-in
             </h3>
             <p className="text-[11px] text-gray-500 font-semibold">
-              Click hoặc kéo thả ghim trên bản đồ dưới đây để xác định tọa độ của quán. Nhân viên chỉ có thể check-in khi đứng trong vòng tròn bán kính cho phép.
+              Click hoáº·c kÃ©o tháº£ ghim trÃªn báº£n Ä‘á»“ dÆ°á»›i Ä‘Ã¢y Ä‘á»ƒ xÃ¡c Ä‘á»‹nh tá»a Ä‘á»™ cá»§a quÃ¡n. NhÃ¢n viÃªn chá»‰ cÃ³ thá»ƒ check-in khi Ä‘á»©ng trong vÃ²ng trÃ²n bÃ¡n kÃ­nh cho phÃ©p.
             </p>
             <form onSubmit={handleSaveHrmConfigs} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Vĩ độ (Latitude):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">VÄ© Ä‘á»™ (Latitude):</label>
                   <input
                     type="number"
                     step="0.000001"
                     value={gpsLatitude}
                     onChange={e => setGpsLatitude(e.target.value)}
-                    placeholder="Ví dụ: 10.8315"
+                    placeholder="VÃ­ dá»¥: 10.8315"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Kinh độ (Longitude):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Kinh Ä‘á»™ (Longitude):</label>
                   <input
                     type="number"
                     step="0.000001"
                     value={gpsLongitude}
                     onChange={e => setGpsLongitude(e.target.value)}
-                    placeholder="Ví dụ: 106.6645"
+                    placeholder="VÃ­ dá»¥: 106.6645"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Bán kính check-in cho phép (Mét):</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">BÃ¡n kÃ­nh check-in cho phÃ©p (MÃ©t):</label>
                   <input
                     type="number"
                     value={gpsRadius}
                     onChange={e => setGpsRadius(e.target.value)}
-                    placeholder="Ví dụ: 50"
+                    placeholder="VÃ­ dá»¥: 50"
                     className="input w-full text-xs font-semibold bg-white"
                     required
                   />
                 </div>
               </div>
 
-              {/* Tìm kiếm địa chỉ */}
+              {/* TÃ¬m kiáº¿m Ä‘á»‹a chá»‰ */}
               <div className="space-y-1.5 pt-1">
-                <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Tìm kiếm địa chỉ nhanh:</label>
+                <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">TÃ¬m kiáº¿m Ä‘á»‹a chá»‰ nhanh:</label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
-                    placeholder="Ví dụ: 123 Nguyễn Văn Cừ, Gò Vấp, Hồ Chí Minh"
+                    placeholder="VÃ­ dá»¥: 123 Nguyá»…n VÄƒn Cá»«, GÃ² Váº¥p, Há»“ ChÃ­ Minh"
                     value={addressSearchQuery}
                     onChange={e => setAddressSearchQuery(e.target.value)}
                     className="input flex-grow text-xs font-semibold bg-white"
@@ -4056,15 +4056,15 @@ export default function AdminPortal() {
                     disabled={searchLoading}
                     className="btn btn-ghost border border-gray-255 bg-[#FAF9F6] text-xs font-bold py-1.5 px-4 hover:bg-gray-100 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {searchLoading ? <RefreshCw size={12} className="animate-spin" /> : "Tìm kiếm"}
+                    {searchLoading ? <RefreshCw size={12} className="animate-spin" /> : "TÃ¬m kiáº¿m"}
                   </button>
                   <button
                     type="button"
                     onClick={handleGetCurrentLocation}
                     className="btn btn-ghost border border-gray-255 bg-[#FAF9F6] text-xs font-bold py-1.5 px-4 hover:bg-gray-100 flex items-center justify-center gap-1.5 text-amber-800 cursor-pointer"
-                    title="Lấy vị trí GPS hiện tại của trình duyệt"
+                    title="Láº¥y vá»‹ trÃ­ GPS hiá»‡n táº¡i cá»§a trÃ¬nh duyá»‡t"
                   >
-                    <MapPin size={12} /> Lấy vị trí của tôi
+                    <MapPin size={12} /> Láº¥y vá»‹ trÃ­ cá»§a tÃ´i
                   </button>
                 </div>
               </div>
@@ -4072,31 +4072,31 @@ export default function AdminPortal() {
               <div id="map-picker" className="h-72 w-full rounded-2xl border border-gray-250/70 shadow-sm relative z-10 my-3 overflow-hidden"></div>
 
               <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
-                Lưu cấu hình vị trí GPS
+                LÆ°u cáº¥u hÃ¬nh vá»‹ trÃ­ GPS
               </button>
             </form>
 
-            {/* Cấu hình ghi chú của quản lý */}
+            {/* Cáº¥u hÃ¬nh ghi chÃº cá»§a quáº£n lÃ½ */}
             <div className="border-t border-gray-100 pt-4 mt-4 space-y-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#7c4831]">
-                <FileText size={16} className="text-[#7c4831]" /> Ghi chú của Quản lý dành cho Nhân viên
+                <FileText size={16} className="text-[#7c4831]" /> Ghi chÃº cá»§a Quáº£n lÃ½ dÃ nh cho NhÃ¢n viÃªn
               </h3>
               <p className="text-[11px] text-gray-500 font-semibold">
-                Ghi chú này sẽ được hiển thị ở phần Đăng ký ca làm việc của Nhân viên.
+                Ghi chÃº nÃ y sáº½ Ä‘Æ°á»£c hiá»ƒn thá»‹ á»Ÿ pháº§n ÄÄƒng kÃ½ ca lÃ m viá»‡c cá»§a NhÃ¢n viÃªn.
               </p>
               <form onSubmit={handleSaveManagerNote} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nội dung ghi chú:</label>
+                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Ná»™i dung ghi chÃº:</label>
                   <textarea
                     value={managerNote}
                     onChange={e => setManagerNote(e.target.value)}
-                    placeholder="Nhập ghi chú cho nhân viên ở đây..."
+                    placeholder="Nháº­p ghi chÃº cho nhÃ¢n viÃªn á»Ÿ Ä‘Ã¢y..."
                     className="textarea w-full text-xs font-semibold bg-white border border-gray-200 rounded-xl p-3 h-24 focus:outline-none focus:border-[#7c4831]"
                     required
                   />
                 </div>
                 <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
-                  Lưu Ghi Chú
+                  LÆ°u Ghi ChÃº
                 </button>
               </form>
             </div>
@@ -4107,13 +4107,13 @@ export default function AdminPortal() {
         {configActiveTab === "biometrics" && (
           <div className="card space-y-4 md:col-span-2 anim-fadeUp bg-white border border-gray-150">
             <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-              <Lock size={16} className="text-[#7c4831]" /> Bảo mật thiết bị (Biometrics)
+              <Lock size={16} className="text-[#7c4831]" /> Báº£o máº­t thiáº¿t bá»‹ (Biometrics)
             </h3>
             <div className="p-5 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="space-y-1">
-                <span className="text-[#4B3621] text-xs font-bold block uppercase">Kích hoạt vân tay / Face ID trên thiết bị hiện tại</span>
+                <span className="text-[#4B3621] text-xs font-bold block uppercase">KÃ­ch hoáº¡t vÃ¢n tay / Face ID trÃªn thiáº¿t bá»‹ hiá»‡n táº¡i</span>
                 <span className="text-gray-400 font-semibold text-[10px] block normal-case leading-relaxed">
-                  Đăng ký sinh trắc học thiết bị này cho tài khoản quản trị hiện tại ({currentUserPhone || "admin"}) để bỏ qua nhập mã PIN hoặc mật khẩu khi đăng nhập nhanh.
+                  ÄÄƒng kÃ½ sinh tráº¯c há»c thiáº¿t bá»‹ nÃ y cho tÃ i khoáº£n quáº£n trá»‹ hiá»‡n táº¡i ({currentUserPhone || "admin"}) Ä‘á»ƒ bá» qua nháº­p mÃ£ PIN hoáº·c máº­t kháº©u khi Ä‘Äƒng nháº­p nhanh.
                 </span>
               </div>
               <button
@@ -4124,7 +4124,7 @@ export default function AdminPortal() {
                 <svg className="w-4.5 h-4.5 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a5 5 0 00-10 0c0 .353.017.702.051 1.045l-.011-.05M12 11c0-3.517 1.009-6.799 2.753-9.571m3.44 2.04l-.054.09A13.916 13.916 0 0015 11a5 5 0 0010 0c0-.353-.017-.702-.051-1.045l.011.05M12 11V3" />
                 </svg>
-                <span>Kích hoạt Touch ID thiết bị này</span>
+                <span>KÃ­ch hoáº¡t Touch ID thiáº¿t bá»‹ nÃ y</span>
               </button>
             </div>
           </div>
@@ -4133,31 +4133,31 @@ export default function AdminPortal() {
         {configActiveTab === "pin" && (
           <div className="card space-y-4 max-w-md anim-fadeUp bg-white border border-gray-150 text-left">
             <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-              <Lock size={16} className="text-[#7c4831]" /> Thay đổi mã PIN cá nhân
+              <Lock size={16} className="text-[#7c4831]" /> Thay Ä‘á»•i mÃ£ PIN cÃ¡ nhÃ¢n
             </h3>
             <p className="text-[11px] text-gray-500 font-medium font-sans">
-              Đổi mã PIN gồm 6 số của tài khoản quản trị hiện tại ({currentUserPhone || "admin"}) để phục vụ xác thực bảo mật.
+              Äá»•i mÃ£ PIN gá»“m 6 sá»‘ cá»§a tÃ i khoáº£n quáº£n trá»‹ hiá»‡n táº¡i ({currentUserPhone || "admin"}) Ä‘á»ƒ phá»¥c vá»¥ xÃ¡c thá»±c báº£o máº­t.
             </p>
             <form onSubmit={handleChangePin} className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN cũ *</label>
+                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">MÃ£ PIN cÅ© *</label>
                 <input
                   type="password"
                   maxLength={6}
                   required
-                  placeholder="Nhập 6 số PIN cũ"
+                  placeholder="Nháº­p 6 sá»‘ PIN cÅ©"
                   value={oldPin}
                   onChange={e => setOldPin(e.target.value)}
                   className="input w-full text-xs font-semibold bg-white"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN mới *</label>
+                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">MÃ£ PIN má»›i *</label>
                 <input
                   type="password"
                   maxLength={6}
                   required
-                  placeholder="Nhập 6 số PIN mới"
+                  placeholder="Nháº­p 6 sá»‘ PIN má»›i"
                   value={newPin}
                   onChange={e => setNewPin(e.target.value)}
                   className="input w-full text-xs font-semibold bg-white"
@@ -4167,7 +4167,7 @@ export default function AdminPortal() {
                 type="submit"
                 className="btn btn-primary py-2.5 px-6 text-xs font-bold mt-1 cursor-pointer"
               >
-                Cập nhật mã PIN
+                Cáº­p nháº­t mÃ£ PIN
               </button>
             </form>
           </div>
@@ -4192,7 +4192,7 @@ export default function AdminPortal() {
   // === QR LOOKUP ===
   const handleQrLookup = async () => {
     if (!qrInput.trim()) {
-      setQrError("Vui lòng nhập mã QR hoặc số điện thoại khách hàng!");
+      setQrError("Vui lÃ²ng nháº­p mÃ£ QR hoáº·c sá»‘ Ä‘iá»‡n thoáº¡i khÃ¡ch hÃ ng!");
       return;
     }
     setQrLoading(true);
@@ -4237,7 +4237,7 @@ export default function AdminPortal() {
             Points: localCustomer.points
           });
         } else {
-          setQrError(errData.message || "Không tìm thấy khách hàng!");
+          setQrError(errData.message || "KhÃ´ng tÃ¬m tháº¥y khÃ¡ch hÃ ng!");
         }
       } else {
         const data = await response.json();
@@ -4256,7 +4256,7 @@ export default function AdminPortal() {
           Points: localCustomer.points
         });
       } else {
-        setQrError("Lỗi kết nối API. Không tìm thấy khách hàng trong dữ liệu cục bộ.");
+        setQrError("Lá»—i káº¿t ná»‘i API. KhÃ´ng tÃ¬m tháº¥y khÃ¡ch hÃ ng trong dá»¯ liá»‡u cá»¥c bá»™.");
       }
     }
     setQrLoading(false);
@@ -4267,7 +4267,7 @@ export default function AdminPortal() {
     if (!qrLookupResult || !qrBillAmt) return;
     const billAmount = parseInt(qrBillAmt);
     if (isNaN(billAmount) || billAmount <= 0) {
-      setQrError("Số tiền hóa đơn không hợp lệ!");
+      setQrError("Sá»‘ tiá»n hÃ³a Ä‘Æ¡n khÃ´ng há»£p lá»‡!");
       return;
     }
     setQrLoading(true);
@@ -4290,10 +4290,10 @@ export default function AdminPortal() {
         // Fallback local
         const localResult = addPointsToCustomer(qrLookupResult.PhoneNumber, billAmount, "Admin");
         if (localResult?.success) {
-          setQrSuccess(`Tích điểm thành công (cục bộ)! +${localResult.pointsAdded} điểm từ hóa đơn ${billAmount.toLocaleString("vi-VN")}đ.`);
+          setQrSuccess(`TÃ­ch Ä‘iá»ƒm thÃ nh cÃ´ng (cá»¥c bá»™)! +${localResult.pointsAdded} Ä‘iá»ƒm tá»« hÃ³a Ä‘Æ¡n ${billAmount.toLocaleString("vi-VN")}Ä‘.`);
           setQrLookupResult({ ...qrLookupResult, Points: (qrLookupResult.Points || 0) + localResult.pointsAdded });
         } else {
-          setQrError(errData.message || "Không thể tích điểm!");
+          setQrError(errData.message || "KhÃ´ng thá»ƒ tÃ­ch Ä‘iá»ƒm!");
         }
       } else {
         const data = await response.json();
@@ -4308,10 +4308,10 @@ export default function AdminPortal() {
       // Fallback local
       const localResult = addPointsToCustomer(qrLookupResult.PhoneNumber, billAmount, "Admin");
       if (localResult?.success) {
-        setQrSuccess(`Tích điểm thành công! +${localResult.pointsAdded} điểm.`);
+        setQrSuccess(`TÃ­ch Ä‘iá»ƒm thÃ nh cÃ´ng! +${localResult.pointsAdded} Ä‘iá»ƒm.`);
         setQrLookupResult({ ...qrLookupResult, Points: (qrLookupResult.Points || 0) + localResult.pointsAdded });
       } else {
-        setQrError("Lỗi kết nối và không thể tích điểm cục bộ.");
+        setQrError("Lá»—i káº¿t ná»‘i vÃ  khÃ´ng thá»ƒ tÃ­ch Ä‘iá»ƒm cá»¥c bá»™.");
       }
     }
     setQrLoading(false);
@@ -4322,16 +4322,16 @@ export default function AdminPortal() {
   const ScanQrView = () => (
     <div className="space-y-6 anim-fadeUp text-[#4B3621]">
       <div className="border-b border-gray-200/50 pb-4">
-        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Quét QR & Khách Hàng</h2>
-        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Quét mã QR, quản lý điểm loyalty và danh sách khách hàng</p>
+        <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">QuÃ©t QR & KhÃ¡ch HÃ ng</h2>
+        <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">QuÃ©t mÃ£ QR, quáº£n lÃ½ Ä‘iá»ƒm loyalty vÃ  danh sÃ¡ch khÃ¡ch hÃ ng</p>
       </div>
 
       {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap">
         {[
-          { key: "scan" as const, label: "Quét QR Tích Điểm", icon: ScanLine },
-          { key: "loyalty" as const, label: "Điểm Loyalty & Menu", icon: Gift },
-          { key: "customers" as const, label: "Khách Hàng", icon: Users },
+          { key: "scan" as const, label: "QuÃ©t QR TÃ­ch Äiá»ƒm", icon: ScanLine },
+          { key: "loyalty" as const, label: "Äiá»ƒm Loyalty & Menu", icon: Gift },
+          { key: "customers" as const, label: "KhÃ¡ch HÃ ng", icon: Users },
         ].map(t => (
           <button
             key={t.key}
@@ -4352,14 +4352,14 @@ export default function AdminPortal() {
         {/* QR Input Card */}
         <div className="card space-y-5">
           <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-            <ScanLine size={16} className="text-[#7c4831]" /> Nhập Mã QR / Số Điện Thoại
+            <ScanLine size={16} className="text-[#7c4831]" /> Nháº­p MÃ£ QR / Sá»‘ Äiá»‡n Thoáº¡i
           </h3>
 
           <div className="space-y-3">
             <div className="relative">
               <input
                 type="text"
-                placeholder='Dán nội dung QR hoặc nhập SĐT khách hàng (VD: 0987654321)'
+                placeholder='DÃ¡n ná»™i dung QR hoáº·c nháº­p SÄT khÃ¡ch hÃ ng (VD: 0987654321)'
                 value={qrInput}
                 onChange={e => setQrInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleQrLookup(); }}
@@ -4372,12 +4372,12 @@ export default function AdminPortal() {
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 btn btn-primary py-1.5 px-4 text-[10px] font-bold uppercase tracking-wider"
                 id="qr-lookup-btn"
               >
-                {qrLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Search size={12} /> Tra cứu</>}
+                {qrLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Search size={12} /> Tra cá»©u</>}
               </button>
             </div>
 
             <p className="text-[10px] text-gray-400 font-semibold">
-              Hỗ trợ nhận dạng: JSON QR {`{"id":"...","phone":"..."}`}, SĐT trực tiếp, hoặc ID khách hàng.
+              Há»— trá»£ nháº­n dáº¡ng: JSON QR {`{"id":"...","phone":"..."}`}, SÄT trá»±c tiáº¿p, hoáº·c ID khÃ¡ch hÃ ng.
             </p>
           </div>
 
@@ -4399,13 +4399,13 @@ export default function AdminPortal() {
           <div className="card space-y-5 border-2 border-[#7c4831]/15 anim-fadeUp">
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#7c4831]">
-                <UserCheck size={16} className="text-emerald-600" /> Thông Tin Khách Hàng
+                <UserCheck size={16} className="text-emerald-600" /> ThÃ´ng Tin KhÃ¡ch HÃ ng
               </h3>
               <button
                 onClick={() => { setQrLookupResult(null); setQrInput(""); setQrBillAmt(""); setQrError(""); setQrSuccess(""); }}
                 className="text-[10px] text-gray-400 hover:text-[#7c4831] font-bold uppercase tracking-wider cursor-pointer"
               >
-                Đóng
+                ÄÃ³ng
               </button>
             </div>
 
@@ -4418,7 +4418,7 @@ export default function AdminPortal() {
                 <h4 className="font-extrabold text-base text-[#4B3621] uppercase tracking-tight truncate">{qrLookupResult.FullName}</h4>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs  font-bold text-[#7c4831]/70">{qrLookupResult.PhoneNumber}</span>
-                  <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100 text-[10px]">{qrLookupResult.Points} điểm</span>
+                  <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100 text-[10px]">{qrLookupResult.Points} Ä‘iá»ƒm</span>
                 </div>
                 <p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-wider">ID: {qrLookupResult.Id?.substring(0, 12)}...</p>
               </div>
@@ -4435,12 +4435,12 @@ export default function AdminPortal() {
 
             {/* Bill Amount Input & Add Points */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhập số tiền hóa đơn để tích điểm:</label>
+              <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nháº­p sá»‘ tiá»n hÃ³a Ä‘Æ¡n Ä‘á»ƒ tÃ­ch Ä‘iá»ƒm:</label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2 relative">
                   <input
                     type="number"
-                    placeholder="Ví dụ: 150000"
+                    placeholder="VÃ­ dá»¥: 150000"
                     value={qrBillAmt}
                     onChange={e => setQrBillAmt(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") handleQrAddPoints(); }}
@@ -4449,7 +4449,7 @@ export default function AdminPortal() {
                   />
                   {qrBillAmt && parseInt(qrBillAmt) > 0 && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                      +{Math.floor(parseInt(qrBillAmt) / 50000)} điểm
+                      +{Math.floor(parseInt(qrBillAmt) / 50000)} Ä‘iá»ƒm
                     </span>
                   )}
                 </div>
@@ -4462,12 +4462,12 @@ export default function AdminPortal() {
                   {qrLoading ? (
                     <RefreshCw size={13} className="animate-spin" />
                   ) : (
-                    <><Gift size={14} /> Tích Điểm</>
+                    <><Gift size={14} /> TÃ­ch Äiá»ƒm</>
                   )}
                 </button>
               </div>
               <p className="text-[9px] text-gray-400 font-semibold">
-                Quy cách: Mỗi 50,000 VNĐ = 1 điểm tích lũy. Đủ 10 điểm = tự động nhận Voucher 55K.
+                Quy cÃ¡ch: Má»—i 50,000 VNÄ = 1 Ä‘iá»ƒm tÃ­ch lÅ©y. Äá»§ 10 Ä‘iá»ƒm = tá»± Ä‘á»™ng nháº­n Voucher 55K.
               </p>
             </div>
 
@@ -4483,7 +4483,7 @@ export default function AdminPortal() {
                     : "bg-[#FAF9F6] text-[#4B3621] border-gray-150 hover:border-[#7c4831]/30"
                     }`}
                 >
-                  {amt.toLocaleString("vi-VN")}đ
+                  {amt.toLocaleString("vi-VN")}Ä‘
                 </button>
               ))}
             </div>
@@ -4493,23 +4493,23 @@ export default function AdminPortal() {
         {/* Recent Scan History from Logs */}
         <div className="card space-y-4">
           <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-            <Clock size={14} className="text-[#7c4831]" /> Lịch Sử Quét QR Gần Đây
+            <Clock size={14} className="text-[#7c4831]" /> Lá»‹ch Sá»­ QuÃ©t QR Gáº§n ÄÃ¢y
           </h3>
           <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-            {(logs || []).filter((l: any) => l.action?.includes("Tích điểm") || l.action?.includes("Quét mã")).slice(0, 10).map((l: any) => (
+            {(logs || []).filter((l: any) => l.action?.includes("TÃ­ch Ä‘iá»ƒm") || l.action?.includes("QuÃ©t mÃ£")).slice(0, 10).map((l: any) => (
               <div key={l.id} className="p-3 rounded-xl bg-[#FAF9F6] border border-gray-100 text-xs flex gap-3 items-start transition-all hover:bg-white hover:border-gray-200">
                 <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 font-bold text-[9px] ${getAvatarBg(l.staffName)}`}>
                   {getInitials(l.staffName)}
                 </div>
                 <div className="flex-grow font-semibold">
                   <span className="text-[#4B3621]/90 leading-relaxed text-xs">{l.description}</span>
-                  <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} • {l.time}</p>
+                  <p className="text-[#7c4831]/60 mt-1 text-[9px] font-medium">{l.staffName} â€¢ {l.time}</p>
                 </div>
-                <span className="pill bg-[#D3ECE1] text-[#1B523A] text-[8px] font-semibold shrink-0 border border-emerald-200">+ĐIỂM</span>
+                <span className="pill bg-[#D3ECE1] text-[#1B523A] text-[8px] font-semibold shrink-0 border border-emerald-200">+ÄIá»‚M</span>
               </div>
             ))}
-            {(logs || []).filter((l: any) => l.action?.includes("Tích điểm") || l.action?.includes("Quét mã")).length === 0 && (
-              <p className="text-xs text-gray-400 italic py-6 text-center">Chưa có bản ghi quét QR tích điểm nào.</p>
+            {(logs || []).filter((l: any) => l.action?.includes("TÃ­ch Ä‘iá»ƒm") || l.action?.includes("QuÃ©t mÃ£")).length === 0 && (
+              <p className="text-xs text-gray-400 italic py-6 text-center">ChÆ°a cÃ³ báº£n ghi quÃ©t QR tÃ­ch Ä‘iá»ƒm nÃ o.</p>
             )}
           </div>
         </div>
@@ -4520,20 +4520,20 @@ export default function AdminPortal() {
           {/* Edit Points */}
           <div className="card space-y-4">
             <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-              <Edit3 size={16} className="text-[#7c4831]" /> Sửa điểm khách hàng thủ công
+              <Edit3 size={16} className="text-[#7c4831]" /> Sá»­a Ä‘iá»ƒm khÃ¡ch hÃ ng thá»§ cÃ´ng
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <input type="tel" placeholder="Số điện thoại khách *" value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input text-sm font-semibold" id="edit-phone" />
-              <input type="number" placeholder="Số điểm mới *" value={editPts} onChange={e => setEditPts(e.target.value)} className="input text-sm font-semibold" id="edit-pts" />
-              <button onClick={() => { if (!editPhone || !editPts) return; adjustPointsManually(editPhone.trim(), parseInt(editPts)); alert("Cập nhật số điểm thành công!"); setEditPhone(""); setEditPts(""); }}
-                className="btn btn-primary py-2.5 text-xs" id="edit-pts-btn">Cập Nhật Ngay</button>
+              <input type="tel" placeholder="Sá»‘ Ä‘iá»‡n thoáº¡i khÃ¡ch *" value={editPhone} onChange={e => setEditPhone(e.target.value)} className="input text-sm font-semibold" id="edit-phone" />
+              <input type="number" placeholder="Sá»‘ Ä‘iá»ƒm má»›i *" value={editPts} onChange={e => setEditPts(e.target.value)} className="input text-sm font-semibold" id="edit-pts" />
+              <button onClick={() => { if (!editPhone || !editPts) return; adjustPointsManually(editPhone.trim(), parseInt(editPts)); alert("Cáº­p nháº­t sá»‘ Ä‘iá»ƒm thÃ nh cÃ´ng!"); setEditPhone(""); setEditPts(""); }}
+                className="btn btn-primary py-2.5 text-xs" id="edit-pts-btn">Cáº­p Nháº­t Ngay</button>
             </div>
           </div>
 
           {/* Menu Upload */}
           <div className="card space-y-4">
             <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-              <ImagePlus size={16} className="text-[#7c4831]" /> Cấu Hình Hình Ảnh Thực Đơn
+              <ImagePlus size={16} className="text-[#7c4831]" /> Cáº¥u HÃ¬nh HÃ¬nh áº¢nh Thá»±c ÄÆ¡n
             </h3>
 
             {/* Responsive grid for multi menu images */}
@@ -4545,13 +4545,13 @@ export default function AdminPortal() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm("Bạn có chắc chắn muốn xóa hình ảnh thực đơn này?")) {
+                        if (confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a hÃ¬nh áº£nh thá»±c Ä‘Æ¡n nÃ y?")) {
                           const updated = menuImages.filter((item: any) => item.id !== img.id);
                           updateMenuImages(updated);
                         }
                       }}
                       className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg opacity-90 transition-all hover:scale-105"
-                      title="Xóa ảnh"
+                      title="XÃ³a áº£nh"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -4570,7 +4570,7 @@ export default function AdminPortal() {
                       id={`check-qr-${img.id}`}
                     />
                     <label htmlFor={`check-qr-${img.id}`} className="text-xs font-bold text-gray-700 cursor-pointer select-none">
-                      Hoạt động
+                      Hoáº¡t Ä‘á»™ng
                     </label>
                   </div>
                 </div>
@@ -4578,7 +4578,7 @@ export default function AdminPortal() {
             </div>
 
             <div className="flex flex-col gap-2 pt-2 max-w-lg">
-              <label className="text-xs font-bold text-gray-500 uppercase">Tải các tệp hình ảnh thực đơn lên trực tiếp (Chọn nhiều ảnh):</label>
+              <label className="text-xs font-bold text-gray-500 uppercase">Táº£i cÃ¡c tá»‡p hÃ¬nh áº£nh thá»±c Ä‘Æ¡n lÃªn trá»±c tiáº¿p (Chá»n nhiá»u áº£nh):</label>
               <input
                 type="file"
                 accept="image/*"
@@ -4604,7 +4604,7 @@ export default function AdminPortal() {
                         active: true
                       }));
                       updateMenuImages([...(menuImages || []), ...newItems]);
-                      alert("Tải lên các hình ảnh thực đơn thành công!");
+                      alert("Táº£i lÃªn cÃ¡c hÃ¬nh áº£nh thá»±c Ä‘Æ¡n thÃ nh cÃ´ng!");
                     });
                   }
                 }}
@@ -4619,7 +4619,7 @@ export default function AdminPortal() {
       {qrActiveTab === "customers" && (
         <div className="card space-y-4">
           <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
-            <Users size={16} className="text-[#7c4831]" /> Danh Sách Khách Hàng Đăng Ký ({customers?.length || 0})
+            <Users size={16} className="text-[#7c4831]" /> Danh SÃ¡ch KhÃ¡ch HÃ ng ÄÄƒng KÃ½ ({customers?.length || 0})
           </h3>
           <div className="space-y-3">
             {(customers || []).map((c: any) => (
@@ -4630,10 +4630,10 @@ export default function AdminPortal() {
                   </div>
                   <div>
                     <p className="font-extrabold text-sm text-[#4B3621] uppercase tracking-tight">{c.name}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-0.5">{c.phone} • {c.email}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-0.5">{c.phone} â€¢ {c.email}</p>
                   </div>
                 </div>
-                <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100">{c.points}đ</span>
+                <span className="pill bg-[#E0F2FE] text-[#075985]  font-extrabold border border-sky-100">{c.points}Ä‘</span>
               </div>
             ))}
           </div>
@@ -4648,11 +4648,11 @@ export default function AdminPortal() {
         <div className="w-16 h-16 rounded-full bg-[#FADCD5] flex items-center justify-center shadow-sm border border-red-200">
           <Settings size={26} className="text-[#7A2F1E]" />
         </div>
-        <h3 className="text-xl font-extrabold uppercase text-[#4B3621] tracking-tight">Vận Hành Bị Khóa</h3>
+        <h3 className="text-xl font-extrabold uppercase text-[#4B3621] tracking-tight">Váº­n HÃ nh Bá»‹ KhÃ³a</h3>
         <p className="text-xs text-[#4B3621]/70 max-w-sm font-semibold leading-relaxed">
-          Thương hiệu hiện đang bị khóa tạm ngưng vận hành do thuê bao gói SaaS quá hạn thanh toán. Vui lòng liên hệ nhà quản trị tối cao.
+          ThÆ°Æ¡ng hiá»‡u hiá»‡n Ä‘ang bá»‹ khÃ³a táº¡m ngÆ°ng váº­n hÃ nh do thuÃª bao gÃ³i SaaS quÃ¡ háº¡n thanh toÃ¡n. Vui lÃ²ng liÃªn há»‡ nhÃ  quáº£n trá»‹ tá»‘i cao.
         </p>
-        <button onClick={handleLogout} className="btn btn-ghost py-3 px-6 text-xs flex items-center gap-2 shadow-xs"><LogOut size={14} /> Đăng xuất tài khoản</button>
+        <button onClick={handleLogout} className="btn btn-ghost py-3 px-6 text-xs flex items-center gap-2 shadow-xs"><LogOut size={14} /> ÄÄƒng xuáº¥t tÃ i khoáº£n</button>
       </div>
     );
     switch (page) {
@@ -4662,22 +4662,22 @@ export default function AdminPortal() {
         return (
           <div className="space-y-5 anim-fadeUp text-[#4B3621]">
             <div className="border-b border-gray-200/50 pb-3">
-              <h2 className="text-xl font-bold uppercase tracking-tight text-[#7c4831]">Quản Lý Nhân Sự</h2>
-              <p className="text-[10px] font-bold text-[#7c4831]/60 uppercase mt-0.5">Thêm mới và xem danh sách nhân sự của chi nhánh</p>
+              <h2 className="text-xl font-bold uppercase tracking-tight text-[#7c4831]">Quáº£n LÃ½ NhÃ¢n Sá»±</h2>
+              <p className="text-[10px] font-bold text-[#7c4831]/60 uppercase mt-0.5">ThÃªm má»›i vÃ  xem danh sÃ¡ch nhÃ¢n sá»± cá»§a chi nhÃ¡nh</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* Add Staff Form */}
               <div className="card p-4 space-y-3 h-fit border border-gray-100">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 text-[#7c4831]">
-                  <Plus size={14} className="text-[#7c4831]" /> Thêm Nhân Viên Mới
+                  <Plus size={14} className="text-[#7c4831]" /> ThÃªm NhÃ¢n ViÃªn Má»›i
                 </h3>
                 <form onSubmit={handleRegisterStaff} className="space-y-3">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Họ và Tên *</label>
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Há» vÃ  TÃªn *</label>
                     <input
                       type="text"
-                      placeholder="Ví dụ: Nguyễn Văn A"
+                      placeholder="VÃ­ dá»¥: Nguyá»…n VÄƒn A"
                       required
                       value={newStaffName}
                       onChange={e => setNewStaffName(e.target.value)}
@@ -4686,10 +4686,10 @@ export default function AdminPortal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Số Điện Thoại *</label>
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Sá»‘ Äiá»‡n Thoáº¡i *</label>
                     <input
                       type="tel"
-                      placeholder="Ví dụ: 0912345678"
+                      placeholder="VÃ­ dá»¥: 0912345678"
                       required
                       value={newStaffPhone}
                       onChange={e => setNewStaffPhone(e.target.value)}
@@ -4698,16 +4698,16 @@ export default function AdminPortal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Vai Trò / Quyền Hạn</label>
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Vai TrÃ² / Quyá»n Háº¡n</label>
                     <div className="input w-full py-1.5 px-3 text-xs font-semibold bg-gray-50/50 border border-gray-150 rounded-xl text-gray-500 select-none">
-                      Nhân viên (Staff)
+                      NhÃ¢n viÃªn (Staff)
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Lương theo giờ (VNĐ/giờ) *</label>
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">LÆ°Æ¡ng theo giá» (VNÄ/giá») *</label>
                     <input
                       type="number"
-                      placeholder="Ví dụ: 25000"
+                      placeholder="VÃ­ dá»¥: 25000"
                       required
                       value={newStaffWage}
                       onChange={e => setNewStaffWage(e.target.value)}
@@ -4716,7 +4716,7 @@ export default function AdminPortal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Kỹ năng làm việc</label>
+                    <label className="text-[9px] font-bold text-[#7c4831] uppercase tracking-wider block">Ká»¹ nÄƒng lÃ m viá»‡c</label>
                     <div className="flex flex-wrap gap-1.5 p-2 bg-[#FAF9F6] border border-gray-150 rounded-xl max-h-[100px] overflow-y-auto">
                       {skillsList.map((sk: any) => {
                         const isChecked = selectedNewStaffSkills.includes(sk.id);
@@ -4742,7 +4742,7 @@ export default function AdminPortal() {
                     <div className="flex gap-1.5 mt-1.5">
                       <input
                         type="text"
-                        placeholder="Thêm kỹ năng..."
+                        placeholder="ThÃªm ká»¹ nÄƒng..."
                         value={newSkillInput}
                         onChange={e => setNewSkillInput(e.target.value)}
                         className="input flex-grow py-1 px-2 text-[10px] font-semibold bg-white"
@@ -4752,7 +4752,7 @@ export default function AdminPortal() {
                         onClick={handleCreateSkillInline}
                         className="px-2.5 py-1 bg-[#7c4831] hover:bg-[#7c4831]/90 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer"
                       >
-                        + Thêm
+                        + ThÃªm
                       </button>
                     </div>
                   </div>
@@ -4761,7 +4761,7 @@ export default function AdminPortal() {
                     disabled={staffLoading}
                     className="btn btn-primary py-2.5 text-xs w-full mt-1 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {staffLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Plus size={13} /> Đăng Ký Nhân Sự</>}
+                    {staffLoading ? <RefreshCw size={12} className="animate-spin" /> : <><Plus size={13} /> ÄÄƒng KÃ½ NhÃ¢n Sá»±</>}
                   </button>
                 </form>
               </div>
@@ -4769,11 +4769,11 @@ export default function AdminPortal() {
               {/* Staff List */}
               <div className="lg:col-span-2 card p-4 space-y-3 border border-gray-100 bg-white">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2 text-[#7c4831]">
-                  <Users size={14} className="text-[#7c4831]" /> Danh Sách Nhân Viên ({filteredStaff.length})
+                  <Users size={14} className="text-[#7c4831]" /> Danh SÃ¡ch NhÃ¢n ViÃªn ({filteredStaff.length})
                 </h3>
                 {filteredStaff.length === 0 ? (
                   <div className="text-center py-6">
-                    <p className="text-[11px] text-gray-400 italic">Chưa có nhân viên nào được tải hoặc chưa được tạo.</p>
+                    <p className="text-[11px] text-gray-400 italic">ChÆ°a cÃ³ nhÃ¢n viÃªn nÃ o Ä‘Æ°á»£c táº£i hoáº·c chÆ°a Ä‘Æ°á»£c táº¡o.</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
@@ -4784,7 +4784,7 @@ export default function AdminPortal() {
                           <div key={staff.id} className="p-3 rounded-xl bg-white border border-[#7c4831]/40 space-y-3.5 shadow-sm">
                             <div className="space-y-2">
                               <div>
-                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Họ và tên</label>
+                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Há» vÃ  tÃªn</label>
                                 <input
                                   type="text"
                                   value={editStaffName}
@@ -4793,7 +4793,7 @@ export default function AdminPortal() {
                                 />
                               </div>
                               <div>
-                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Số điện thoại</label>
+                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Sá»‘ Ä‘iá»‡n thoáº¡i</label>
                                 <input
                                   type="text"
                                   value={editStaffPhone}
@@ -4802,7 +4802,7 @@ export default function AdminPortal() {
                                 />
                               </div>
                               <div>
-                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Lương/giờ</label>
+                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">LÆ°Æ¡ng/giá»</label>
                                 <input
                                   type="number"
                                   value={editStaffWage}
@@ -4811,7 +4811,7 @@ export default function AdminPortal() {
                                 />
                               </div>
                               <div>
-                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Kỹ năng làm việc</label>
+                                <label className="text-[9px] font-black uppercase text-[#7c4831] block">Ká»¹ nÄƒng lÃ m viá»‡c</label>
                                 <div className="flex flex-wrap gap-1.5 p-2 bg-[#FAF9F6] border border-gray-150 rounded-xl max-h-[100px] overflow-y-auto mt-0.5">
                                   {skillsList.map((sk: any) => {
                                     const isChecked = selectedEditStaffSkills.includes(sk.id);
@@ -4837,7 +4837,7 @@ export default function AdminPortal() {
                                 <div className="flex gap-1.5 mt-1.5">
                                   <input
                                     type="text"
-                                    placeholder="Thêm kỹ năng..."
+                                    placeholder="ThÃªm ká»¹ nÄƒng..."
                                     value={newSkillInput}
                                     onChange={e => setNewSkillInput(e.target.value)}
                                     className="input flex-grow py-1 px-2 text-[10px] font-semibold bg-white"
@@ -4847,7 +4847,7 @@ export default function AdminPortal() {
                                     onClick={handleCreateSkillInline}
                                     className="px-2.5 py-1 bg-[#7c4831] hover:bg-[#7c4831]/90 text-white rounded-lg text-[10px] font-bold shrink-0 cursor-pointer"
                                   >
-                                    + Thêm
+                                    + ThÃªm
                                   </button>
                                 </div>
                               </div>
@@ -4858,7 +4858,7 @@ export default function AdminPortal() {
                                 onClick={() => handleSetResigned(staff.id)}
                                 className="btn btn-danger py-1 px-2.5 text-[10px] font-bold shadow-xs mr-auto cursor-pointer"
                               >
-                                Cho nghỉ việc
+                                Cho nghá»‰ viá»‡c
                               </button>
                               <div className="flex gap-2">
                                 <button
@@ -4866,14 +4866,14 @@ export default function AdminPortal() {
                                   onClick={() => setEditingStaffId(null)}
                                   className="btn btn-ghost py-1 px-2.5 text-[10px] font-bold border border-gray-200 cursor-pointer"
                                 >
-                                  Hủy
+                                  Há»§y
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleUpdateStaff(staff.id)}
                                   className="btn btn-primary py-1 px-3 text-[10px] font-bold cursor-pointer"
                                 >
-                                  Lưu
+                                  LÆ°u
                                 </button>
                               </div>
                             </div>
@@ -4898,7 +4898,7 @@ export default function AdminPortal() {
                                 ))}
                               </div>
                               <p className="text-[10px] font-semibold text-gray-400 mt-0.5">
-                                {staff.phoneNumber || staff.phone} • <span className="text-emerald-700 font-bold">{staff.hourlyWage ? staff.hourlyWage.toLocaleString("vi-VN") : "0"}đ/giờ</span>
+                                {staff.phoneNumber || staff.phone} â€¢ <span className="text-emerald-700 font-bold">{staff.hourlyWage ? staff.hourlyWage.toLocaleString("vi-VN") : "0"}Ä‘/giá»</span>
                               </p>
                             </div>
                           </div>
@@ -4914,7 +4914,7 @@ export default function AdminPortal() {
                               }}
                               className="btn btn-ghost py-1 px-2 text-[10px] font-bold border border-gray-250 hover:bg-gray-100 cursor-pointer"
                             >
-                              Sửa
+                              Sá»­a
                             </button>
                             <span className="pill bg-amber-50 text-amber-700 border-amber-100 font-black text-[8px] border">
                               STAFF
@@ -4950,7 +4950,7 @@ export default function AdminPortal() {
         <div className="fixed top-5 right-5 z-99 bg-white border border-gray-150 p-4 rounded-3xl shadow-xl max-w-sm w-full anim-fadeUp flex flex-col gap-3 max-h-[80vh]">
           <div className="flex justify-between items-center border-b border-gray-100 pb-2">
             <span className="font-extrabold text-xs uppercase tracking-tight text-[#7c4831] flex items-center gap-1.5">
-              <Bell size={15} /> Thông báo hệ thống ({(notifications?.filter((n: any) => !n.isRead).length || 0)})
+              <Bell size={15} /> ThÃ´ng bÃ¡o há»‡ thá»‘ng ({(notifications?.filter((n: any) => !n.isRead).length || 0)})
             </span>
             <button onClick={() => setShowNotification(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
           </div>
@@ -4969,7 +4969,7 @@ export default function AdminPortal() {
               }}
               className="btn btn-primary w-full py-2 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider shrink-0"
             >
-              <Bell size={13} /> Bật Nhận Thông Báo Màn Hình Chờ
+              <Bell size={13} /> Báº­t Nháº­n ThÃ´ng BÃ¡o MÃ n HÃ¬nh Chá»
             </button>
           )}
 
@@ -4993,7 +4993,7 @@ export default function AdminPortal() {
                 </div>
               ))
             ) : (
-              <p className="text-xs text-gray-400 italic text-center py-6">Không có thông báo nào.</p>
+              <p className="text-xs text-gray-400 italic text-center py-6">KhÃ´ng cÃ³ thÃ´ng bÃ¡o nÃ o.</p>
             )}
           </div>
         </div>
@@ -5022,12 +5022,12 @@ export default function AdminPortal() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src="/logo.png?v=5" alt="Logo" className="w-6 h-6 object-contain" />
                 </span>
-                <span className="text-sm font-extrabold uppercase tracking-tight text-[#7c4831]">Quản trị quán</span>
+                <span className="text-sm font-extrabold uppercase tracking-tight text-[#7c4831]">Quáº£n trá»‹ quÃ¡n</span>
               </Link>
               <button
                 onClick={() => setDesktopExpanded(false)}
                 className="text-[#7c4831] hover:bg-[#7c4831]/5 transition-all p-1.5 rounded-lg ml-auto hidden lg:flex"
-                title="Thu gọn menu"
+                title="Thu gá»n menu"
               >
                 <ArrowLeft size={16} />
               </button>
@@ -5037,7 +5037,7 @@ export default function AdminPortal() {
               <button
                 onClick={() => setDesktopExpanded(true)}
                 className="w-9 h-9 rounded-2xl bg-[#7c4831] flex items-center justify-center text-white transition-all shadow-sm"
-                title="Mở rộng menu"
+                title="Má»Ÿ rá»™ng menu"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/logo.png?v=5" alt="Logo" className="w-6 h-6 object-contain" />
@@ -5076,10 +5076,10 @@ export default function AdminPortal() {
             onClick={() => setShowNotification(true)}
             className={`w-full flex items-center gap-2.5 text-xs font-extrabold uppercase text-[#7c4831] p-1.5 rounded-xl hover:bg-[#7c4831]/5 transition-all relative ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""
               }`}
-            title={(!sideOpen && !desktopExpanded) ? "Thông báo" : undefined}
+            title={(!sideOpen && !desktopExpanded) ? "ThÃ´ng bÃ¡o" : undefined}
           >
             <Bell size={14} className="shrink-0" />
-            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>Thông báo</span>}
+            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>ThÃ´ng bÃ¡o</span>}
             {(notifications?.filter((n: any) => !n.isRead).length || 0) > 0 && (
               <span className="absolute top-0 left-5 bg-red-500 text-white text-[7px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse border-2 border-white">
                 {notifications.filter((n: any) => !n.isRead).length}
@@ -5090,10 +5090,10 @@ export default function AdminPortal() {
             onClick={handleLogout}
             className={`w-full flex items-center gap-2.5 text-xs font-extrabold uppercase text-[#7c4831] hover:underline p-1.5 rounded-xl hover:bg-[#7c4831]/5 transition-all ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""
               }`}
-            title={(!sideOpen && !desktopExpanded) ? "Đăng xuất" : undefined}
+            title={(!sideOpen && !desktopExpanded) ? "ÄÄƒng xuáº¥t" : undefined}
           >
             <LogOut size={14} className="shrink-0" />
-            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>Đăng xuất</span>}
+            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>ÄÄƒng xuáº¥t</span>}
           </button>
         </div>
       </aside>
@@ -5116,7 +5116,7 @@ export default function AdminPortal() {
                 <img src="/logo.png?v=5" alt="Logo" className="w-[30px] h-[30px]" style={{ borderRadius: "100%" }} />
               </span>
               <div>
-                <span className="text-xs font-extrabold uppercase tracking-tight text-[#7c4831] block leading-none">Quản trị quán</span>
+                <span className="text-xs font-extrabold uppercase tracking-tight text-[#7c4831] block leading-none">Quáº£n trá»‹ quÃ¡n</span>
                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5 block leading-none">THE MOODS</span>
               </div>
             </div>
@@ -5228,7 +5228,7 @@ export default function AdminPortal() {
                 <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                      <Award size={16} /> Lịch Sử Thưởng & Phạt Nhân Viên
+                      <Award size={16} /> Lá»‹ch Sá»­ ThÆ°á»Ÿng & Pháº¡t NhÃ¢n ViÃªn
                     </h3>
                     <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{selectedPenaltyEmployee.fullName} ({selectedPenaltyEmployee.phoneNumber})</p>
                   </div>
@@ -5245,21 +5245,21 @@ export default function AdminPortal() {
                   {/* 1. Bonuses Section */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🎁 Khoản thưởng
+                      ðŸŽ Khoáº£n thÆ°á»Ÿng
                     </h4>
                     {selectedEmpBonuses.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận khoản thưởng thủ công.</p>
+                      <p className="text-xs text-gray-400 italic">KhÃ´ng ghi nháº­n khoáº£n thÆ°á»Ÿng thá»§ cÃ´ng.</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpBonuses.map((a: any, idx: number) => (
                           <div key={idx} className="p-3 bg-emerald-50/50 border border-emerald-100/50 rounded-xl text-xs space-y-1">
                             <div className="flex justify-between font-bold text-emerald-800">
-                              <span>{a.Note || "Thưởng nóng"}</span>
-                              <span>+{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              <span>{a.Note || "ThÆ°á»Ÿng nÃ³ng"}</span>
+                              <span>+{a.Amount?.toLocaleString("vi-VN")}Ä‘</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>{a.Unit === "lan" ? `Số lần: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
+                              <span>NgÃ y: {a.Date}</span>
+                              <span>{a.Unit === "lan" ? `Sá»‘ láº§n: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}Ä‘` : "Sá»‘ tiá»n cá»‘ Ä‘á»‹nh"}</span>
                             </div>
                           </div>
                         ))}
@@ -5270,21 +5270,21 @@ export default function AdminPortal() {
                   {/* 1b. Holiday Work Bonuses Section */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🎉 Thưởng đi làm ngày lễ (Hệ số & thưởng thêm)
+                      ðŸŽ‰ ThÆ°á»Ÿng Ä‘i lÃ m ngÃ y lá»… (Há»‡ sá»‘ & thÆ°á»Ÿng thÃªm)
                     </h4>
                     {selectedEmpHolidayBonuses.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận thưởng đi làm ngày lễ.</p>
+                      <p className="text-xs text-gray-400 italic">KhÃ´ng ghi nháº­n thÆ°á»Ÿng Ä‘i lÃ m ngÃ y lá»….</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpHolidayBonuses.map((h: any, idx: number) => (
                           <div key={idx} className="p-3 bg-amber-50/50 border border-amber-100/50 rounded-xl text-xs space-y-1">
                             <div className="flex justify-between font-bold text-amber-800">
-                              <span>Đi làm ngày lễ: {h.holidayName} ({h.startTime} - {h.endTime})</span>
-                              <span>+{h.amount?.toLocaleString("vi-VN")}đ</span>
+                              <span>Äi lÃ m ngÃ y lá»…: {h.holidayName} ({h.startTime} - {h.endTime})</span>
+                              <span>+{h.amount?.toLocaleString("vi-VN")}Ä‘</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {h.date}</span>
-                              <span>Hệ số: x{h.multiplier}{h.flatBonus > 0 ? ` + ${h.flatBonus.toLocaleString("vi-VN")}đ` : ""}</span>
+                              <span>NgÃ y: {h.date}</span>
+                              <span>Há»‡ sá»‘: x{h.multiplier}{h.flatBonus > 0 ? ` + ${h.flatBonus.toLocaleString("vi-VN")}Ä‘` : ""}</span>
                             </div>
                           </div>
                         ))}
@@ -5295,19 +5295,19 @@ export default function AdminPortal() {
                   {/* 2. Late Penalty Section */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🕒 Vi phạm đi trễ (Dựa trên Clock-in)
+                      ðŸ•’ Vi pháº¡m Ä‘i trá»… (Dá»±a trÃªn Clock-in)
                     </h4>
                     {selectedEmpLateLogs.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận đi trễ.</p>
+                      <p className="text-xs text-gray-400 italic">KhÃ´ng ghi nháº­n Ä‘i trá»….</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpLateLogs.map((sched: any) => (
                           <div key={sched.id} className="p-3 bg-red-50/50 border border-red-100/50 rounded-xl text-xs space-y-1">
                             <div className="flex justify-between font-bold text-[#7A2F1E]">
-                              <span>Điểm danh trễ ca {sched.startTime} - {sched.endTime}</span>
+                              <span>Äiá»ƒm danh trá»… ca {sched.startTime} - {sched.endTime}</span>
                               <span className="font-mono">({sched.checkInTime})</span>
                             </div>
-                            <p className="text-gray-600 font-semibold">Ngày: {sched.date} - Ghi nhận trễ {sched.lateMin} phút.</p>
+                            <p className="text-gray-600 font-semibold">NgÃ y: {sched.date} - Ghi nháº­n trá»… {sched.lateMin} phÃºt.</p>
                           </div>
                         ))}
                       </div>
@@ -5317,21 +5317,21 @@ export default function AdminPortal() {
                   {/* 3. Individual Adjustments Section */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-150 pb-1">
-                      💸 Khoản phạt
+                      ðŸ’¸ Khoáº£n pháº¡t
                     </h4>
                     {selectedEmpPenalties.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận khoản phạt thủ công.</p>
+                      <p className="text-xs text-gray-400 italic">KhÃ´ng ghi nháº­n khoáº£n pháº¡t thá»§ cÃ´ng.</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpPenalties.map((a: any, idx: number) => (
                           <div key={idx} className="p-3 bg-gray-50 border border-gray-150 rounded-xl text-xs space-y-1">
                             <div className="flex justify-between font-bold text-[#4B3621]">
-                              <span>{a.Note || "Phạt hành chính"}</span>
-                              <span className="text-red-600 ">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              <span>{a.Note || "Pháº¡t hÃ nh chÃ­nh"}</span>
+                              <span className="text-red-600 ">-{a.Amount?.toLocaleString("vi-VN")}Ä‘</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>{a.Unit === "he_so" ? `Hệ số: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
+                              <span>NgÃ y: {a.Date}</span>
+                              <span>{a.Unit === "he_so" ? `Há»‡ sá»‘: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}Ä‘` : "Sá»‘ tiá»n cá»‘ Ä‘á»‹nh"}</span>
                             </div>
                           </div>
                         ))}
@@ -5342,21 +5342,21 @@ export default function AdminPortal() {
                   {/* 4. Salary Advance Section */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-150 pb-1">
-                      💰 Khoản tạm ứng lương
+                      ðŸ’° Khoáº£n táº¡m á»©ng lÆ°Æ¡ng
                     </h4>
                     {selectedEmpAdvances.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận tạm ứng lương.</p>
+                      <p className="text-xs text-gray-400 italic">KhÃ´ng ghi nháº­n táº¡m á»©ng lÆ°Æ¡ng.</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpAdvances.map((a: any, idx: number) => (
                           <div key={idx} className="p-3 bg-gray-50 border border-gray-150 rounded-xl text-xs space-y-1">
                             <div className="flex justify-between font-bold text-[#4B3621]">
-                              <span>{a.Note || "Tạm ứng lương"}</span>
-                              <span className="text-amber-700 ">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              <span>{a.Note || "Táº¡m á»©ng lÆ°Æ¡ng"}</span>
+                              <span className="text-amber-700 ">-{a.Amount?.toLocaleString("vi-VN")}Ä‘</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>Số tiền cố định</span>
+                              <span>NgÃ y: {a.Date}</span>
+                              <span>Sá»‘ tiá»n cá»‘ Ä‘á»‹nh</span>
                             </div>
                           </div>
                         ))}
@@ -5367,22 +5367,22 @@ export default function AdminPortal() {
                   {/* Summary Section */}
                   <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs font-extrabold uppercase">
                     <div className="flex justify-between items-center text-emerald-700">
-                      <span>Tổng tiền thưởng:</span>
-                      <span>+{selectedPenaltyEmployee.totalBonus?.toLocaleString("vi-VN")}đ</span>
+                      <span>Tá»•ng tiá»n thÆ°á»Ÿng:</span>
+                      <span>+{selectedPenaltyEmployee.totalBonus?.toLocaleString("vi-VN")}Ä‘</span>
                     </div>
                     <div className="flex justify-between items-center text-red-600">
-                      <span>Tổng khấu trừ phạt:</span>
-                      <span>-{selectedPenaltyEmployee.totalPenalty?.toLocaleString("vi-VN")}đ</span>
+                      <span>Tá»•ng kháº¥u trá»« pháº¡t:</span>
+                      <span>-{selectedPenaltyEmployee.totalPenalty?.toLocaleString("vi-VN")}Ä‘</span>
                     </div>
                     <div className="flex justify-between items-center text-amber-700">
-                      <span>Tổng tạm ứng:</span>
-                      <span>-{selectedPenaltyEmployee.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
+                      <span>Tá»•ng táº¡m á»©ng:</span>
+                      <span>-{selectedPenaltyEmployee.totalAdvance?.toLocaleString("vi-VN") || 0}Ä‘</span>
                     </div>
                     <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
-                      <span>Thực lĩnh điều chỉnh:</span>
+                      <span>Thá»±c lÄ©nh Ä‘iá»u chá»‰nh:</span>
                       <span className="text-base font-black">
                         {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0)) >= 0 ? "+" : ""}
-                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0))?.toLocaleString("vi-VN")}đ
+                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0))?.toLocaleString("vi-VN")}Ä‘
                       </span>
                     </div>
                   </div>
@@ -5394,7 +5394,7 @@ export default function AdminPortal() {
                     onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
                     className="btn btn-primary w-full py-2.5 text-xs font-bold"
                   >
-                    Đóng
+                    ÄÃ³ng
                   </button>
                 </div>
               </div>
@@ -5407,3 +5407,4 @@ export default function AdminPortal() {
     </div>
   );
 }
+
