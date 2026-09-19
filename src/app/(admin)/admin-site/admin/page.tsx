@@ -426,23 +426,35 @@ export default function AdminPortal() {
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
+      const storedStaff = localStorage.getItem("moods_active_staff");
+
+      if (!storedUser && !storedStaff) {
+        window.location.href = "/";
+        return;
+      }
+
+      let roleId = 3;
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          roleId = parsed.RoleId || parsed.roleId || 3;
           setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
         }
-      } else {
-        const storedStaff = localStorage.getItem("moods_active_staff");
-        if (storedStaff) {
-          try {
-            const parsed = JSON.parse(storedStaff);
-            setCurrentUserPhone(parsed.phone || "admin");
-          } catch {
-            setCurrentUserPhone("admin");
-          }
+      } else if (storedStaff) {
+        try {
+          const parsed = JSON.parse(storedStaff);
+          roleId = parsed.roleId || 3;
+          setCurrentUserPhone(parsed.phone || "admin");
+        } catch {
+          setCurrentUserPhone("admin");
         }
+      }
+
+      if (roleId === 3) {
+        window.location.href = "/staff";
+        return;
       }
     }
   }, []);

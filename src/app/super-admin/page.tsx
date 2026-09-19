@@ -88,10 +88,27 @@ export default function SuperAdminPortal() {
       const storedStaff = localStorage.getItem("moods_active_staff");
 
       if (!storedUser && !storedStaff) {
-        // Chưa đăng nhập, đá văng ra trang chủ (login)
         router.push("/");
         return;
       }
+
+      let roleId = 3;
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          roleId = parsed.RoleId || parsed.roleId || 3;
+        } catch (e) {}
+      } else if (storedStaff) {
+        try {
+          roleId = JSON.parse(storedStaff).roleId || 3;
+        } catch (e) {}
+      }
+
+      if (roleId !== 1) {
+        router.push(roleId === 2 ? "/admin" : "/staff");
+        return;
+      }
+
       setIsAuthChecking(false);
     }
     if (page === "staff") {

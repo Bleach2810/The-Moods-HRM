@@ -402,11 +402,12 @@ export default function AdminPortal() {
         router.push("/");
         return;
       }
-      setIsAuthChecking(false);
 
+      let roleId = 3;
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          roleId = parsed.RoleId || parsed.roleId || 3;
           setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
@@ -414,11 +415,19 @@ export default function AdminPortal() {
       } else if (storedStaff) {
         try {
           const parsed = JSON.parse(storedStaff);
+          roleId = parsed.roleId || 3;
           setCurrentUserPhone(parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
         }
       }
+
+      if (roleId === 3) {
+        router.push("/staff");
+        return;
+      }
+
+      setIsAuthChecking(false);
     }
   }, [router]);
 

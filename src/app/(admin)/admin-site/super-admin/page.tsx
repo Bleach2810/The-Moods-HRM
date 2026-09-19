@@ -84,13 +84,31 @@ export default function SuperAdminPortal() {
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
+      const storedStaff = localStorage.getItem("moods_active_staff");
+
+      if (!storedUser && !storedStaff) {
+        window.location.href = "/";
+        return;
+      }
+
+      let roleId = 3;
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
+          roleId = parsed.RoleId || parsed.roleId || 3;
           setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "saas");
         } catch {
           setCurrentUserPhone("saas");
         }
+      } else if (storedStaff) {
+        try {
+          roleId = JSON.parse(storedStaff).roleId || 3;
+        } catch (e) {}
+      }
+
+      if (roleId !== 1) {
+        window.location.href = roleId === 2 ? "/admin" : "/staff";
+        return;
       }
     }
   }, []);
