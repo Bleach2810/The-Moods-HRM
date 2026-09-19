@@ -105,6 +105,14 @@ namespace TheMoods.Api.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            if (!configs.Any(c => c.ConfigKey == "LatePenaltyMaxAmount"))
+            {
+                var defMax = new PayrollConfig { LocationId = locationId, ConfigKey = "LatePenaltyMaxAmount", ConfigValue = "500000", Description = "Giới hạn số tiền phạt tối đa (VNĐ)" };
+                _context.PayrollConfigs.Add(defMax);
+                configs.Add(defMax);
+                await _context.SaveChangesAsync();
+            }
+
             if (!configs.Any(c => c.ConfigKey == "Holidays_Detailed"))
             {
                 var defHolidaysDetailed = new PayrollConfig
@@ -852,16 +860,19 @@ namespace TheMoods.Api.Controllers
             var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
             var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
             var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
+            var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
 
             int startMins = 10;
             decimal baseAmt = 50000;
             int intervalMins = 10;
             double multiplier = 2;
+            decimal maxAmt = 500000;
 
             if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
             if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
             if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
+            if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
 
             // Parse Holidays_Detailed
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -982,7 +993,7 @@ namespace TheMoods.Api.Controllers
                         if (att.CheckInTime > schedStart)
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
-                            var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier);
+                            var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             penalty += latePenaltyAmt;
                         }
                     }
@@ -1120,16 +1131,19 @@ namespace TheMoods.Api.Controllers
             var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
             var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
             var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
+            var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
 
             int startMins = 10;
             decimal baseAmt = 50000;
             int intervalMins = 10;
             double multiplier = 2;
+            decimal maxAmt = 500000;
 
             if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
             if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
             if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
+            if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
 
             // Parse Holidays_Detailed
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -1260,7 +1274,7 @@ namespace TheMoods.Api.Controllers
                         if (att.CheckInTime > schedStart)
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
-                            var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier);
+                            var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             penalty += latePenaltyAmt;
                         }
                     }
@@ -1399,12 +1413,14 @@ namespace TheMoods.Api.Controllers
         }
 
         // Helper: Tính số tiền phạt đi trễ lũy tiến theo công thức nhân hệ số
-        private decimal CalculateLatePenalty(double lateMinutes, int startMins, decimal baseAmt, int intervalMins, double multiplier)
+        private decimal CalculateLatePenalty(double lateMinutes, int startMins, decimal baseAmt, int intervalMins, double multiplier, decimal maxAmt)
         {
             if (lateMinutes < startMins) return 0;
             double intervals = Math.Floor((lateMinutes - startMins) / intervalMins);
             double multiplierFactor = Math.Pow(multiplier, intervals);
-            return baseAmt * (decimal)multiplierFactor;
+            decimal penalty = baseAmt * (decimal)multiplierFactor;
+            if (maxAmt > 0 && penalty > maxAmt) return maxAmt;
+            return penalty;
         }
 
         // 11. Yêu cầu của nhân viên (Requests)
@@ -1941,16 +1957,19 @@ namespace TheMoods.Api.Controllers
             var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
             var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
             var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
+            var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
 
             int startMins = 10;
             decimal baseAmt = 50000;
             int intervalMins = 10;
             double multiplier = 2;
+            decimal maxAmt = 500000;
 
             if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
             if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
             if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
+            if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
 
             // Parse Holidays
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -2061,7 +2080,7 @@ namespace TheMoods.Api.Controllers
                         if (att.CheckInTime > schedStart2)
                         {
                             var lateMin = (att.CheckInTime - schedStart2).TotalMinutes;
-                            penalty += CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier);
+                            penalty += CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                         }
                     }
                 }

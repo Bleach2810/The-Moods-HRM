@@ -344,6 +344,7 @@ export default function AdminPortal() {
   const [latePenaltyBaseAmount, setLatePenaltyBaseAmount] = useState("50000");
   const [latePenaltyIntervalMinutes, setLatePenaltyIntervalMinutes] = useState("10");
   const [latePenaltyMultiplier, setLatePenaltyMultiplier] = useState("2");
+  const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
   const [holidayMultiplier, setHolidayMultiplier] = useState("2.0");
 
   // GPS Configuration States
@@ -720,6 +721,9 @@ export default function AdminPortal() {
         const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
         if (multVal) setLatePenaltyMultiplier(multVal);
 
+        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
+        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
+
         const holMultVal = data.find((c: any) => c.configKey === "HolidayMultiplier")?.configValue;
         if (holMultVal) setHolidayMultiplier(holMultVal);
 
@@ -819,6 +823,7 @@ export default function AdminPortal() {
           { configKey: "LatePenaltyBaseAmount", configValue: latePenaltyBaseAmount },
           { configKey: "LatePenaltyIntervalMinutes", configValue: latePenaltyIntervalMinutes },
           { configKey: "LatePenaltyMultiplier", configValue: latePenaltyMultiplier },
+          { configKey: "LatePenaltyMaxAmount", configValue: latePenaltyMaxAmount },
           { configKey: "HolidayMultiplier", configValue: holidayMultiplier },
           { configKey: "GpsLatitude", configValue: gpsLatitude },
           { configKey: "GpsLongitude", configValue: gpsLongitude },
@@ -2958,11 +2963,14 @@ export default function AdminPortal() {
       const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
       const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
       const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+      const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
 
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
       const multiplierFactor = Math.pow(multiplier, intervals);
-      return baseAmt * multiplierFactor;
+      const penalty = baseAmt * multiplierFactor;
+      if (maxAmt > 0 && penalty > maxAmt) return maxAmt;
+      return penalty;
     };
 
     // Group adjustments by employee id/name
@@ -3694,6 +3702,7 @@ export default function AdminPortal() {
               <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Mức phạt mốc đầu:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyBaseAmount) || 50000).toLocaleString("vi-VN")}đ (trễ {latePenaltyStartMinutes}m)</span></div>
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Hệ số phạt tăng:</span><span className="text-sm text-[#4B3621]">x{latePenaltyMultiplier} (mỗi {latePenaltyIntervalMinutes}m)</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Giới hạn tối đa:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")}đ</span></div>
               </div>
             </div>
 
@@ -3702,7 +3711,7 @@ export default function AdminPortal() {
                 <Settings size={16} className="text-[#7c4831]" /> Cấu hình Phạt đi trễ
               </h3>
               <form onSubmit={handleSaveHrmConfigs} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Bắt đầu phạt (Số phút trễ):</label>
                     <input
@@ -3748,12 +3757,24 @@ export default function AdminPortal() {
                       required
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giới hạn tối đa (VNĐ):</label>
+                    <input
+                      type="number"
+                      value={latePenaltyMaxAmount}
+                      onChange={e => setLatePenaltyMaxAmount(e.target.value)}
+                      placeholder="Ví dụ: 500000"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl text-[11px] font-medium text-gray-500 leading-relaxed space-y-1">
                   <div><strong>Giải thích công thức:</strong> Đi trễ dưới <strong>{latePenaltyStartMinutes} phút</strong> không phạt.</div>
                   <div>Trễ từ <strong>{latePenaltyStartMinutes} phút</strong> trở đi sẽ phạt mốc đầu là <strong>{(Number(latePenaltyBaseAmount) || 0).toLocaleString("vi-VN")} VNĐ</strong>.</div>
                   <div>Cứ mỗi <strong>{latePenaltyIntervalMinutes} phút</strong> tăng thêm thì số tiền phạt sẽ nhân lên <strong>{latePenaltyMultiplier} lần</strong> (hệ số lũy tiến hình học).</div>
+                  <div>Phạt đi trễ cho một ca làm việc sẽ <strong>không vượt quá {(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")} VNĐ</strong>.</div>
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
