@@ -369,7 +369,10 @@ export default function AdminPortal() {
   const [newAdjUnit, setNewAdjUnit] = useState("co_dinh"); // "lan", "phut", "co_dinh"
   const [newAdjQuantity, setNewAdjQuantity] = useState("1");
   const [newAdjAmountPerUnit, setNewAdjAmountPerUnit] = useState("50000");
-  const [newAdjDate, setNewAdjDate] = useState("2026-06-08");
+  const [newAdjDate, setNewAdjDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [newAdjNote, setNewAdjNote] = useState("");
   const [allConfigsList, setAllConfigsList] = useState<any[]>([]);
 
@@ -402,12 +405,11 @@ export default function AdminPortal() {
         router.push("/");
         return;
       }
+      setIsAuthChecking(false);
 
-      let roleId = 3;
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          roleId = parsed.RoleId || parsed.roleId || 3;
           setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
@@ -415,19 +417,11 @@ export default function AdminPortal() {
       } else if (storedStaff) {
         try {
           const parsed = JSON.parse(storedStaff);
-          roleId = parsed.roleId || 3;
           setCurrentUserPhone(parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
         }
       }
-
-      if (roleId === 3) {
-        router.push("/staff");
-        return;
-      }
-
-      setIsAuthChecking(false);
     }
   }, [router]);
 
@@ -832,7 +826,6 @@ export default function AdminPortal() {
           { configKey: "LatePenaltyBaseAmount", configValue: latePenaltyBaseAmount },
           { configKey: "LatePenaltyIntervalMinutes", configValue: latePenaltyIntervalMinutes },
           { configKey: "LatePenaltyMultiplier", configValue: latePenaltyMultiplier },
-          { configKey: "LatePenaltyMaxAmount", configValue: latePenaltyMaxAmount },
           { configKey: "HolidayMultiplier", configValue: holidayMultiplier },
           { configKey: "GpsLatitude", configValue: gpsLatitude },
           { configKey: "GpsLongitude", configValue: gpsLongitude },
@@ -1059,6 +1052,7 @@ export default function AdminPortal() {
         alert(editingAdjIndex !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
         setNewAdjNote("");
         setEditingAdjIndex(null);
+        setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
         fetchHrmConfigs();
       }
     } catch (err) {
@@ -2977,9 +2971,7 @@ export default function AdminPortal() {
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
       const multiplierFactor = Math.pow(multiplier, intervals);
-      const penalty = baseAmt * multiplierFactor;
-      if (maxAmt > 0 && penalty > maxAmt) return maxAmt;
-      return penalty;
+      return baseAmt * multiplierFactor;
     };
 
     // Group adjustments by employee id/name
@@ -3215,19 +3207,19 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
                 </div>
 
-                <div className="overflow-x-auto pb-4">
-                  <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="px-6 py-4">Tên</th>
-                        <th className="px-6 py-4">Số điện thoại</th>
-                        <th className="px-6 py-4 text-right">Lương/giờ</th>
-                        <th className="px-6 py-4 text-right">Giờ làm</th>
-                        <th className="px-6 py-4 text-right">Lương cơ bản</th>
-                        <th className="px-6 py-4 text-right">Thưởng</th>
-                        <th className="px-6 py-4 text-right">Phạt</th>
-                        <th className="px-6 py-4 text-right">Tạm ứng</th>
-                        <th className="px-6 py-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                        <th className="p-4">Tên</th>
+                        <th className="p-4">Số điện thoại</th>
+                        <th className="p-4 text-right">Lương/giờ</th>
+                        <th className="p-4 text-right">Giờ làm</th>
+                        <th className="p-4 text-right">Lương cơ bản</th>
+                        <th className="p-4 text-right">Thưởng</th>
+                        <th className="p-4 text-right">Phạt</th>
+                        <th className="p-4 text-right">Tạm ứng</th>
+                        <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -3304,16 +3296,16 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500"></span>
                 </div>
 
-                <div className="overflow-x-auto pb-4">
-                  <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="px-6 py-4">Tên</th>
-                        <th className="px-6 py-4">Ngày</th>
-                        <th className="px-6 py-4">Ca</th>
-                        <th className="px-6 py-4 text-center">Giờ vào</th>
-                        <th className="px-6 py-4 text-center">Giờ ra</th>
-                        <th className="px-6 py-4 text-center">Trạng thái</th>
+                        <th className="p-4">Tên</th>
+                        <th className="p-4">Ngày</th>
+                        <th className="p-4">Ca</th>
+                        <th className="p-4 text-center">Giờ vào</th>
+                        <th className="p-4 text-center">Giờ ra</th>
+                        <th className="p-4 text-center">Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -3410,6 +3402,7 @@ export default function AdminPortal() {
                     onClick={() => {
                       setEditingAdjIndex(null);
                       setNewAdjNote("");
+                      setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
                     }}
                     className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-[10px] font-bold text-gray-500 uppercase transition-all cursor-pointer"
                   >
@@ -3651,7 +3644,7 @@ export default function AdminPortal() {
                                           setNewAdjUnit(item.Unit || "co_dinh");
                                           setNewAdjQuantity(String(item.Quantity || 1));
                                           setNewAdjAmountPerUnit(String(item.AmountPerUnit || 50000));
-                                          setNewAdjDate(item.Date || "2026-06-08");
+                                          setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
                                           setNewAdjNote(item.Note || "");
                                           setEditingAdjIndex(originalIndex);
                                           setSelectedAdjGroup(null);
@@ -3720,7 +3713,7 @@ export default function AdminPortal() {
                 <Settings size={16} className="text-[#7c4831]" /> Cấu hình Phạt đi trễ
               </h3>
               <form onSubmit={handleSaveHrmConfigs} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Bắt đầu phạt (Số phút trễ):</label>
                     <input
@@ -3767,14 +3760,13 @@ export default function AdminPortal() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giới hạn tối đa (VNĐ):</label>
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giới hạn phạt tối đa (VNĐ):</label>
                     <input
                       type="number"
                       value={latePenaltyMaxAmount}
                       onChange={e => setLatePenaltyMaxAmount(e.target.value)}
                       placeholder="Ví dụ: 500000"
                       className="input w-full text-xs font-semibold"
-                      required
                     />
                   </div>
                 </div>
@@ -5308,3 +5300,8 @@ export default function AdminPortal() {
     </div>
   );
 }
+
+
+
+
+

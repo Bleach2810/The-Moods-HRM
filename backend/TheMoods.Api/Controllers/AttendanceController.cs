@@ -994,7 +994,14 @@ namespace TheMoods.Api.Controllers
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
-                            penalty += latePenaltyAmt;
+                            
+                            string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
+                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+
+                            if (!isOverridden)
+                            {
+                                penalty += latePenaltyAmt;
+                            }
                         }
                     }
                 }
@@ -1275,7 +1282,14 @@ namespace TheMoods.Api.Controllers
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
-                            penalty += latePenaltyAmt;
+                            
+                            string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
+                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+
+                            if (!isOverridden)
+                            {
+                                penalty += latePenaltyAmt;
+                            }
                         }
                     }
                 }
@@ -1875,6 +1889,7 @@ namespace TheMoods.Api.Controllers
             public decimal Amount { get; set; }
             public string Date { get; set; } = string.Empty; // "YYYY-MM-DD"
             public string Note { get; set; } = string.Empty;
+            public string? AutoRef { get; set; }
         }
 
         public class HolidayDetail
@@ -2080,7 +2095,15 @@ namespace TheMoods.Api.Controllers
                         if (att.CheckInTime > schedStart2)
                         {
                             var lateMin = (att.CheckInTime - schedStart2).TotalMinutes;
-                            penalty += CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
+                            var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
+                            
+                            string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
+                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+
+                            if (!isOverridden)
+                            {
+                                penalty += latePenaltyAmt;
+                            }
                         }
                     }
                 }

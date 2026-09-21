@@ -379,6 +379,7 @@ export default function AdminPortal() {
   const [latePenaltyBaseAmount, setLatePenaltyBaseAmount] = useState("50000");
   const [latePenaltyIntervalMinutes, setLatePenaltyIntervalMinutes] = useState("10");
   const [latePenaltyMultiplier, setLatePenaltyMultiplier] = useState("2");
+  const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
   const [holidayMultiplier, setHolidayMultiplier] = useState("2.0");
 
   // GPS Configuration States
@@ -402,7 +403,10 @@ export default function AdminPortal() {
   const [newAdjUnit, setNewAdjUnit] = useState("co_dinh"); // "lan", "phut", "co_dinh"
   const [newAdjQuantity, setNewAdjQuantity] = useState("1");
   const [newAdjAmountPerUnit, setNewAdjAmountPerUnit] = useState("50000");
-  const [newAdjDate, setNewAdjDate] = useState("2026-06-08");
+  const [newAdjDate, setNewAdjDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [newAdjNote, setNewAdjNote] = useState("");
   const [allConfigsList, setAllConfigsList] = useState<any[]>([]);
 
@@ -426,35 +430,23 @@ export default function AdminPortal() {
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
-      const storedStaff = localStorage.getItem("moods_active_staff");
-
-      if (!storedUser && !storedStaff) {
-        window.location.href = "/";
-        return;
-      }
-
-      let roleId = 3;
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          roleId = parsed.RoleId || parsed.roleId || 3;
           setCurrentUserPhone(parsed.PhoneNumber || parsed.phone || "admin");
         } catch {
           setCurrentUserPhone("admin");
         }
-      } else if (storedStaff) {
-        try {
-          const parsed = JSON.parse(storedStaff);
-          roleId = parsed.roleId || 3;
-          setCurrentUserPhone(parsed.phone || "admin");
-        } catch {
-          setCurrentUserPhone("admin");
+      } else {
+        const storedStaff = localStorage.getItem("moods_active_staff");
+        if (storedStaff) {
+          try {
+            const parsed = JSON.parse(storedStaff);
+            setCurrentUserPhone(parsed.phone || "admin");
+          } catch {
+            setCurrentUserPhone("admin");
+          }
         }
-      }
-
-      if (roleId === 3) {
-        window.location.href = "/staff";
-        return;
       }
     }
   }, []);
@@ -757,6 +749,9 @@ export default function AdminPortal() {
 
         const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
         if (multVal) setLatePenaltyMultiplier(multVal);
+
+        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
+        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
 
         const holMultVal = data.find((c: any) => c.configKey === "HolidayMultiplier")?.configValue;
         if (holMultVal) setHolidayMultiplier(holMultVal);
@@ -1092,6 +1087,7 @@ export default function AdminPortal() {
         alert(editingAdjIndex !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
         setNewAdjNote("");
         setEditingAdjIndex(null);
+        setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
         fetchHrmConfigs();
       }
     } catch (err) {
@@ -3036,6 +3032,7 @@ export default function AdminPortal() {
       const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
       const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
       const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+      const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
 
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
@@ -3276,19 +3273,19 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
                 </div>
 
-                <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
+                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="px-6 py-4">Tên</th>
-                        <th className="px-6 py-4">Số điện thoại</th>
-                        <th className="px-6 py-4 text-right">Lương/giờ</th>
-                        <th className="px-6 py-4 text-right">Giờ làm</th>
-                        <th className="px-6 py-4 text-right">Lương cơ bản</th>
-                        <th className="px-6 py-4 text-right">Thưởng</th>
-                        <th className="px-6 py-4 text-right">Phạt</th>
-                        <th className="px-6 py-4 text-right">Tạm ứng</th>
-                        <th className="px-6 py-4 text-right font-black text-[#7c4831]">Thực nhận</th>
+                        <th className="p-4">Tên</th>
+                        <th className="p-4">Số điện thoại</th>
+                        <th className="p-4 text-right">Lương/giờ</th>
+                        <th className="p-4 text-right">Giờ làm</th>
+                        <th className="p-4 text-right">Lương cơ bản</th>
+                        <th className="p-4 text-right">Thưởng</th>
+                        <th className="p-4 text-right">Phạt</th>
+                        <th className="p-4 text-right">Tạm ứng</th>
+                        <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -3365,16 +3362,16 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500"></span>
                 </div>
 
-                <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
+                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
-                        <th className="px-6 py-4">Tên</th>
-                        <th className="px-6 py-4">Ngày</th>
-                        <th className="px-6 py-4">Ca</th>
-                        <th className="px-6 py-4 text-center">Giờ vào</th>
-                        <th className="px-6 py-4 text-center">Giờ ra</th>
-                        <th className="px-6 py-4 text-center">Trạng thái</th>
+                        <th className="p-4">Tên</th>
+                        <th className="p-4">Ngày</th>
+                        <th className="p-4">Ca</th>
+                        <th className="p-4 text-center">Giờ vào</th>
+                        <th className="p-4 text-center">Giờ ra</th>
+                        <th className="p-4 text-center">Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
@@ -3471,6 +3468,7 @@ export default function AdminPortal() {
                     onClick={() => {
                       setEditingAdjIndex(null);
                       setNewAdjNote("");
+                      setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
                     }}
                     className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-[10px] font-bold text-gray-500 uppercase transition-all cursor-pointer"
                   >
@@ -3712,7 +3710,7 @@ export default function AdminPortal() {
                                           setNewAdjUnit(item.Unit || "co_dinh");
                                           setNewAdjQuantity(String(item.Quantity || 1));
                                           setNewAdjAmountPerUnit(String(item.AmountPerUnit || 50000));
-                                          setNewAdjDate(item.Date || "2026-06-08");
+                                          setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
                                           setNewAdjNote(item.Note || "");
                                           setEditingAdjIndex(originalIndex);
                                           setSelectedAdjGroup(null);
@@ -3772,6 +3770,7 @@ export default function AdminPortal() {
               <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100/60 space-y-3.5 text-xs font-bold shadow-xs">
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Mức phạt mốc đầu:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyBaseAmount) || 50000).toLocaleString("vi-VN")}đ (trễ {latePenaltyStartMinutes}m)</span></div>
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Hệ số phạt tăng:</span><span className="text-sm text-[#4B3621]">x{latePenaltyMultiplier} (mỗi {latePenaltyIntervalMinutes}m)</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Giới hạn tối đa:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")}đ</span></div>
               </div>
             </div>
 
@@ -3826,12 +3825,23 @@ export default function AdminPortal() {
                       required
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Giới hạn phạt tối đa (VNĐ):</label>
+                    <input
+                      type="number"
+                      value={latePenaltyMaxAmount}
+                      onChange={e => setLatePenaltyMaxAmount(e.target.value)}
+                      placeholder="Ví dụ: 500000"
+                      className="input w-full text-xs font-semibold"
+                    />
+                  </div>
                 </div>
 
                 <div className="p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl text-[11px] font-medium text-gray-500 leading-relaxed space-y-1">
                   <div><strong>Giải thích công thức:</strong> Đi trễ dưới <strong>{latePenaltyStartMinutes} phút</strong> không phạt.</div>
                   <div>Trễ từ <strong>{latePenaltyStartMinutes} phút</strong> trở đi sẽ phạt mốc đầu là <strong>{(Number(latePenaltyBaseAmount) || 0).toLocaleString("vi-VN")} VNĐ</strong>.</div>
                   <div>Cứ mỗi <strong>{latePenaltyIntervalMinutes} phút</strong> tăng thêm thì số tiền phạt sẽ nhân lên <strong>{latePenaltyMultiplier} lần</strong> (hệ số lũy tiến hình học).</div>
+                  <div>Phạt đi trễ cho một ca làm việc sẽ <strong>không vượt quá {(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")} VNĐ</strong>.</div>
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">
@@ -5419,3 +5429,8 @@ export default function AdminPortal() {
     </div>
   );
 }
+
+
+
+
+
