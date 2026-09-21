@@ -170,12 +170,12 @@ export default function AdminPortal() {
   const [showNotification, setShowNotification] = useState(false);
   const [pushPermission, setPushPermission] = useState<string>("");
 
-  React.useEffect(() => {
-    if (showPushNotificationPrompt) {
-      setShowNotification(true);
-      setShowPushNotificationPrompt(false);
-    }
-  }, [showPushNotificationPrompt]);
+  // React.useEffect(() => {
+  //   if (showPushNotificationPrompt) {
+  //     setShowNotification(true);
+  //     setShowPushNotificationPrompt(false);
+  //   }
+  // }, [showPushNotificationPrompt]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -750,11 +750,11 @@ export default function AdminPortal() {
         const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
         if (multVal) setLatePenaltyMultiplier(multVal);
 
-        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
-        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
-
         const holMultVal = data.find((c: any) => c.configKey === "HolidayMultiplier")?.configValue;
         if (holMultVal) setHolidayMultiplier(holMultVal);
+
+        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
+        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
 
         const latVal = data.find((c: any) => c.configKey === "GpsLatitude")?.configValue;
         if (latVal) setGpsLatitude(latVal);
@@ -3037,7 +3037,7 @@ export default function AdminPortal() {
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
       const multiplierFactor = Math.pow(multiplier, intervals);
-      return baseAmt * multiplierFactor;
+      return Math.min(baseAmt * multiplierFactor, maxAmt);
     };
 
     // Group adjustments by employee id/name
@@ -3274,7 +3274,7 @@ export default function AdminPortal() {
                 </div>
 
                 <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
-                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
+                  <table className="w-full min-w-[800px] text-left text-xs border-collapse whitespace-nowrap">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                         <th className="p-4">Tên</th>
@@ -3639,6 +3639,9 @@ export default function AdminPortal() {
             {/* Detailed Adjustments Table (Inline instead of Popup) */}
             {selectedAdjGroup && (() => {
               const currentGroupAdjs = selectedAdjGroup.adjustments || [];
+              const totalBonus = currentGroupAdjs.filter((a: any) => a.Type === "bonus").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+              const totalPenalty = currentGroupAdjs.filter((a: any) => a.Type === "penalty").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+              const totalAdvance = currentGroupAdjs.filter((a: any) => a.Type === "advance").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
 
               return (
                 <div id="detailed-adj-section" className="card p-0 overflow-hidden border border-[#7c4831]/20 bg-white shadow-md anim-fadeUp mt-4">
@@ -3647,7 +3650,12 @@ export default function AdminPortal() {
                       <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
                         <Users size={16} /> Chi Tiết Các Khoản Thưởng / Phạt Riêng
                       </h3>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{selectedAdjGroup.employeeName}</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5 mb-1.5">{selectedAdjGroup.employeeName}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 shadow-xs">Tổng thưởng: +{totalBonus.toLocaleString("vi-VN")}đ</span>
+                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 shadow-xs">Tổng phạt: -{totalPenalty.toLocaleString("vi-VN")}đ</span>
+                        {totalAdvance > 0 && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 shadow-xs">Tạm ứng: {totalAdvance.toLocaleString("vi-VN")}đ</span>}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -5388,25 +5396,49 @@ export default function AdminPortal() {
 
                   {/* Summary Section */}
                   <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs font-extrabold uppercase">
-                    <div className="flex justify-between items-center text-emerald-700">
-                      <span>Tổng tiền thưởng:</span>
-                      <span>+{selectedPenaltyEmployee.totalBonus?.toLocaleString("vi-VN")}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-red-600">
-                      <span>Tổng khấu trừ phạt:</span>
-                      <span>-{selectedPenaltyEmployee.totalPenalty?.toLocaleString("vi-VN")}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-amber-700">
-                      <span>Tổng tạm ứng:</span>
-                      <span>-{selectedPenaltyEmployee.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
-                      <span>Thực lĩnh điều chỉnh:</span>
-                      <span className="text-base font-black">
-                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0)) >= 0 ? "+" : ""}
-                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0))?.toLocaleString("vi-VN")}đ
-                      </span>
-                    </div>
+                    {(() => {
+                      const getModalLatePenaltyAmount = (lateMin: number) => {
+                        const startMins = parseInt(latePenaltyStartMinutes) || 10;
+                        const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
+                        const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
+                        const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+                        const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
+                  
+                        if (lateMin < startMins) return 0;
+                        const intervals = Math.floor((lateMin - startMins) / intervalMins);
+                        const multiplierFactor = Math.pow(multiplier, intervals);
+                        return Math.min(baseAmt * multiplierFactor, maxAmt);
+                      };
+
+                      const sumBonus = selectedEmpBonuses.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpHolidayBonuses.reduce((acc: number, h: any) => acc + (h.amount || 0), 0);
+                      const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (getModalLatePenaltyAmount(s.lateMin) || 0), 0);
+                      const sumAdvance = selectedEmpAdvances.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+                      const netAdjust = sumBonus - sumPenalty - sumAdvance;
+
+                      return (
+                        <>
+                          <div className="flex justify-between items-center text-emerald-700">
+                            <span>Tổng tiền thưởng:</span>
+                            <span>+{sumBonus.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-red-600">
+                            <span>Tổng khấu trừ phạt:</span>
+                            <span>-{sumPenalty.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-amber-700">
+                            <span>Tổng tạm ứng:</span>
+                            <span>-{sumAdvance.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
+                            <span>Thực lĩnh điều chỉnh:</span>
+                            <span className="text-base font-black">
+                              {netAdjust >= 0 ? "+" : ""}
+                              {netAdjust.toLocaleString("vi-VN")}đ
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -5429,8 +5461,3 @@ export default function AdminPortal() {
     </div>
   );
 }
-
-
-
-
-

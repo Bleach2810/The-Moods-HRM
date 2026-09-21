@@ -5,7 +5,6 @@ import { useApp } from "@/context/AppContext";
 import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
-import { useRouter } from "next/navigation";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -98,13 +97,48 @@ export default function AdminPortal() {
 
   const [page, setPage] = useState("dashboard");
   const [sideOpen, setSideOpen] = useState(false);
+
+  // === NOTE QUẢN LÝ ===
+  const [managerNote, setManagerNote] = React.useState("");
+  const [managerNoteSaved, setManagerNoteSaved] = React.useState(false);
   const [devTab, setDevTab] = useState("matrix");
   const [selectedDayDetail, setSelectedDayDetail] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<{ userId: string; userName: string; date: string; dateLabel: string } | null>(null);
   const [cellIsOff, setCellIsOff] = useState(false);
   const [cellStartTime, setCellStartTime] = useState("08:00");
   const [cellEndTime, setCellEndTime] = useState("16:00");
-  const [mobileTab, setMobileTab] = useState<"shifts" | "availabilities">("shifts");
+
+
+
+
+
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setManagerNote(localStorage.getItem("moods_manager_note") || "");
+    }
+  }, []);
+  const handleSaveManagerNote = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "ManagerNote", configValue: managerNote }
+        ])
+      });
+      if (res.ok) {
+        alert("Cập nhật ghi chú của quản lý thành công!");
+        fetchHrmConfigs();
+      } else {
+        alert("Không thể cập nhật ghi chú!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi cập nhật ghi chú!");
+    }
+  };
 
   const handleRefreshAll = async () => {
     try {
@@ -135,14 +169,13 @@ export default function AdminPortal() {
   };
   const [showNotification, setShowNotification] = useState(false);
   const [pushPermission, setPushPermission] = useState<string>("");
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  React.useEffect(() => {
-    if (showPushNotificationPrompt) {
-      setShowNotification(true);
-      setShowPushNotificationPrompt(false);
-    }
-  }, [showPushNotificationPrompt]);
+  // React.useEffect(() => {
+  //   if (showPushNotificationPrompt) {
+  //     setShowNotification(true);
+  //     setShowPushNotificationPrompt(false);
+  //   }
+  // }, [showPushNotificationPrompt]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -335,7 +368,9 @@ export default function AdminPortal() {
 
   // Adjustments & Config Tab State
   const [adjActiveTab, setAdjActiveTab] = useState("payroll"); // "payroll", "history", "rules", "holidays"
-  const [configActiveTab, setConfigActiveTab] = useState("gps"); // "gps", "biometrics"
+  const [configActiveTab, setConfigActiveTab] = useState("gps"); // "gps", "biometrics", "pin"
+  const [oldPin, setOldPin] = useState("");
+  const [newPin, setNewPin] = useState("");
   const [newHolidayMultiplier, setNewHolidayMultiplier] = useState("2.0");
   const [newHolidayFlatBonus, setNewHolidayFlatBonus] = useState("0");
 
@@ -351,7 +386,6 @@ export default function AdminPortal() {
   const [gpsLatitude, setGpsLatitude] = useState("10.8315");
   const [gpsLongitude, setGpsLongitude] = useState("106.6645");
   const [gpsRadius, setGpsRadius] = useState("50");
-  const [managerNote, setManagerNote] = useState("Chúc mọi người một tuần làm việc vui vẻ!");
   const [addressSearchQuery, setAddressSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -393,20 +427,9 @@ export default function AdminPortal() {
 
 
   const [currentUserPhone, setCurrentUserPhone] = useState("");
-  const router = useRouter();
-
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedUser = localStorage.getItem("moods_auth_user");
-      const storedStaff = localStorage.getItem("moods_active_staff");
-      
-      if (!storedUser && !storedStaff) {
-        // Chưa đăng nhập, đá văng ra trang chủ (login)
-        router.push("/");
-        return;
-      }
-      setIsAuthChecking(false);
-
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
@@ -414,16 +437,19 @@ export default function AdminPortal() {
         } catch {
           setCurrentUserPhone("admin");
         }
-      } else if (storedStaff) {
-        try {
-          const parsed = JSON.parse(storedStaff);
-          setCurrentUserPhone(parsed.phone || "admin");
-        } catch {
-          setCurrentUserPhone("admin");
+      } else {
+        const storedStaff = localStorage.getItem("moods_active_staff");
+        if (storedStaff) {
+          try {
+            const parsed = JSON.parse(storedStaff);
+            setCurrentUserPhone(parsed.phone || "admin");
+          } catch {
+            setCurrentUserPhone("admin");
+          }
         }
       }
     }
-  }, [router]);
+  }, []);
 
   // Leaflet map picker initialization
   const mapRef = React.useRef<any>(null);
@@ -724,11 +750,11 @@ export default function AdminPortal() {
         const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
         if (multVal) setLatePenaltyMultiplier(multVal);
 
-        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
-        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
-
         const holMultVal = data.find((c: any) => c.configKey === "HolidayMultiplier")?.configValue;
         if (holMultVal) setHolidayMultiplier(holMultVal);
+
+        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
+        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
 
         const latVal = data.find((c: any) => c.configKey === "GpsLatitude")?.configValue;
         if (latVal) setGpsLatitude(latVal);
@@ -844,25 +870,34 @@ export default function AdminPortal() {
     }
   };
 
-  const handleSaveManagerNote = async (e: React.FormEvent) => {
+  const handleChangePin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (oldPin.length !== 6 || isNaN(Number(oldPin)) || newPin.length !== 6 || isNaN(Number(newPin))) {
+      alert("Mã PIN phải gồm đúng 6 chữ số!");
+      return;
+    }
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/change-pin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([
-          { configKey: "ManagerNote", configValue: managerNote }
-        ])
+        body: JSON.stringify({
+          phoneNumber: currentUserPhone,
+          oldPin: oldPin,
+          newPin: newPin,
+          locationId: activeLocation?.id || "govap-branch" // Staff-per-Branch
+        })
       });
+      const data = await res.json();
       if (res.ok) {
-        alert("Cập nhật ghi chú của quản lý thành công!");
-        fetchHrmConfigs();
+        alert("Đổi mã PIN thành công!");
+        setOldPin("");
+        setNewPin("");
       } else {
-        alert("Không thể cập nhật ghi chú!");
+        alert(data.message || "Đổi mã PIN thất bại!");
       }
     } catch (err) {
       console.error(err);
-      alert("Lỗi kết nối khi cập nhật ghi chú!");
+      alert("Lỗi kết nối máy chủ khi đổi mã PIN!");
     }
   };
 
@@ -1327,7 +1362,7 @@ export default function AdminPortal() {
           ))}
         </div>
 
-        {/* Recent Logs & Heatmap */}
+        {/* Grid Logs + Heatmap */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Logs */}
           <div className="card space-y-4 flex flex-col justify-between border border-gray-100">
@@ -1388,6 +1423,37 @@ export default function AdminPortal() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* === NOTE GỢI NHÂN VIÊN === */}
+        <div className="card space-y-4 border border-[#7c4831]/15 bg-gradient-to-br from-[#FEF3C7]/40 to-white">
+          <div className="flex items-center justify-between border-b border-[#7c4831]/10 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📋</span>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Note gởi Nhân Viên</h3>
+                <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">Nhẫn tin nội bộ — hiển thị trên trang Hồ sơ của nhân viên</p>
+              </div>
+            </div>
+            {managerNoteSaved && (
+              <span className="pill pill-green border text-[10px] font-bold animate-fadeIn">✓ Đã lưu</span>
+            )}
+          </div>
+          <textarea
+            value={managerNote}
+            onChange={e => setManagerNote(e.target.value)}
+            placeholder="Nhập nội dung nhắc nhở, thông báo nội bộ gửi tới nhân viên..."
+            className="input w-full text-sm font-semibold resize-none"
+            rows={4}
+            id="admin-manager-note"
+          />
+          <button
+            type="button"
+            onClick={handleSaveManagerNote}
+            className="btn btn-primary py-2.5 text-sm font-bold flex items-center gap-2"
+          >
+            💾 Lưu & Gửi cho nhân viên
+          </button>
         </div>
       </div>
     );
@@ -1747,7 +1813,7 @@ export default function AdminPortal() {
             </div>
 
             {/* Standard actions */}
-
+            
 
             <button
               onClick={() => window.open(`${getApiBaseUrl()}/api/attendance/schedules/export?locationId=${activeLocation?.id || "govap-branch"}&weekOffset=${weekOffset}`, "_blank")}
@@ -2458,7 +2524,7 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
           </div>
 
-          <div className="overflow-x-auto pb-4">
+          <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
             <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -2547,7 +2613,7 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500"></span>
           </div>
 
-          <div className="overflow-x-auto pb-4">
+          <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
             <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -2971,7 +3037,7 @@ export default function AdminPortal() {
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
       const multiplierFactor = Math.pow(multiplier, intervals);
-      return baseAmt * multiplierFactor;
+      return Math.min(baseAmt * multiplierFactor, maxAmt);
     };
 
     // Group adjustments by employee id/name
@@ -3207,8 +3273,8 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className="w-full min-w-[800px] text-left text-xs border-collapse whitespace-nowrap">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                         <th className="p-4">Tên</th>
@@ -3296,8 +3362,8 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500"></span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                         <th className="p-4">Tên</th>
@@ -3520,8 +3586,8 @@ export default function AdminPortal() {
                   <Users size={14} /> Danh sách Thưởng/Phạt
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                       <th className="p-3">Tên</th>
@@ -3573,6 +3639,9 @@ export default function AdminPortal() {
             {/* Detailed Adjustments Table (Inline instead of Popup) */}
             {selectedAdjGroup && (() => {
               const currentGroupAdjs = selectedAdjGroup.adjustments || [];
+              const totalBonus = currentGroupAdjs.filter((a: any) => a.Type === "bonus").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+              const totalPenalty = currentGroupAdjs.filter((a: any) => a.Type === "penalty").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+              const totalAdvance = currentGroupAdjs.filter((a: any) => a.Type === "advance").reduce((sum: number, a: any) => sum + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
 
               return (
                 <div id="detailed-adj-section" className="card p-0 overflow-hidden border border-[#7c4831]/20 bg-white shadow-md anim-fadeUp mt-4">
@@ -3581,7 +3650,12 @@ export default function AdminPortal() {
                       <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
                         <Users size={16} /> Chi Tiết Các Khoản Thưởng / Phạt Riêng
                       </h3>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{selectedAdjGroup.employeeName}</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5 mb-1.5">{selectedAdjGroup.employeeName}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 shadow-xs">Tổng thưởng: +{totalBonus.toLocaleString("vi-VN")}đ</span>
+                        <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 shadow-xs">Tổng phạt: -{totalPenalty.toLocaleString("vi-VN")}đ</span>
+                        {totalAdvance > 0 && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 shadow-xs">Tạm ứng: {totalAdvance.toLocaleString("vi-VN")}đ</span>}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -3592,8 +3666,8 @@ export default function AdminPortal() {
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                    <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                           <th className="p-3">Ngày</th>
@@ -3852,8 +3926,8 @@ export default function AdminPortal() {
                   <Calendar size={14} /> Danh sách ngày nghỉ lễ chi tiết ({detailedHolidaysList.length})
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
                       <th className="p-3">Ngày lễ</th>
@@ -3928,6 +4002,16 @@ export default function AdminPortal() {
               }`}
           >
             Bảo mật sinh trắc học
+          </button>
+          <button
+            onClick={() => setConfigActiveTab("pin")}
+            type="button"
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${configActiveTab === "pin"
+              ? "bg-[#7c4831] text-white shadow-xs"
+              : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
+              }`}
+          >
+            Thay đổi mã PIN
           </button>
         </div>
 
@@ -4073,6 +4157,49 @@ export default function AdminPortal() {
                 <span>Kích hoạt Touch ID thiết bị này</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {configActiveTab === "pin" && (
+          <div className="card space-y-4 max-w-md anim-fadeUp bg-white border border-gray-150 text-left">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 pb-3 text-[#7c4831]">
+              <Lock size={16} className="text-[#7c4831]" /> Thay đổi mã PIN cá nhân
+            </h3>
+            <p className="text-[11px] text-gray-500 font-medium font-sans">
+              Đổi mã PIN gồm 6 số của tài khoản quản trị hiện tại ({currentUserPhone || "admin"}) để phục vụ xác thực bảo mật.
+            </p>
+            <form onSubmit={handleChangePin} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN cũ *</label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  required
+                  placeholder="Nhập 6 số PIN cũ"
+                  value={oldPin}
+                  onChange={e => setOldPin(e.target.value)}
+                  className="input w-full text-xs font-semibold bg-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN mới *</label>
+                <input
+                  type="password"
+                  maxLength={6}
+                  required
+                  placeholder="Nhập 6 số PIN mới"
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value)}
+                  className="input w-full text-xs font-semibold bg-white"
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn btn-primary py-2.5 px-6 text-xs font-bold mt-1 cursor-pointer"
+              >
+                Cập nhật mã PIN
+              </button>
+            </form>
           </div>
         )}
       </div>
@@ -4845,10 +4972,6 @@ export default function AdminPortal() {
     }
   };
 
-  if (isAuthChecking) {
-    return null;
-  }
-
   return (
     <div className="flex min-h-screen  text-[#4B3621] relative overflow-hidden font-sans">
       {/* Toast Alert */}
@@ -4979,6 +5102,20 @@ export default function AdminPortal() {
         </nav>
 
         <div className="p-4 border-t border-gray-100 shrink-0 space-y-1.5">
+          <button
+            onClick={() => setShowNotification(true)}
+            className={`w-full flex items-center gap-2.5 text-xs font-extrabold uppercase text-[#7c4831] p-1.5 rounded-xl hover:bg-[#7c4831]/5 transition-all relative ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""
+              }`}
+            title={(!sideOpen && !desktopExpanded) ? "Thông báo" : undefined}
+          >
+            <Bell size={14} className="shrink-0" />
+            {(sideOpen || (typeof window !== "undefined" && window.innerWidth < 1024) || desktopExpanded) && <span>Thông báo</span>}
+            {(notifications?.filter((n: any) => !n.isRead).length || 0) > 0 && (
+              <span className="absolute top-0 left-5 bg-red-500 text-white text-[7px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse border-2 border-white">
+                {notifications.filter((n: any) => !n.isRead).length}
+              </span>
+            )}
+          </button>
           <button
             onClick={handleLogout}
             className={`w-full flex items-center gap-2.5 text-xs font-extrabold uppercase text-[#7c4831] hover:underline p-1.5 rounded-xl hover:bg-[#7c4831]/5 transition-all ${(!sideOpen && !desktopExpanded) ? "lg:justify-center" : ""
@@ -5259,25 +5396,49 @@ export default function AdminPortal() {
 
                   {/* Summary Section */}
                   <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs font-extrabold uppercase">
-                    <div className="flex justify-between items-center text-emerald-700">
-                      <span>Tổng tiền thưởng:</span>
-                      <span>+{selectedPenaltyEmployee.totalBonus?.toLocaleString("vi-VN")}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-red-600">
-                      <span>Tổng khấu trừ phạt:</span>
-                      <span>-{selectedPenaltyEmployee.totalPenalty?.toLocaleString("vi-VN")}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-amber-700">
-                      <span>Tổng tạm ứng:</span>
-                      <span>-{selectedPenaltyEmployee.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
-                      <span>Thực lĩnh điều chỉnh:</span>
-                      <span className="text-base font-black">
-                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0)) >= 0 ? "+" : ""}
-                        {(selectedPenaltyEmployee.totalBonus - selectedPenaltyEmployee.totalPenalty - (selectedPenaltyEmployee.totalAdvance || 0))?.toLocaleString("vi-VN")}đ
-                      </span>
-                    </div>
+                    {(() => {
+                      const getModalLatePenaltyAmount = (lateMin: number) => {
+                        const startMins = parseInt(latePenaltyStartMinutes) || 10;
+                        const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
+                        const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
+                        const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+                        const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
+                  
+                        if (lateMin < startMins) return 0;
+                        const intervals = Math.floor((lateMin - startMins) / intervalMins);
+                        const multiplierFactor = Math.pow(multiplier, intervals);
+                        return Math.min(baseAmt * multiplierFactor, maxAmt);
+                      };
+
+                      const sumBonus = selectedEmpBonuses.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpHolidayBonuses.reduce((acc: number, h: any) => acc + (h.amount || 0), 0);
+                      const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (getModalLatePenaltyAmount(s.lateMin) || 0), 0);
+                      const sumAdvance = selectedEmpAdvances.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+                      const netAdjust = sumBonus - sumPenalty - sumAdvance;
+
+                      return (
+                        <>
+                          <div className="flex justify-between items-center text-emerald-700">
+                            <span>Tổng tiền thưởng:</span>
+                            <span>+{sumBonus.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-red-600">
+                            <span>Tổng khấu trừ phạt:</span>
+                            <span>-{sumPenalty.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-amber-700">
+                            <span>Tổng tạm ứng:</span>
+                            <span>-{sumAdvance.toLocaleString("vi-VN")}đ</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
+                            <span>Thực lĩnh điều chỉnh:</span>
+                            <span className="text-base font-black">
+                              {netAdjust >= 0 ? "+" : ""}
+                              {netAdjust.toLocaleString("vi-VN")}đ
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -5300,8 +5461,3 @@ export default function AdminPortal() {
     </div>
   );
 }
-
-
-
-
-
