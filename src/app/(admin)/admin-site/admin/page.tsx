@@ -3294,7 +3294,13 @@ export default function AdminPortal() {
                           <td colSpan={9} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
                         </tr>
                       ) : (
-                        payrollList.map((p: any) => (
+                        payrollList.map((p: any) => {
+                          const group = groupedAdjustments[p.userId] || groupedAdjustments[p.fullName] || {};
+                          const totalBonus = group.totalBonus || p.totalBonus || 0;
+                          const totalPenalty = group.totalPenalty || p.totalPenalty || 0;
+                          const totalAdvance = group.totalAdvance || p.totalAdvance || 0;
+                          const finalAmount = (p.baseSalary || 0) + totalBonus - totalPenalty - totalAdvance;
+                          return (
                           <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
                             <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
@@ -3303,7 +3309,7 @@ export default function AdminPortal() {
                             <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
                             <td className="p-4 text-right  text-emerald-600">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>+{p.totalBonus?.toLocaleString("vi-VN")}đ</span>
+                                <span>+{totalBonus.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3318,7 +3324,7 @@ export default function AdminPortal() {
                             </td>
                             <td className="p-4 text-right  text-red-600">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>-{p.totalPenalty?.toLocaleString("vi-VN")}đ</span>
+                                <span>-{totalPenalty.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3333,7 +3339,7 @@ export default function AdminPortal() {
                             </td>
                             <td className="p-4 text-right  text-amber-700">
                               <div className="flex items-center justify-end gap-1.5">
-                                <span>-{p.totalAdvance?.toLocaleString("vi-VN") || 0}đ</span>
+                                <span>-{totalAdvance.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3346,9 +3352,9 @@ export default function AdminPortal() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{p.finalAmount?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{finalAmount.toLocaleString("vi-VN")}đ</td>
                           </tr>
-                        ))
+                        )})
                       )}
                     </tbody>
                   </table>
