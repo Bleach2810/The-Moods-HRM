@@ -418,6 +418,7 @@ export default function AdminPortal() {
   const [showAdjDetailModal, setShowAdjDetailModal] = useState(false);
   const [selectedAdjGroup, setSelectedAdjGroup] = useState<any>(null);
   const [editingAdjIndex, setEditingAdjIndex] = useState<number | null>(null);
+  const [editingAutoKey, setEditingAutoKey] = useState<string | null>(null);
 
   // Staff Skills States
   const [skillsList, setSkillsList] = useState<any[]>([]);
@@ -1056,7 +1057,7 @@ export default function AdminPortal() {
     const price = parseFloat(newAdjAmountPerUnit) || 0;
     const totalAmt = newAdjUnit === "co_dinh" ? price : qty * price;
 
-    const newAdj = {
+    const newAdj: any = {
       EmployeeId: newAdjEmployeeId,
       EmployeeName: empName,
       Type: newAdjType,
@@ -1067,9 +1068,18 @@ export default function AdminPortal() {
       Date: newAdjDate,
       Note: newAdjNote.trim()
     };
+    if (editingAutoKey) {
+      newAdj.IsAutoOverride = true;
+      newAdj.OverrideKey = editingAutoKey;
+    }
 
     let updated = [...adjustmentsList];
     if (editingAdjIndex !== null) {
+      const existing = updated[editingAdjIndex];
+      if (existing && existing.IsAutoOverride) {
+        newAdj.IsAutoOverride = true;
+        newAdj.OverrideKey = existing.OverrideKey;
+      }
       updated[editingAdjIndex] = newAdj;
     } else {
       updated.push(newAdj);
@@ -1087,6 +1097,7 @@ export default function AdminPortal() {
         alert(editingAdjIndex !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
         setNewAdjNote("");
         setEditingAdjIndex(null);
+        setEditingAutoKey(null);
         setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
         fetchHrmConfigs();
       }
@@ -3069,6 +3080,10 @@ export default function AdminPortal() {
     (officialSchedulesList || [])
       .filter((s: any) => s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
       .forEach((s: any) => {
+        const autoKey = `${s.userId}_${s.date}_${s.startTime}_penalty`;
+        const hasOverride = adjustmentsList.some((a: any) => a.IsAutoOverride && a.OverrideKey === autoKey);
+        if (hasOverride) return;
+
         const startParts = s.startTime.split(":");
         const realParts = s.checkInTime.split(":");
         const startMin = parseInt(startParts[0]) * 60 + parseInt(startParts[1]);
@@ -3100,12 +3115,17 @@ export default function AdminPortal() {
             Amount: amount,
             Date: s.date,
             Note: `Đi muộn ${lateMin} phút (Ca ${s.startTime} - ${s.endTime})`,
-            IsAuto: true
+            IsAuto: true,
+            AutoKey: autoKey
           });
         }
         // Tăng do đi làm vào ngày lễ (Thưởng lễ hệ số & flat bonus)
         const matchedHoliday = detailedHolidaysList.find((h: any) => h.Date === s.date);
         if (matchedHoliday && s.clockedOut) {
+          const autoKey = `${s.userId}_${s.date}_${s.startTime}_bonus`;
+          const hasOverride = adjustmentsList.some((a: any) => a.IsAutoOverride && a.OverrideKey === autoKey);
+          if (hasOverride) return;
+
           const mult = matchedHoliday.Multiplier > 0 ? matchedHoliday.Multiplier : 2.0;
           const flat = matchedHoliday.FlatBonus || 0;
           if (mult > 1.0 || flat > 0) {
@@ -3156,7 +3176,8 @@ export default function AdminPortal() {
                 Amount: totalHolidayBonus,
                 Date: s.date,
                 Note: `Đi làm ngày lễ ${matchedHoliday.Note} (Hệ số x${mult}${flat > 0 ? ` + ${flat.toLocaleString()}đ` : ''})`,
-                IsAuto: true
+                IsAuto: true,
+                AutoKey: autoKey
               });
             }
           }
@@ -3714,7 +3735,63 @@ export default function AdminPortal() {
                                 <td className="p-3 italic text-gray-650 max-w-[150px] truncate" title={item.Note}>{item.Note}</td>
                                 <td className="p-3 text-center space-x-2.5">
                                   {item.IsAuto ? (
-                                    <span className="text-[10px] text-gray-400 font-bold italic uppercase">Tự động (Hệ thống)</span>
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setNewAdjEmployeeId(item.EmployeeId || "");
+                                          setNewAdjType(item.Type || "bonus");
+                                          setNewAdjUnit(item.Unit || "co_dinh");
+                                          setNewAdjQuantity("1");
+                                          setNewAdjAmountPerUnit(String(item.Amount || 50000));
+                                          setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
+                                          setNewAdjNote(item.Note || "");
+                                          setEditingAdjIndex(null);
+                                          setEditingAutoKey(item.AutoKey);
+                                          setSelectedAdjGroup(null);
+                                          const formElement = document.getElementById("new-adj-employee-id");
+                                          if (formElement) {
+                                            formElement.scrollIntoView({ behavior: "smooth", block: "center" });
+                                          }
+                                        }}
+                                        className="text-xs font-bold text-amber-700 hover:underline cursor-pointer"
+                                        type="button"
+                                      >
+                                        Sửa
+                                      </button>
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm("Hủy khoản thưởng/phạt tự động này?")) return;
+                                          const newOverride = {
+                                            EmployeeId: item.EmployeeId,
+                                            EmployeeName: item.EmployeeName,
+                                            Date: item.Date,
+                                            Type: item.Type,
+                                            IsAutoOverride: true,
+                                            OverrideKey: item.AutoKey,
+                                            Amount: 0,
+                                            Note: "Đã hủy (Hệ thống tự động)",
+                                            Quantity: 0,
+                                            AmountPerUnit: 0,
+                                            Unit: "co_dinh"
+                                          };
+                                          const updated = [...adjustmentsList, newOverride];
+                                          setAdjustmentsList(updated);
+                                          setSelectedAdjGroup(null);
+                                          try {
+                                            const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify([{ configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }])
+                                            });
+                                            if (res.ok && typeof fetchHrmConfigs === "function") fetchHrmConfigs();
+                                          } catch (err) { console.error(err); }
+                                        }}
+                                        className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                                        type="button"
+                                      >
+                                        Xóa
+                                      </button>
+                                    </>
                                   ) : (
                                     <>
                                       <button
@@ -3727,6 +3804,7 @@ export default function AdminPortal() {
                                           setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
                                           setNewAdjNote(item.Note || "");
                                           setEditingAdjIndex(originalIndex);
+                                          setEditingAutoKey(null);
                                           setSelectedAdjGroup(null);
 
                                           const formElement = document.getElementById("new-adj-employee-id");
