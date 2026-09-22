@@ -5181,17 +5181,17 @@ export default function AdminPortal() {
         {/* Penalty History Modal */}
         {showPenaltyModal && selectedPenaltyEmployee && (() => {
           const selectedEmpPenalties = adjustmentsList
-            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "penalty")
+            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "penalty" && (!a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)))
             : [];
           const selectedEmpBonuses = adjustmentsList
-            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "bonus")
+            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "bonus" && (!a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)))
             : [];
           const selectedEmpAdvances = adjustmentsList
-            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "advance")
+            ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "advance" && (!a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)))
             : [];
           const selectedEmpLateLogs = officialSchedulesList
             ? officialSchedulesList
-              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.checkInTime)
+              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
               .map((s: any) => {
                 const startParts = s.startTime.split(":");
                 const realParts = s.checkInTime.split(":");
@@ -5209,7 +5209,7 @@ export default function AdminPortal() {
             : [];
           const selectedEmpHolidayBonuses = officialSchedulesList
             ? officialSchedulesList
-              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.clockedOut && s.checkInTime)
+              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.clockedOut && s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
               .map((s: any) => {
                 const matchedHoliday = detailedHolidaysList.find((h: any) => h.Date === s.date);
                 if (!matchedHoliday) return null;
