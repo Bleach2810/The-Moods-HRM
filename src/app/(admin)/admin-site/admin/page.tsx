@@ -3042,7 +3042,7 @@ export default function AdminPortal() {
 
     // Group adjustments by employee id/name
     const groupedAdjustments: { [key: string]: { employeeKey: string; employeeName: string; adjustments: any[]; totalBonus: number; totalPenalty: number; totalAdvance: number } } = {};
-    adjustmentsList.forEach((a: any, idx: number) => {
+    adjustmentsList.filter((a: any) => !a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)).forEach((a: any, idx: number) => {
       const key = a.EmployeeId || a.EmployeeName || "unknown";
       if (!groupedAdjustments[key]) {
         groupedAdjustments[key] = {
@@ -3067,7 +3067,7 @@ export default function AdminPortal() {
 
     // Thêm các ca đi trễ tự động vào bảng thưởng phạt
     (officialSchedulesList || [])
-      .filter((s: any) => s.checkInTime)
+      .filter((s: any) => s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
       .forEach((s: any) => {
         const startParts = s.startTime.split(":");
         const realParts = s.checkInTime.split(":");
