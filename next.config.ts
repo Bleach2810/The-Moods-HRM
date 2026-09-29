@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["themoods.tieenz.site"],
+  allowedDevOrigins: ["themoods.tieenz.site", "themoods.tlabs.site", "*.tlabs.site"],
   async headers() {
     return [
       {
@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/proxy/osm-tiles/:z/:x/:y.png',
-        destination: 'https://basemaps.cartocdn.com/rastertiles/voyager/:z/:x/:y.png',
+        destination: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/:z/:y/:x',
       },
       {
         source: '/proxy/nominatim/:path*',

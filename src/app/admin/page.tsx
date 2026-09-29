@@ -505,8 +505,10 @@ export default function AdminPortal() {
       const map = L.map("map-picker").setView([latNum, lngNum], 16);
       mapRef.current = map;
 
-      L.tileLayer("/proxy/osm-tiles/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors"
+      L.tileLayer("https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
+        maxZoom: 20,
+        subdomains: ["mt0", "mt1", "mt2", "mt3"],
+        attribution: "© Google Maps"
       }).addTo(map);
 
       const marker = L.marker([latNum, lngNum], { draggable: true }).addTo(map);

@@ -521,8 +521,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const hostname = window.location.hostname;
       const matchingBrand = parsedBrands.find(b =>
         (b.customDomain && b.customDomain.toLowerCase() === hostname.toLowerCase()) ||
-        (hostname.startsWith(b.code + ".") && !hostname.endsWith("themoods.tieenz.site") && b.code) ||
-        (hostname.includes(b.code) && hostname !== "themoods.tieenz.site" && hostname !== "localhost" && hostname !== "127.0.0.1")
+        (hostname.startsWith(b.code + ".") && !hostname.endsWith("themoods.tieenz.site") && !hostname.endsWith("themoods.tlabs.site") && b.code) ||
+        (hostname.includes(b.code) && hostname !== "themoods.tieenz.site" && hostname !== "themoods.tlabs.site" && hostname !== "localhost" && hostname !== "127.0.0.1")
       );
 
       if (matchingBrand) {
@@ -618,8 +618,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const hostname = window.location.hostname;
             const matchingBrand = data.find((b: any) =>
               (b.customDomain && b.customDomain.toLowerCase() === hostname.toLowerCase()) ||
-              (hostname.startsWith(b.code + ".") && !hostname.endsWith("themoods.tieenz.site") && b.code) ||
-              (hostname.includes(b.code) && hostname !== "themoods.tieenz.site" && hostname !== "localhost" && hostname !== "127.0.0.1")
+              (hostname.startsWith(b.code + ".") && !hostname.endsWith("themoods.tieenz.site") && !hostname.endsWith("themoods.tlabs.site") && b.code) ||
+              (hostname.includes(b.code) && hostname !== "themoods.tieenz.site" && hostname !== "themoods.tlabs.site" && hostname !== "localhost" && hostname !== "127.0.0.1")
             );
 
             if (matchingBrand) {
