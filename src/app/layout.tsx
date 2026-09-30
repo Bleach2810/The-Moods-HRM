@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description: "Giải pháp đa chi nhánh (Multi-tenant) F&B hiện đại phong cách Neo-brutalism. Tích hợp Customer Mobile PWA, Staff Portal di động và Admin Dashboard chuyên sâu.",
   keywords: "themoods, f&b saas, loyalty program, coffee shop app, neo-brutalism web, tích điểm cà phê, phần mềm nhà hàng",
   icons: {
-    icon: "/logo.png?v=5",
+    icon: "/logo.png?v=7",
     shortcut: "/favicon.png?v=5",
     apple: [
       { url: "/ios/180.png", sizes: "180x180", type: "image/png" },

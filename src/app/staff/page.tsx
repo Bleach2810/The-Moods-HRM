@@ -679,7 +679,7 @@ export default function StaffPortal() {
       <div className="text-center space-y-2 mb-6">
         <div className="w-12 h-12 rounded-2xl bg-[#7c4831] flex items-center justify-center mx-auto shadow-sm">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png?v=5" alt="Logo" className="w-8 h-8 object-contain" />
+          <img src="/logo.png?v=7" alt="Logo" className="w-8 h-8 object-contain" />
         </div>
         <h2 className="text-base font-black text-[#7c4831] uppercase tracking-wide">Cổng Nhân Viên</h2>
         <p className="text-[10px] text-[#4B3621]/60 font-bold uppercase tracking-widest font-mono">Staff Authentication Portal</p>

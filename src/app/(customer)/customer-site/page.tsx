@@ -765,7 +765,7 @@ export default function CustomerPortal() {
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setActiveTab("login"); setStep("phone"); }}>
           <span className="w-9 h-9 rounded-xl flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png?v=5" alt="Logo" className="w-6 h-6 object-contain" />
+            <img src="/logo.png?v=7" alt="Logo" className="w-6 h-6 object-contain" />
           </span>
           <div>
             <h1 className="text-sm font-black tracking-tight leading-none text-[#7c4831]">The Moods</h1>

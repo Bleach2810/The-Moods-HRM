@@ -5136,7 +5136,7 @@ export default function AdminPortal() {
               <Link href="/" className="flex items-center gap-2.5 pl-1.5">
                 <span className="w-9 h-9 rounded-2xl flex items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.png?v=5" alt="Logo" className="w-6 h-6 object-contain" />
+                  <img src="/logo.png?v=7" alt="Logo" className="w-6 h-6 object-contain" />
                 </span>
                 <span className="text-sm font-extrabold uppercase tracking-tight text-[#7c4831]">Quản trị quán</span>
               </Link>
@@ -5156,7 +5156,7 @@ export default function AdminPortal() {
                 title="Mở rộng menu"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png?v=5" alt="Logo" className="w-6 h-6 object-contain" />
+                <img src="/logo.png?v=7" alt="Logo" className="w-6 h-6 object-contain" />
               </button>
             </div>
           )}
@@ -5229,7 +5229,7 @@ export default function AdminPortal() {
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-2xl flex items-center justify-center border-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/logo.png?v=5" alt="Logo" className="w-[30px] h-[30px]" style={{ borderRadius: "100%" }} />
+                <img src="/logo.png?v=7" alt="Logo" className="w-[30px] h-[30px]" style={{ borderRadius: "100%" }} />
               </span>
               <div>
                 <span className="text-xs font-extrabold uppercase tracking-tight text-[#7c4831] block leading-none">Quản trị quán</span>

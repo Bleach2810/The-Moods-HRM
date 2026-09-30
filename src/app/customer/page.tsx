@@ -88,7 +88,7 @@ export default function CustomerPortal() {
       <div className="text-center mb-8 space-y-3">
         <div className="w-12 h-12 rounded-full bg-[#7c4831] flex items-center justify-center mx-auto shadow-sm">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png?v=5" alt="Logo" className="w-8 h-8 object-contain" />
+          <img src="/logo.png?v=7" alt="Logo" className="w-8 h-8 object-contain" />
         </div>
         <h2 className="text-xl font-bold uppercase tracking-tight text-[#7c4831]">Đăng Nhập</h2>
         <p className="text-xs text-[#4B3621]/60 font-semibold uppercase tracking-wider">Tích điểm thưởng · Nhận Voucher 55K</p>

@@ -47,13 +47,13 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/logo.png?v=6",
+        src: "/logo.png?v=7",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/logo.png?v=6",
+        src: "/logo.png?v=7",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
