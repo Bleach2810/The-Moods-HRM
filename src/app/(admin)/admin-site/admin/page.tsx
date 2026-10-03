@@ -1915,7 +1915,7 @@ export default function AdminPortal() {
 
         {devTab === "matrix" && (
           <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
-            <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
               <table className="w-full min-w-[1000px] text-center border-collapse">
                 <thead>
                   <tr className="bg-[#FAF9F6] border-b border-gray-200 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
@@ -1984,7 +1984,7 @@ export default function AdminPortal() {
                                 }
                               }
                             }}
-                            className={`p-3.5 border-l border-gray-150 cursor-pointer transition-all duration-150 select-none touch-pan-x`}
+                            className={`p-3.5 border-l border-gray-150 cursor-pointer transition-all duration-150 select-none`}
                           >
                             <div className={`mx-auto max-w-[105px] py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase text-center space-y-1.5 tracking-wide shadow-xs pointer-events-none ${cellClass}`}>
                               {sched ? (
@@ -2058,7 +2058,7 @@ export default function AdminPortal() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                 <table className="w-full min-w-[1000px] text-center border-collapse">
                   <thead>
                     <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
@@ -2110,7 +2110,7 @@ export default function AdminPortal() {
                                     });
 
                                     return (
-                                      <div key={avail.id} className={`p-2.5 rounded-2xl border ${col.bg} space-y-2 shadow-xs transition-transform duration-100 hover:scale-[1.02] touch-pan-x pointer-events-none`}>
+                                      <div key={avail.id} className={`p-2.5 rounded-2xl border ${col.bg} space-y-2 shadow-xs transition-transform duration-100 hover:scale-[1.02] pointer-events-none`}>
                                         <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center gap-1">
                                           <span>{skill === "Pha chế" ? "☕" : skill === "Phục vụ" ? "🛎" : "💵"}</span>
                                           <span>{s.fullName} [{skill}]</span>
@@ -2537,7 +2537,7 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
           </div>
 
-          <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="overflow-x-auto w-full overscroll-x-contain pb-4" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
             <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -2626,7 +2626,7 @@ export default function AdminPortal() {
             <span className="text-[10px] font-semibold text-gray-500"></span>
           </div>
 
-          <div className="overflow-x-auto w-full touch-pan-x pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="overflow-x-auto w-full overscroll-x-contain pb-4" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
             <table className="w-full min-w-max text-left text-xs border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -3296,7 +3296,7 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
                 </div>
 
-                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                   <table className="w-full min-w-[800px] text-left text-xs border-collapse whitespace-nowrap">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -3391,7 +3391,7 @@ export default function AdminPortal() {
                   <span className="text-[10px] font-semibold text-gray-500"></span>
                 </div>
 
-                <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                   <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -3615,7 +3615,7 @@ export default function AdminPortal() {
                   <Users size={14} /> Danh sách Thưởng/Phạt
                 </span>
               </div>
-              <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                 <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -3695,7 +3695,7 @@ export default function AdminPortal() {
                     </button>
                   </div>
 
-                  <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                     <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
@@ -4012,7 +4012,7 @@ export default function AdminPortal() {
                   <Calendar size={14} /> Danh sách ngày nghỉ lễ chi tiết ({detailedHolidaysList.length})
                 </span>
               </div>
-              <div className="overflow-x-auto w-full touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                 <table className="w-full min-w-[800px] text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">

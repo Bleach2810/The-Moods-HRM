@@ -1059,7 +1059,7 @@ export default function StaffPortal() {
 
         {/* Bảng Đăng Ký Khung Giờ Rảnh */}
         <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white rounded-3xl">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
             <table className="w-full border-collapse text-left min-w-[700px]">
               <thead>
                 <tr className="border-b border-gray-150 bg-[#FAF9F6] text-center text-[10px] font-black uppercase text-gray-500 tracking-wider">
