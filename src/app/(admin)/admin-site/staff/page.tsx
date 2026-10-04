@@ -117,6 +117,7 @@ export default function StaffPortal() {
   const { activeBrand, activeLocation, activeStaff: contextActiveStaff, loginStaff, logoutStaff, timekeeping, clockInStaff, clockOutStaff, shifts, registerShift, requests, submitRequest, logs, addPointsToCustomer, customers, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
 
   const [localStaff, setLocalStaff] = useState<any>(null);
+  const [tab, setTab] = useState<"scan" | "attend" | "schedule" | "requests" | "logs" | "profile">("scan");
   const [pName, setPName] = useState("");
   const [saved, setSaved] = useState(false);
   const [currentYear, setCurrentYear] = useState(2026);
@@ -126,6 +127,42 @@ export default function StaffPortal() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   const router = useRouter();
+
+  const fetchLatestStaffProfile = async (targetId?: string) => {
+    const sId = targetId || activeStaff?.id;
+    if (!sId) return;
+    try {
+      const locId = activeStaff?.locationId || activeLocation?.id || "";
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/profile?userId=${encodeURIComponent(sId)}&locationId=${encodeURIComponent(locId)}`);
+      if (res.ok) {
+        const fresh = await res.json();
+        if (fresh && fresh.id) {
+          setLocalStaff((prev: any) => {
+            const updated = {
+              ...(prev || {}),
+              id: fresh.id,
+              name: fresh.fullName || prev?.name,
+              fullName: fresh.fullName || prev?.fullName,
+              phone: fresh.phoneNumber || prev?.phone,
+              phoneNumber: fresh.phoneNumber || prev?.phoneNumber,
+              role: fresh.roleName || prev?.role,
+              roleName: fresh.roleName || prev?.roleName,
+              roleId: fresh.roleId || prev?.roleId,
+              hourlyWage: Number(fresh.hourlyWage),
+              locationId: fresh.locationId || prev?.locationId,
+              locationName: fresh.locationName || prev?.locationName
+            };
+            if (typeof window !== "undefined") {
+              localStorage.setItem("moods_active_staff", JSON.stringify(updated));
+            }
+            return updated;
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch fresh staff profile:", e);
+    }
+  };
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -141,14 +178,37 @@ export default function StaffPortal() {
       setIsAuthChecking(false);
 
       if (stored) {
-        setLocalStaff(JSON.parse(stored));
+        try {
+          const parsed = JSON.parse(stored);
+          setLocalStaff(parsed);
+          if (parsed && parsed.id) {
+            fetchLatestStaffProfile(parsed.id);
+          }
+        } catch {
+          setLocalStaff(null);
+        }
       } else {
         setLocalStaff(contextActiveStaff);
+        if (contextActiveStaff?.id) {
+          fetchLatestStaffProfile(contextActiveStaff.id);
+        }
       }
     }
   }, [contextActiveStaff, router]);
 
   const activeStaff = localStaff || contextActiveStaff;
+
+  React.useEffect(() => {
+    if (tab === "profile" && activeStaff?.id) {
+      fetchLatestStaffProfile(activeStaff.id);
+    }
+  }, [tab]);
+
+  React.useEffect(() => {
+    if (activeStaff?.id && activeLocation?.id) {
+      fetchLatestStaffProfile(activeStaff.id);
+    }
+  }, [activeLocation?.id]);
 
   const getApiBaseUrl = () => {
     if (typeof window !== "undefined") {
@@ -244,16 +304,32 @@ export default function StaffPortal() {
     }
   }, [activeStaff]);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const updatedStaff = {
       ...activeStaff,
-      name: pName
+      name: pName.trim(),
+      fullName: pName.trim()
     };
     if (typeof window !== "undefined") {
       localStorage.setItem("moods_active_staff", JSON.stringify(updatedStaff));
     }
     setLocalStaff(updatedStaff);
+
+    try {
+      await fetch(`${getApiBaseUrl()}/api/auth/staff/update-profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: activeStaff.id,
+          fullName: pName.trim(),
+          locationId: activeLocation?.id || ""
+        })
+      });
+    } catch (err) {
+      console.error("Error saving profile to backend:", err);
+    }
+
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -326,7 +402,6 @@ export default function StaffPortal() {
     }, 1500);
   };
 
-  const [tab, setTab] = useState<"scan" | "attend" | "schedule" | "requests" | "logs" | "profile">("scan");
   const handleTabChange = (newTab: typeof tab) => {
     setTab(newTab);
     if (typeof window !== "undefined") {
@@ -1860,7 +1935,7 @@ export default function StaffPortal() {
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Số điện thoại</label>
-            <input type="text" disabled value={activeStaff.phone || "0900000003"} className="input w-full text-sm opacity-60 cursor-not-allowed  font-bold" />
+            <input type="text" disabled value={activeStaff.phone || activeStaff.phoneNumber || "Chưa cập nhật"} className="input w-full text-sm opacity-60 cursor-not-allowed  font-bold" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Họ và tên *</label>
@@ -1868,15 +1943,15 @@ export default function StaffPortal() {
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Vai trò công việc</label>
-            <input type="text" disabled value={activeStaff.role || "Nhân viên ca trực"} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold" />
+            <input type="text" disabled value={activeStaff.role || activeStaff.roleName || "Nhân viên ca trực"} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Mức lương theo giờ</label>
-            <input type="text" disabled value={`${(activeStaff.hourlyWage || 25000).toLocaleString("vi-VN")}đ/giờ`} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold " />
+            <input type="text" disabled value={activeStaff.hourlyWage !== undefined && activeStaff.hourlyWage !== null ? `${Number(activeStaff.hourlyWage).toLocaleString("vi-VN")}đ/giờ` : "Đang cập nhật..."} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold " />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Chi nhánh đang trực</label>
-            <input type="text" disabled value={activeLocation?.name || "The Moods Gò Vấp"} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold" />
+            <input type="text" disabled value={activeStaff.locationName || activeLocation?.name || "The Moods Gò Vấp"} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold" />
           </div>
           <button type="submit" className="btn btn-primary w-full py-3.5 text-sm font-bold" id="staff-save">Lưu hồ sơ</button>
         </form>

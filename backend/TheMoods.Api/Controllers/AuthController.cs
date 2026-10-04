@@ -188,7 +188,12 @@ namespace TheMoods.Api.Controllers
             if (!string.IsNullOrWhiteSpace(locationId))
             {
                 var userLoc = await _context.UserLocations
+                    .Include(ul => ul.Location)
                     .Include(ul => ul.User)
+                        .ThenInclude(u => u!.UserLocations)
+                            .ThenInclude(uloc => uloc.Location)
+                    .Include(ul => ul.User)
+                        .ThenInclude(u => u!.Role)
                     .FirstOrDefaultAsync(ul =>
                         ul.LocationId == locationId &&
                         ul.IsActive &&
@@ -201,11 +206,49 @@ namespace TheMoods.Api.Controllers
             }
 
             // Fallback: không có locationId → tìm toàn hệ thống (backward-compatible)
-            // Dùng cho các API client cũ chưa gửi locationId
-            return await _context.Users.FirstOrDefaultAsync(u =>
-                (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) &&
-                (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) &&
-                !u.IsDeleted);
+            return await _context.Users
+                .Include(u => u.UserLocations)
+                    .ThenInclude(ul => ul.Location)
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u =>
+                    (u.PhoneNumber == phone || u.FullName.ToLower() == phone.ToLower()) &&
+                    (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) &&
+                    !u.IsDeleted);
+        }
+
+        private StaffProfileDto BuildStaffProfile(User user, string? locationId = null)
+        {
+            UserLocation? userLoc = null;
+            if (!string.IsNullOrWhiteSpace(locationId) && user.UserLocations != null)
+            {
+                userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId && ul.IsActive);
+            }
+            if (userLoc == null && user.UserLocations != null)
+            {
+                userLoc = user.UserLocations.FirstOrDefault(ul => ul.IsActive) ?? user.UserLocations.FirstOrDefault();
+            }
+
+            decimal defaultWage = user.RoleId == 1 ? 100000 : user.RoleId == 2 ? 50000 : 25000;
+            decimal hourlyWage = (userLoc != null && userLoc.HourlyWage > 0) ? userLoc.HourlyWage : defaultWage;
+
+            string roleName = user.Role?.RoleName ?? (user.RoleId == 1 ? "Super Admin" : user.RoleId == 2 ? "Admin" : "Nhân viên ca trực");
+            string locId = userLoc?.LocationId ?? locationId ?? "";
+            string locName = userLoc?.Location?.Name ?? "";
+
+            return new StaffProfileDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                RoleId = user.RoleId,
+                RoleName = roleName,
+                HourlyWage = hourlyWage,
+                LocationId = locId,
+                LocationName = locName,
+                HasPin = !string.IsNullOrWhiteSpace(user.PinHash),
+                BioEnabled = !string.IsNullOrWhiteSpace(user.BiometricKey),
+                BiometricKey = user.BiometricKey
+            };
         }
 
         // 4. Kiểm tra luồng Nhân viên khi gõ SĐT ở Landing
@@ -221,19 +264,22 @@ namespace TheMoods.Api.Controllers
                 return NotFound(new { message = "Nhân viên không tồn tại trong hệ thống!" });
             }
 
-            bool hasPin = !string.IsNullOrWhiteSpace(user.PinHash);
-            bool bioEnabled = !string.IsNullOrWhiteSpace(user.BiometricKey);
+            var profile = BuildStaffProfile(user, dto.LocationId);
 
             return Ok(new
             {
                 message = "Nhân viên hợp lệ",
-                id = user.Id,
-                hasPin,
-                bioEnabled,
-                fullName = user.FullName,
-                roleId = user.RoleId,
-                phoneNumber = user.PhoneNumber,
-                biometricKey = user.BiometricKey
+                id = profile.Id,
+                hasPin = profile.HasPin,
+                bioEnabled = profile.BioEnabled,
+                fullName = profile.FullName,
+                roleId = profile.RoleId,
+                roleName = profile.RoleName,
+                phoneNumber = profile.PhoneNumber,
+                biometricKey = profile.BiometricKey,
+                hourlyWage = profile.HourlyWage,
+                locationId = profile.LocationId,
+                locationName = profile.LocationName
             });
         }
 
@@ -287,7 +333,8 @@ namespace TheMoods.Api.Controllers
             // Hỗ trợ cả plain text (cho seed data) và hashed PIN
             if (user.PinHash == dto.Pin || user.PinHash == HashPin(dto.Pin))
             {
-                return Ok(new { message = "Mã PIN chính xác!", success = true });
+                var profile = BuildStaffProfile(user, dto.LocationId);
+                return Ok(new { message = "Mã PIN chính xác!", success = true, user = profile });
             }
 
             return BadRequest(new { message = "Mã PIN không chính xác! Vui lòng thử lại.", success = false });
@@ -357,10 +404,100 @@ namespace TheMoods.Api.Controllers
 
             if (!string.IsNullOrWhiteSpace(user.BiometricKey) && user.BiometricKey == dto.BiometricKey)
             {
-                return Ok(new { message = "Xác thực vân tay thành công!", success = true });
+                var profile = BuildStaffProfile(user, dto.LocationId);
+                return Ok(new { message = "Xác thực vân tay thành công!", success = true, user = profile });
             }
 
             return BadRequest(new { message = "Xác thực vân tay thất bại hoặc không trùng khớp thiết bị!", success = false });
+        }
+
+        // 8b. Lấy thông tin chi tiết hồ sơ nhân viên (Profile động từ DB)
+        [HttpGet("staff/profile")]
+        public async Task<IActionResult> GetStaffProfile([FromQuery] string? userId = null, [FromQuery] string? phone = null, [FromQuery] string? locationId = null)
+        {
+            if (string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(phone))
+            {
+                return BadRequest(new { message = "Cần cung cấp userId hoặc phone!" });
+            }
+
+            var query = _context.Users
+                .Include(u => u.UserLocations)
+                    .ThenInclude(ul => ul.Location)
+                .Include(u => u.Role)
+                .Where(u => !u.IsDeleted);
+
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                query = query.Where(u => u.Id == userId);
+            }
+            else if (!string.IsNullOrWhiteSpace(phone))
+            {
+                var trimmedPhone = phone.Trim();
+                query = query.Where(u => u.PhoneNumber == trimmedPhone || u.FullName.ToLower() == trimmedPhone.ToLower());
+            }
+
+            var user = await query.FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy nhân viên!" });
+            }
+
+            var profile = BuildStaffProfile(user, locationId);
+            return Ok(new
+            {
+                id = profile.Id,
+                fullName = profile.FullName,
+                phoneNumber = profile.PhoneNumber,
+                roleId = profile.RoleId,
+                roleName = profile.RoleName,
+                hourlyWage = profile.HourlyWage,
+                locationId = profile.LocationId,
+                locationName = profile.LocationName,
+                hasPin = profile.HasPin,
+                bioEnabled = profile.BioEnabled
+            });
+        }
+
+        // 8c. Cập nhật hồ sơ nhân viên từ trang nhân viên
+        [HttpPost("staff/update-profile")]
+        public async Task<IActionResult> UpdateStaffProfile([FromBody] UpdateStaffProfileDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Id))
+            {
+                return BadRequest(new { message = "Id nhân viên không được để trống!" });
+            }
+
+            var user = await _context.Users
+                .Include(u => u.UserLocations)
+                    .ThenInclude(ul => ul.Location)
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == dto.Id && !u.IsDeleted);
+
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy nhân viên!" });
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.FullName))
+            {
+                user.FullName = dto.FullName.Trim();
+            }
+
+            await _context.SaveChangesAsync();
+
+            var profile = BuildStaffProfile(user, dto.LocationId);
+            return Ok(new
+            {
+                message = "Cập nhật hồ sơ thành công!",
+                id = profile.Id,
+                fullName = profile.FullName,
+                phoneNumber = profile.PhoneNumber,
+                roleId = profile.RoleId,
+                roleName = profile.RoleName,
+                hourlyWage = profile.HourlyWage,
+                locationId = profile.LocationId,
+                locationName = profile.LocationName
+            });
         }
 
         // 9. Lấy danh sách nhân viên
@@ -781,5 +918,27 @@ namespace TheMoods.Api.Controllers
         public string OldPin { get; set; } = string.Empty;
         public string NewPin { get; set; } = string.Empty;
         public string? LocationId { get; set; } // Branch context
+    }
+
+    public class StaffProfileDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public int RoleId { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public decimal HourlyWage { get; set; }
+        public string LocationId { get; set; } = string.Empty;
+        public string LocationName { get; set; } = string.Empty;
+        public bool HasPin { get; set; }
+        public bool BioEnabled { get; set; }
+        public string? BiometricKey { get; set; }
+    }
+
+    public class UpdateStaffProfileDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? FullName { get; set; }
+        public string? LocationId { get; set; }
     }
 }

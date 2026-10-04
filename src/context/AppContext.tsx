@@ -121,7 +121,19 @@ interface AppContextType {
   // Dynamic Datasets
   customers: Customer[];
   activeCustomer: Customer | null;
-  activeStaff: { id: string; name: string; role: string } | null;
+  activeStaff: {
+    id: string;
+    name: string;
+    role: string;
+    phone?: string;
+    phoneNumber?: string;
+    hourlyWage?: number;
+    locationId?: string;
+    locationName?: string;
+    roleId?: number;
+    roleName?: string;
+    [key: string]: any;
+  } | null;
   promotions: Promotion[];
   shifts: Shift[];
   requests: RequestItem[];
@@ -447,7 +459,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Dynamic Datasets States
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
   const [activeCustomer, setActiveCustomer] = useState<Customer | null>(null);
-  const [activeStaff, setActiveStaff] = useState<{ id: string; name: string; role: string } | null>(null);
+  const [activeStaff, setActiveStaff] = useState<any>(null);
   const [promotions, setPromotions] = useState<Promotion[]>(INITIAL_PROMOTIONS);
   const [shifts, setShifts] = useState<Shift[]>(INITIAL_SHIFTS);
   const [requests, setRequests] = useState<RequestItem[]>(INITIAL_REQUESTS);

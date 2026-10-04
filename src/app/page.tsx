@@ -21,7 +21,28 @@ export default function LandingPage() {
   const [staffFullName, setStaffFullName] = useState("");
   const [staffRoleId, setStaffRoleId] = useState<number | null>(null);
   const [staffDbId, setStaffDbId] = useState("");
+  const [staffHourlyWage, setStaffHourlyWage] = useState<number | null>(null);
+  const [staffRoleName, setStaffRoleName] = useState<string>("");
+  const [staffLocationName, setStaffLocationName] = useState<string>("");
   const [step, setStep] = useState<"phone" | "setup_pin" | "setup_biometric" | "daily_biometric" | "fallback_pin">("phone");
+
+  const buildActiveStaffData = (extra?: any) => {
+    const roleIdVal = extra?.roleId || staffRoleId || 3;
+    const userRole = extra?.roleName || staffRoleName || (roleIdVal === 1 ? "Super Admin" : roleIdVal === 2 ? "Admin" : "Nhân viên ca trực");
+    const wageVal = extra?.hourlyWage !== undefined && extra?.hourlyWage !== null ? Number(extra.hourlyWage) : (staffHourlyWage !== null && staffHourlyWage !== undefined ? Number(staffHourlyWage) : (roleIdVal === 1 ? 100000 : roleIdVal === 2 ? 50000 : 25000));
+    return {
+      id: extra?.id || staffDbId || (roleIdVal === 1 ? "st-1" : roleIdVal === 2 ? "st-2" : "st-3"),
+      name: extra?.fullName || extra?.name || staffFullName || userRole,
+      phone: extra?.phoneNumber || extra?.phone || identifier.trim(),
+      phoneNumber: extra?.phoneNumber || extra?.phone || identifier.trim(),
+      role: userRole,
+      roleName: userRole,
+      roleId: roleIdVal,
+      hourlyWage: wageVal,
+      locationId: extra?.locationId || activeLocation?.id || "",
+      locationName: extra?.locationName || staffLocationName || activeLocation?.name || ""
+    };
+  };
   const [pinCode, setPinCode] = useState("");
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
@@ -98,6 +119,15 @@ export default function LandingPage() {
           setStaffFullName(data.fullName || "");
           setStaffRoleId(data.roleId || 3);
           setStaffDbId(data.id || "");
+          if (data.hourlyWage !== undefined && data.hourlyWage !== null) {
+            setStaffHourlyWage(Number(data.hourlyWage));
+          }
+          if (data.roleName) {
+            setStaffRoleName(data.roleName);
+          }
+          if (data.locationName) {
+            setStaffLocationName(data.locationName);
+          }
 
           if (data.hasPin) {
             if (data.bioEnabled && data.biometricKey) {
@@ -202,16 +232,7 @@ export default function LandingPage() {
     localStorage.setItem(`moods_pin_${identifier.trim()}`, pinCode);
 
     // Khởi tạo thông tin nhân sự chính xác để đè lên phiên cũ
-    const userRole = staffRoleId === 1 ? "Super Admin" : staffRoleId === 2 ? "Admin" : "Nhân viên ca trực";
-    const roleIdVal = staffRoleId || 3;
-    const activeStaffData = {
-      id: staffDbId || (roleIdVal === 1 ? "st-1" : roleIdVal === 2 ? "st-2" : "st-3"),
-      name: staffFullName || userRole,
-      phone: identifier.trim(),
-      role: userRole,
-      roleId: roleIdVal,
-      hourlyWage: roleIdVal === 1 ? 100000 : roleIdVal === 2 ? 50000 : 25000
-    };
+    const activeStaffData = buildActiveStaffData();
     if (typeof window !== "undefined") {
       localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
     }
@@ -342,16 +363,8 @@ export default function LandingPage() {
       }) as PublicKeyCredential;
 
       if (assertion) {
-        const userRole = staffRoleId === 1 ? "Super Admin" : staffRoleId === 2 ? "Admin" : "Nhân viên ca trực";
         const roleIdVal = staffRoleId || 3;
-        const activeStaffData = {
-          id: staffDbId || (roleIdVal === 1 ? "st-1" : roleIdVal === 2 ? "st-2" : "st-3"),
-          name: staffFullName || userRole,
-          phone: identifier.trim(),
-          role: userRole,
-          roleId: roleIdVal,
-          hourlyWage: roleIdVal === 1 ? 100000 : roleIdVal === 2 ? 50000 : 25000
-        };
+        const activeStaffData = buildActiveStaffData();
         const destRoute = roleIdVal === 1 ? "/super-admin" : roleIdVal === 2 ? "/admin" : "/staff";
 
         // Gọi API verify-biometric
@@ -365,9 +378,10 @@ export default function LandingPage() {
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
+              const finalStaffData = buildActiveStaffData(data.user);
               alert("Xác thực vân tay thành công!");
               if (typeof window !== "undefined") {
-                localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
+                localStorage.setItem("moods_active_staff", JSON.stringify(finalStaffData));
               }
               window.location.href = destRoute;
               return;
@@ -429,16 +443,8 @@ export default function LandingPage() {
 
   const handleFallbackPinSubmitDirect = async (pinVal: string) => {
     setIsLoading(true);
-    const userRole = staffRoleId === 1 ? "Super Admin" : staffRoleId === 2 ? "Admin" : "Nhân viên ca trực";
     const roleIdVal = staffRoleId || 3;
-    const activeStaffData = {
-      id: staffDbId || (roleIdVal === 1 ? "st-1" : roleIdVal === 2 ? "st-2" : "st-3"),
-      name: staffFullName || userRole,
-      phone: identifier.trim(),
-      role: userRole,
-      roleId: roleIdVal,
-      hourlyWage: roleIdVal === 1 ? 100000 : roleIdVal === 2 ? 50000 : 25000
-    };
+    const activeStaffData = buildActiveStaffData();
     const destRoute = roleIdVal === 1 ? "/super-admin" : roleIdVal === 2 ? "/admin" : "/staff";
 
     try {
@@ -452,9 +458,10 @@ export default function LandingPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
+          const finalStaffData = buildActiveStaffData(data.user);
           alert("Mã PIN chính xác! Đang đăng nhập...");
           if (typeof window !== "undefined") {
-            localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
+            localStorage.setItem("moods_active_staff", JSON.stringify(finalStaffData));
           }
 
           const bioEnabled = localStorage.getItem(`moods_bio_${identifier.trim()}`) === "enabled";
