@@ -577,7 +577,7 @@ namespace TheMoods.Api.Controllers
 
         // 7b. Xóa lịch ca trực chính thức
         [HttpDelete("schedules/{id}")]
-        public async Task<IActionResult> DeleteSchedule(string id)
+        public async Task<IActionResult> DeleteSchedule(string id, [FromQuery] bool force = false)
         {
             var sched = await _context.OfficialSchedules
                 .Include(s => s.Attendances)
@@ -590,7 +590,14 @@ namespace TheMoods.Api.Controllers
 
             if (sched.Attendances.Any())
             {
-                return BadRequest(new { message = "Không thể xóa lịch trực đã có chấm công!" });
+                if (force)
+                {
+                    _context.Attendances.RemoveRange(sched.Attendances);
+                }
+                else
+                {
+                    return BadRequest(new { message = "Lịch trực đã có chấm công! Vui lòng xác nhận xóa cùng dữ liệu chấm công." });
+                }
             }
 
             // Xóa cả ca rảnh tương ứng của nhân viên vào ngày hôm đó
@@ -627,11 +634,6 @@ namespace TheMoods.Api.Controllers
                 return NotFound(new { message = "Lịch trực không tồn tại!" });
             }
 
-            if (sched.Attendances.Any())
-            {
-                return BadRequest(new { message = "Không thể sửa lịch trực đã có chấm công!" });
-            }
-
             sched.UserId = dto.UserId;
             sched.LocationId = dto.LocationId;
             sched.Date = DateTime.SpecifyKind(DateTime.Parse(dto.Date).Date, DateTimeKind.Utc);
@@ -641,6 +643,147 @@ namespace TheMoods.Api.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Cập nhật lịch trực thành công!" });
+        }
+
+        // 7d. Admin log bù ngày/giờ làm, tăng ca đột xuất hoặc sửa chấm công cho nhân viên
+        [HttpPost("manual-log")]
+        public async Task<IActionResult> ManualWorkLog([FromBody] ManualWorkLogDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.UserId))
+            {
+                return BadRequest(new { message = "Vui lòng chọn nhân viên!" });
+            }
+            if (string.IsNullOrWhiteSpace(dto.Date))
+            {
+                return BadRequest(new { message = "Vui lòng chọn ngày làm việc!" });
+            }
+
+            var dateVal = DateTime.SpecifyKind(DateTime.Parse(dto.Date).Date, DateTimeKind.Utc);
+            var startTime = TimeSpan.Parse(dto.StartTime);
+            var endTime = TimeSpan.Parse(dto.EndTime);
+            var locId = string.IsNullOrWhiteSpace(dto.LocationId) ? "govap-branch" : dto.LocationId;
+
+            OfficialSchedule? sched = null;
+
+            if (!string.IsNullOrWhiteSpace(dto.ScheduleId))
+            {
+                sched = await _context.OfficialSchedules
+                    .Include(s => s.Attendances)
+                    .FirstOrDefaultAsync(s => s.Id == dto.ScheduleId);
+            }
+
+            if (sched == null)
+            {
+                sched = await _context.OfficialSchedules
+                    .Include(s => s.Attendances)
+                    .FirstOrDefaultAsync(s => s.UserId == dto.UserId && s.Date == dateVal && s.LocationId == locId && s.StartTime == startTime && s.EndTime == endTime);
+            }
+
+            if (sched == null)
+            {
+                sched = new OfficialSchedule
+                {
+                    UserId = dto.UserId,
+                    LocationId = locId,
+                    Date = dateVal,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                    CreatedBy = dto.AdminName ?? "Admin"
+                };
+                _context.OfficialSchedules.Add(sched);
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                sched.StartTime = startTime;
+                sched.EndTime = endTime;
+                sched.LocationId = locId;
+                sched.Date = dateVal;
+                await _context.SaveChangesAsync();
+            }
+
+            // Xử lý Chấm công (Attendance)
+            Attendance? att = sched.Attendances.FirstOrDefault();
+
+            if (dto.ClearAttendance == true)
+            {
+                if (att != null)
+                {
+                    _context.Attendances.Remove(att);
+                    await _context.SaveChangesAsync();
+                    att = null;
+                }
+            }
+            else if (dto.RecordAttendance == true || !string.IsNullOrWhiteSpace(dto.CheckInTime) || !string.IsNullOrWhiteSpace(dto.CheckOutTime))
+            {
+                var checkInStr = !string.IsNullOrWhiteSpace(dto.CheckInTime) ? dto.CheckInTime : dto.StartTime;
+                var checkOutStr = !string.IsNullOrWhiteSpace(dto.CheckOutTime) ? dto.CheckOutTime : dto.EndTime;
+
+                var checkInTimeSpan = TimeSpan.Parse(checkInStr);
+                var checkOutTimeSpan = TimeSpan.Parse(checkOutStr);
+
+                var checkInDt = DateTime.SpecifyKind(dateVal.Date.Add(checkInTimeSpan), DateTimeKind.Utc);
+                var checkOutDt = DateTime.SpecifyKind(dateVal.Date.Add(checkOutTimeSpan), DateTimeKind.Utc);
+
+                if (checkOutTimeSpan < checkInTimeSpan)
+                {
+                    checkOutDt = checkOutDt.AddDays(1);
+                }
+
+                if (att != null)
+                {
+                    att.CheckInTime = checkInDt;
+                    att.CheckOutTime = checkOutDt;
+                }
+                else
+                {
+                    att = new Attendance
+                    {
+                        ScheduleId = sched.Id,
+                        UserId = dto.UserId,
+                        LocationId = locId,
+                        CheckInTime = checkInDt,
+                        CheckOutTime = checkOutDt,
+                        Lat = 0,
+                        Lng = 0
+                    };
+                    _context.Attendances.Add(att);
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Gửi thông báo cho nhân viên
+            try
+            {
+                var user = await _context.Users.FindAsync(dto.UserId);
+                if (user != null)
+                {
+                    var reason = !string.IsNullOrWhiteSpace(dto.Note) ? dto.Note : "Ghi nhận/điều chỉnh giờ làm";
+                    var checkInInfo = att != null ? $", Vào: {att.CheckInTime:HH:mm}, Ra: {(att.CheckOutTime.HasValue ? att.CheckOutTime.Value.ToString("HH:mm") : "--:--")}" : "";
+                    var notif = new Notification
+                    {
+                        UserId = dto.UserId,
+                        Title = "Ghi nhận giờ làm / Tăng ca",
+                        Message = $"Quản lý đã ghi nhận ca làm ngày {dto.Date} ({dto.StartTime} - {dto.EndTime}{checkInInfo}). Lý do: {reason}"
+                    };
+                    _context.Notifications.Add(notif);
+                    await _context.SaveChangesAsync();
+                    await SendPushNotification(dto.UserId, notif.Title, notif.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error sending notification for manual work log: " + ex.Message);
+            }
+
+            return Ok(new
+            {
+                message = "Ghi nhận ngày giờ làm việc cho nhân viên thành công!",
+                scheduleId = sched.Id,
+                attendanceId = att?.Id,
+                checkInTime = att?.CheckInTime.ToString("HH:mm:ss"),
+                checkOutTime = att?.CheckOutTime?.ToString("HH:mm:ss")
+            });
         }
 
         // 8. Chấm công Vào ca (Clock-In)
@@ -1924,6 +2067,22 @@ namespace TheMoods.Api.Controllers
             public string StartTime { get; set; } = string.Empty;
             public string EndTime { get; set; } = string.Empty;
             public string? CreatedBy { get; set; }
+        }
+
+        public class ManualWorkLogDto
+        {
+            public string? ScheduleId { get; set; }
+            public string UserId { get; set; } = string.Empty;
+            public string LocationId { get; set; } = string.Empty;
+            public string Date { get; set; } = string.Empty; // YYYY-MM-DD
+            public string StartTime { get; set; } = string.Empty; // HH:mm
+            public string EndTime { get; set; } = string.Empty; // HH:mm
+            public string? CheckInTime { get; set; } // HH:mm
+            public string? CheckOutTime { get; set; } // HH:mm
+            public bool RecordAttendance { get; set; } = true;
+            public bool? ClearAttendance { get; set; }
+            public string? Note { get; set; }
+            public string? AdminName { get; set; }
         }
 
         public class ClockInDto

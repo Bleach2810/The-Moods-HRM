@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText } from "lucide-react";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
+import ModalPortal from "@/components/ModalPortal";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -93,7 +94,7 @@ const getLayoutedEvents = (events: any[]) => {
 };
 
 export default function AdminPortal() {
-  const { activeBrand, activeLocation, customers, promotions, shifts, requests, feedbacks, menuImage, menuImages, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, updateMenuImages, sendFeedbackReply, logs, addPointsToCustomer, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
+  const { activeBrand, activeLocation, activeStaff, customers, promotions, shifts, requests, feedbacks, menuImage, menuImages, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, updateMenuImages, sendFeedbackReply, logs, addPointsToCustomer, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
 
   const [page, setPage] = useState("dashboard");
   const [sideOpen, setSideOpen] = useState(false);
@@ -107,6 +108,23 @@ export default function AdminPortal() {
   const [cellIsOff, setCellIsOff] = useState(false);
   const [cellStartTime, setCellStartTime] = useState("08:00");
   const [cellEndTime, setCellEndTime] = useState("16:00");
+  const [cellHasExistingAtt, setCellHasExistingAtt] = useState(false);
+  const [cellRecordAttendance, setCellRecordAttendance] = useState(true);
+  const [cellCheckInTime, setCellCheckInTime] = useState("08:00");
+  const [cellCheckOutTime, setCellCheckOutTime] = useState("16:00");
+  const [cellNote, setCellNote] = useState("Ghi nhận / điều chỉnh ca làm");
+  const [cellCustomTimes, setCellCustomTimes] = useState(false);
+  const [manualCustomTimes, setManualCustomTimes] = useState(false);
+  const [showManualLogModal, setShowManualLogModal] = useState(false);
+  const [manualStaffId, setManualStaffId] = useState("");
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [manualStartTime, setManualStartTime] = useState("08:00");
+  const [manualEndTime, setManualEndTime] = useState("16:00");
+  const [manualRecordAttendance, setManualRecordAttendance] = useState(true);
+  const [manualCheckInTime, setManualCheckInTime] = useState("08:00");
+  const [manualCheckOutTime, setManualCheckOutTime] = useState("16:00");
+  const [manualNote, setManualNote] = useState("Tăng ca đột xuất");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
 
 
 
@@ -1698,10 +1716,16 @@ export default function AdminPortal() {
         if (cellIsOff) {
           // If marked OFF, delete existing schedule
           if (existing) {
-            const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules/${existing.id}`, { method: "DELETE" });
+            if (existing.clockedIn || existing.checkInTime) {
+              if (!confirm("Ca trực này đã có dữ liệu chấm công! Bạn có chắc chắn muốn xóa ca trực và hủy dữ liệu chấm công liên quan không?")) {
+                return;
+              }
+            }
+            const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules/${existing.id}?force=true`, { method: "DELETE" });
             if (res.ok) {
               alert("Đã cập nhật: OFF");
               fetchOfficialSchedules();
+              fetchPayrollData();
             } else {
               alert("Lỗi khi cập nhật OFF!");
             }
@@ -1709,38 +1733,91 @@ export default function AdminPortal() {
             alert("Đã là ca OFF");
           }
         } else {
-          // Save / Update schedule
+          // Save / Update schedule & attendance via manual-log API
           const body = {
+            scheduleId: existing?.id || null,
             userId,
+            locationId: activeLocation?.id || "govap-branch",
             date,
             startTime: cellStartTime,
             endTime: cellEndTime,
-            locationId: activeLocation?.id || "govap-branch"
+            recordAttendance: cellRecordAttendance,
+            checkInTime: cellRecordAttendance ? (cellCustomTimes ? cellCheckInTime : cellStartTime) : null,
+            checkOutTime: cellRecordAttendance ? (cellCustomTimes ? cellCheckOutTime : cellEndTime) : null,
+            note: cellNote,
+            adminName: activeStaff?.name || "Admin"
           };
 
-          const url = existing
-            ? `${getApiBaseUrl()}/api/attendance/schedules/${existing.id}`
-            : `${getApiBaseUrl()}/api/attendance/schedules`;
-
-          const method = existing ? "PUT" : "POST";
-
-          const res = await fetch(url, {
-            method,
+          const res = await fetch(`${getApiBaseUrl()}/api/attendance/manual-log`, {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
           });
 
           if (res.ok) {
-            alert("Lưu ca làm việc thành công!");
+            alert("Lưu ca làm việc & chấm công thành công!");
             fetchOfficialSchedules();
+            fetchPayrollData();
           } else {
-            alert("Lỗi khi lưu ca làm việc!");
+            const errData = await res.json();
+            alert(errData.message || "Lỗi khi lưu ca làm việc!");
           }
         }
         setEditingCell(null);
       } catch (err) {
         console.error(err);
         alert("Lỗi mạng khi lưu!");
+      }
+    };
+
+    const handleManualLogSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!manualStaffId) {
+        alert("Vui lòng chọn nhân viên!");
+        return;
+      }
+      if (!manualDate) {
+        alert("Vui lòng chọn ngày làm việc!");
+        return;
+      }
+      if (!manualStartTime || !manualEndTime) {
+        alert("Vui lòng chọn giờ bắt đầu và kết thúc ca!");
+        return;
+      }
+
+      setManualSubmitting(true);
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/attendance/manual-log`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: manualStaffId,
+            locationId: activeLocation?.id || "govap-branch",
+            date: manualDate,
+            startTime: manualStartTime,
+            endTime: manualEndTime,
+            checkInTime: manualRecordAttendance ? manualCheckInTime : null,
+            checkOutTime: manualRecordAttendance ? manualCheckOutTime : null,
+            recordAttendance: manualRecordAttendance,
+            note: manualNote.trim(),
+            adminName: activeStaff?.name || "Admin"
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert("Lưu chấm công / Thêm giờ làm thành công!");
+          setShowManualLogModal(false);
+          fetchOfficialSchedules();
+          fetchPayrollData();
+        } else {
+          alert(data.message || "Ghi nhận giờ làm thất bại!");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Lỗi kết nối khi ghi nhận giờ làm!");
+      } finally {
+        setManualSubmitting(false);
       }
     };
 
@@ -1829,8 +1906,27 @@ export default function AdminPortal() {
             
 
             <button
+              type="button"
+              onClick={() => {
+                setManualStaffId(staffOnly[0]?.id || staffList[0]?.id || "");
+                setManualDate(new Date().toISOString().split("T")[0]);
+                setManualStartTime("08:00");
+                setManualEndTime("16:00");
+                setManualCheckInTime("08:00");
+                setManualCheckOutTime("16:00");
+                setManualRecordAttendance(true);
+                setManualNote("Quên chấm công");
+                setManualCustomTimes(false);
+                setShowManualLogModal(true);
+              }}
+              className="btn btn-primary py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer rounded-xl shadow-xs"
+            >
+              <Plus size={14} />
+              <span>Chấm công bù</span>
+            </button>
+            <button
               onClick={() => window.open(`${getApiBaseUrl()}/api/attendance/schedules/export?locationId=${activeLocation?.id || "govap-branch"}&weekOffset=${weekOffset}`, "_blank")}
-              className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              className="btn btn-ghost py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer rounded-xl border border-gray-200 hover:bg-gray-100 bg-white"
             >
               <span>Xuất Excel</span>
             </button>
@@ -1973,15 +2069,28 @@ export default function AdminPortal() {
                                 setCellIsOff(false);
                                 setCellStartTime(sched.startTime);
                                 setCellEndTime(sched.endTime);
+                                const hasAtt = !!(sched.clockedIn || sched.checkInTime);
+                                setCellHasExistingAtt(hasAtt);
+                                setCellRecordAttendance(true);
+                                setCellCheckInTime(sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime);
+                                setCellCheckOutTime(sched.checkOutTime ? sched.checkOutTime.slice(0, 5) : sched.endTime);
+                                setCellNote("Điều chỉnh giờ ca / chấm công");
                               } else {
                                 setCellIsOff(true);
+                                setCellHasExistingAtt(false);
+                                setCellRecordAttendance(true);
                                 if (avails && avails.length > 0) {
                                   setCellStartTime(avails[0].startTime);
                                   setCellEndTime(avails[0].endTime);
+                                  setCellCheckInTime(avails[0].startTime);
+                                  setCellCheckOutTime(avails[0].endTime);
                                 } else {
                                   setCellStartTime("08:00");
                                   setCellEndTime("16:00");
+                                  setCellCheckInTime("08:00");
+                                  setCellCheckOutTime("16:00");
                                 }
+                                setCellNote("Log bù giờ làm / Tăng ca");
                               }
                             }}
                             className={`p-3.5 border-l border-gray-150 cursor-pointer transition-all duration-150 select-none`}
@@ -2343,133 +2452,567 @@ export default function AdminPortal() {
           </div>
         )}
 
-        {/* CELL QUICK EDIT MODAL */}
-        {editingCell && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4B3621]/45 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 anim-scaleIn space-y-4">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                  <Calendar size={16} /> Chi Tiết Phân Ca
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setEditingCell(null)}
-                  className="text-gray-450 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all"
+        {/* MODAL: LOG GIỜ LÀM BÙ / TĂNG CA ĐỘT XUẤT */}
+        ﻿        {showManualLogModal && (() => {
+          const selectedStaff = staffList.find((s: any) => s.id === manualStaffId);
+          const hourlyRate = selectedStaff?.hourlyWage || 25000;
+          
+          const calcDuration = (start: string, end: string) => {
+            if (!start || !end) return 0;
+            const [sh, sm] = start.split(":").map(Number);
+            let [eh, em] = end.split(":").map(Number);
+            if (eh < sh) eh += 24;
+            const m = (eh * 60 + em) - (sh * 60 + sm);
+            return Math.max(0, Math.round((m / 60) * 10) / 10);
+          };
+
+          const workHours = manualCustomTimes
+            ? calcDuration(manualCheckInTime, manualCheckOutTime)
+            : calcDuration(manualStartTime, manualEndTime);
+
+          const estPay = Math.round(workHours * hourlyRate);
+
+          return (
+            <ModalPortal>
+              <div 
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+                onClick={() => setShowManualLogModal(false)}
+              >
+                <div 
+                  className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn space-y-4 my-auto max-h-[92vh] flex flex-col"
+                  onClick={e => e.stopPropagation()}
                 >
-                  <X size={18} />
-                </button>
-              </div>
+                  {/* Header */}
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-[#7c4831] flex items-center justify-center font-bold">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black uppercase tracking-tight text-[#7c4831]">
+                          Chấm Công Bù & Thêm Giờ Làm
+                        </h3>
+                        <p className="text-[10.5px] text-gray-500 font-semibold">
+                          Bù công khi quên bấm máy hoặc ghi nhận ca làm thêm
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualLogModal(false)}
+                      className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-xl transition-all cursor-pointer shrink-0"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
 
-              <div className="space-y-3.5 text-xs text-[#4B3621] font-semibold">
-                <div>
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Nhân viên:</span>
-                  <span className="text-sm font-extrabold uppercase text-[#7c4831]">{editingCell.userName}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Ngày trực:</span>
-                  <span>{editingCell.dateLabel}</span>
-                </div>
+                  <form onSubmit={handleManualLogSubmit} className="space-y-4 text-xs font-semibold text-[#4B3621] overflow-y-auto pr-1 flex-grow">
+                    {/* 1. Chọn Nhân viên */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
+                        1. Nhân viên nhận công *
+                      </label>
+                      <select
+                        required
+                        value={manualStaffId}
+                        onChange={e => setManualStaffId(e.target.value)}
+                        className="input w-full text-xs font-bold bg-[#FAF9F6] border-gray-200 py-2.5 rounded-xl cursor-pointer"
+                      >
+                        <option value="">-- Bấm chọn nhân viên --</option>
+                        {staffList.map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            {s.fullName} ({s.phoneNumber || s.phone || "Không SĐT"}) • {s.hourlyWage ? s.hourlyWage.toLocaleString("vi-VN") : "25.000"}đ/h
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                {/* Registered Availability Info */}
-                <div className="p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl space-y-1">
-                  <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Giờ đăng ký rảnh:</span>
-                  {(() => {
-                    const avails = devAvailsList.filter((a: any) => a.userId === editingCell.userId && a.date === editingCell.date);
-                    if (avails.length === 0) {
-                      return <span className="text-rose-600 font-bold uppercase text-[10px]">❌ Không đăng ký ca rảnh ngày này</span>;
-                    }
-                    return (
-                      <div className="space-y-2 mt-1">
-                        {avails.map((a: any) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            onClick={() => {
-                              setCellIsOff(false);
-                              setCellStartTime(a.startTime);
-                              setCellEndTime(a.endTime);
+                    {/* 2. Ngày làm việc */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
+                        2. Ngày làm việc *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={manualDate}
+                        onChange={e => setManualDate(e.target.value)}
+                        className="input w-full text-xs font-bold bg-[#FAF9F6] border-gray-200 py-2.5 rounded-xl"
+                      />
+                    </div>
+
+                    {/* 3. Thời gian làm việc */}
+                    <div className="space-y-2.5 p-3.5 bg-[#FAF9F6] border border-gray-200/80 rounded-2xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10.5px] font-black uppercase text-[#7c4831] tracking-wider flex items-center gap-1.5">
+                          <Calendar size={14} /> 3. Thời gian làm việc *
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold">Khung giờ ca</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-extrabold text-gray-500 uppercase block">Từ lúc:</label>
+                          <input
+                            type="time"
+                            required
+                            value={manualStartTime}
+                            onChange={e => {
+                              setManualStartTime(e.target.value);
+                              if (!manualCustomTimes) setManualCheckInTime(e.target.value);
                             }}
-                            className="w-full text-left p-2 rounded-xl border border-emerald-350 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 text-[10.5px] font-black uppercase flex items-center justify-between cursor-pointer transition-colors"
+                            className="input w-full text-xs font-bold bg-white border-gray-200"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-extrabold text-gray-500 uppercase block">Đến lúc:</label>
+                          <input
+                            type="time"
+                            required
+                            value={manualEndTime}
+                            onChange={e => {
+                              setManualEndTime(e.target.value);
+                              if (!manualCustomTimes) setManualCheckOutTime(e.target.value);
+                            }}
+                            className="input w-full text-xs font-bold bg-white border-gray-200"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Chọn nhanh ca */}
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[8.5px] font-black text-gray-400 uppercase block">Chọn nhanh ca mẫu:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: "Ca Sáng (06 - 14)", start: "06:00", end: "14:00" },
+                            { label: "Ca Chiều (14 - 22)", start: "14:00", end: "22:00" },
+                            { label: "Ca Tối (18 - 00)", start: "18:00", end: "00:00" },
+                            { label: "+2h Tăng ca (16 - 18)", start: "16:00", end: "18:00" },
+                            { label: "+4h Tăng ca (16 - 20)", start: "16:00", end: "20:00" }
+                          ].map(p => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => {
+                                setManualStartTime(p.start);
+                                setManualEndTime(p.end);
+                                if (!manualCustomTimes) {
+                                  setManualCheckInTime(p.start);
+                                  setManualCheckOutTime(p.end);
+                                }
+                              }}
+                              className="text-[9.5px] font-bold py-1 px-2.5 rounded-lg border border-gray-200 bg-white hover:bg-[#7c4831]/5 hover:border-[#7c4831]/30 text-[#4B3621] transition-all cursor-pointer"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Tùy chọn chỉnh giờ vào/ra riêng */}
+                      <div className="pt-2 border-t border-gray-200/60">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = !manualCustomTimes;
+                            setManualCustomTimes(next);
+                            if (!next) {
+                              setManualCheckInTime(manualStartTime);
+                              setManualCheckOutTime(manualEndTime);
+                            }
+                          }}
+                          className="text-[10px] font-bold text-[#7c4831] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Settings size={12} />
+                          {manualCustomTimes
+                            ? "Thu gọn (Dùng giờ ca làm giờ chấm công)"
+                            : "Tùy chỉnh giờ vào / ra thực tế (nếu nhân viên đi trễ hoặc về sớm)"}
+                        </button>
+
+                        {manualCustomTimes && (
+                          <div className="mt-2.5 p-3 bg-white border border-amber-200 rounded-xl space-y-2 anim-fadeIn">
+                            <span className="text-[9px] font-extrabold uppercase text-amber-800 block">
+                              ⏱ Giờ thực tế nhân viên có mặt tại quán:
+                            </span>
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Vào ca:</label>
+                                <input
+                                  type="time"
+                                  value={manualCheckInTime}
+                                  onChange={e => setManualCheckInTime(e.target.value)}
+                                  className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Ra ca:</label>
+                                <input
+                                  type="time"
+                                  value={manualCheckOutTime}
+                                  onChange={e => setManualCheckOutTime(e.target.value)}
+                                  className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Thẻ tóm tắt tính công trực quan */}
+                    <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-emerald-900 shadow-xs">
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-xs">
+                              {workHours} giờ công
+                            </span>
+                            <span className="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-md uppercase">
+                              Tính vào lương
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                            ✓ Tự động xóa phạt đi trễ • Cộng đủ công
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-bold text-emerald-700 block uppercase">Lương dự tính:</span>
+                        <span className="text-xs font-black text-emerald-900 font-mono">
+                          +{estPay.toLocaleString("vi-VN")}đ
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. Lý do */}
+                    <div className="space-y-1.5">
+                      <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
+                        4. Lý do chấm công bù *
+                      </label>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {["Quên chấm công", "Tăng ca làm thêm", "Lỗi GPS / Điện thoại", "Đổi ca trực"].map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setManualNote(r)}
+                            className={"text-[9.5px] font-bold py-1 px-2.5 rounded-lg border transition-all cursor-pointer " + (manualNote === r ? "bg-[#7c4831] text-white border-[#7c4831] shadow-xs" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50")}
                           >
-                            <span>✓ {a.startTime} – {a.endTime}</span>
-                            <span className="text-[8px] bg-emerald-700 text-white py-0.5 px-1.5 rounded-md">Chọn nhanh</span>
+                            {r}
                           </button>
                         ))}
                       </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Form controls */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Ca được xếp:</span>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
                       <input
-                        type="radio"
-                        name="cellStatus"
-                        checked={cellIsOff}
-                        onChange={() => setCellIsOff(true)}
-                        className="text-[#7c4831] focus:ring-[#7c4831]"
-                      />
-                      <span>Nghỉ (OFF)</span>
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="cellStatus"
-                        checked={!cellIsOff}
-                        onChange={() => setCellIsOff(false)}
-                        className="text-[#7c4831] focus:ring-[#7c4831]"
-                      />
-                      <span>Có Đi Làm</span>
-                    </label>
-                  </div>
-                </div>
-
-                {!cellIsOff && (
-                  <div className="grid grid-cols-2 gap-3 anim-fadeIn">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giờ bắt đầu:</label>
-                      <input
-                        type="time"
-                        value={cellStartTime}
-                        onChange={e => setCellStartTime(e.target.value)}
-                        className="input w-full text-xs font-semibold bg-white"
+                        type="text"
+                        required
+                        value={manualNote}
+                        onChange={e => setManualNote(e.target.value)}
+                        placeholder="Nhập lý do chi tiết..."
+                        className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200 py-2 rounded-xl mt-1"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Giờ kết thúc:</label>
-                      <input
-                        type="time"
-                        value={cellEndTime}
-                        onChange={e => setCellEndTime(e.target.value)}
-                        className="input w-full text-xs font-semibold bg-white"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="flex gap-2.5 pt-3">
-                <button
-                  type="button"
-                  onClick={handleQuickSaveCell}
-                  className="btn btn-primary flex-grow text-xs py-2.5 font-bold"
-                >
-                  Lưu thay đổi
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingCell(null)}
-                  className="btn btn-ghost text-xs py-2.5 font-bold px-4 border-gray-200"
-                >
-                  Hủy
-                </button>
+                    {/* Nút bấm */}
+                    <div className="flex gap-2.5 pt-3 border-t border-gray-100 shrink-0">
+                      <button
+                        type="submit"
+                        disabled={manualSubmitting}
+                        className="btn btn-primary flex-grow text-xs py-3 font-black uppercase tracking-wider bg-[#7c4831] hover:bg-[#623723] text-white rounded-xl cursor-pointer disabled:opacity-50 shadow-sm"
+                      >
+                        {manualSubmitting ? "Đang lưu..." : "✓ Lưu Chấm Công"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualLogModal(false)}
+                        className="btn btn-ghost text-xs py-3 font-bold px-5 border border-gray-200 rounded-xl cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </ModalPortal>
+          );
+        })()}
+
+
+﻿        {/* CELL QUICK EDIT MODAL */}
+        {editingCell && (() => {
+          const cellStaff = staffList.find((s: any) => s.id === editingCell.userId);
+          const cellWage = cellStaff?.hourlyWage || 25000;
+          
+          const calcMins = (start: string, end: string) => {
+            if (!start || !end) return 0;
+            const [sh, sm] = start.split(":").map(Number);
+            let [eh, em] = end.split(":").map(Number);
+            if (eh < sh) eh += 24;
+            return (eh * 60 + em) - (sh * 60 + sm);
+          };
+
+          const schedMins = calcMins(cellStartTime, cellEndTime);
+          const schedHours = Math.max(0, Math.round((schedMins / 60) * 10) / 10);
+          const schedPay = Math.round(schedHours * cellWage);
+
+          return (
+            <ModalPortal>
+              <div 
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+                onClick={() => setEditingCell(null)}
+              >
+                <div 
+                  className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-gray-100 anim-scaleIn space-y-4 my-auto max-h-[92vh] flex flex-col"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-3 shrink-0">
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-tight text-[#7c4831] flex items-center gap-1.5">
+                        <Calendar size={16} /> Xếp Ca & Chấm Công
+                      </h3>
+                      <p className="text-[10.5px] text-gray-500 font-semibold mt-0.5">
+                        {editingCell.userName} • {editingCell.dateLabel}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCell(null)}
+                      className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all cursor-pointer shrink-0"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3.5 text-xs text-[#4B3621] font-semibold overflow-y-auto pr-1 flex-grow">
+                    {/* 1. Chọn Trạng thái: Có ca hay Nghỉ */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider block">
+                        Trạng thái ca trực:
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCellIsOff(false)}
+                          className={"py-2.5 px-3 rounded-xl border text-xs font-black uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer " + (!cellIsOff ? "bg-[#7c4831] text-white border-[#7c4831] shadow-xs" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50")}
+                        >
+                          <Clock size={14} /> Có ca làm việc
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCellIsOff(true)}
+                          className={"py-2.5 px-3 rounded-xl border text-xs font-black uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer " + (cellIsOff ? "bg-rose-600 text-white border-rose-600 shadow-xs" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50")}
+                        >
+                          <X size={14} /> Cho nghỉ (OFF)
+                        </button>
+                      </div>
+                    </div>
+
+                    {!cellIsOff ? (
+                      <div className="space-y-3 pt-1">
+                        {/* 2. Giờ ca làm việc */}
+                        <div className="p-3 bg-[#FAF9F6] border border-gray-200 rounded-2xl space-y-2">
+                          <span className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">
+                            Giờ ca trực:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Từ lúc:</label>
+                              <input
+                                type="time"
+                                value={cellStartTime}
+                                onChange={e => {
+                                  setCellStartTime(e.target.value);
+                                  if (!cellCustomTimes) setCellCheckInTime(e.target.value);
+                                }}
+                                className="input w-full text-xs font-bold bg-white border-gray-200"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Đến lúc:</label>
+                              <input
+                                type="time"
+                                value={cellEndTime}
+                                onChange={e => {
+                                  setCellEndTime(e.target.value);
+                                  if (!cellCustomTimes) setCellCheckOutTime(e.target.value);
+                                }}
+                                className="input w-full text-xs font-bold bg-white border-gray-200"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Ca rảnh của nhân viên */}
+                          {(() => {
+                            const avails = devAvailsList.filter((a: any) => a.userId === editingCell.userId && a.date === editingCell.date);
+                            if (avails.length > 0) {
+                              return (
+                                <div className="pt-1.5 border-t border-gray-200">
+                                  <span className="text-[8.5px] font-bold text-emerald-800 uppercase block mb-1">
+                                    Nhân viên rảnh ngày này:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {avails.map((a: any) => (
+                                      <button
+                                        key={a.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setCellStartTime(a.startTime);
+                                          setCellEndTime(a.endTime);
+                                          setCellCheckInTime(a.startTime);
+                                          setCellCheckOutTime(a.endTime);
+                                        }}
+                                        className="text-[9.5px] font-bold py-1 px-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                                      >
+                                        ✓ Chọn {a.startTime} – {a.endTime}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+
+                        {/* 3. Chấm công & Tính lương */}
+                        <div className="p-3 bg-amber-50/40 border border-amber-200/80 rounded-2xl space-y-2">
+                          <span className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">
+                            Chấm công & Tính lương:
+                          </span>
+
+                          <div className="space-y-1.5">
+                            <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-gray-200 hover:border-amber-300 transition-all">
+                              <input
+                                type="radio"
+                                name="attMode"
+                                checked={cellRecordAttendance && !cellCustomTimes}
+                                onChange={() => {
+                                  setCellRecordAttendance(true);
+                                  setCellCustomTimes(false);
+                                  setCellCheckInTime(cellStartTime);
+                                  setCellCheckOutTime(cellEndTime);
+                                }}
+                                className="text-[#7c4831] focus:ring-[#7c4831]"
+                              />
+                              <div>
+                                <span className="text-[11px] font-bold text-[#4B3621] block">
+                                  ✓ Tính đủ {schedHours}h công (Xóa phạt trễ)
+                                </span>
+                                <span className="text-[9.5px] text-emerald-700 font-semibold block">
+                                  Lương ca: +{schedPay.toLocaleString("vi-VN")}đ • Không bị tính trễ
+                                </span>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-gray-200 hover:border-amber-300 transition-all">
+                              <input
+                                type="radio"
+                                name="attMode"
+                                checked={!cellRecordAttendance}
+                                onChange={() => {
+                                  setCellRecordAttendance(false);
+                                  setCellCustomTimes(false);
+                                }}
+                                className="text-[#7c4831] focus:ring-[#7c4831]"
+                              />
+                              <div>
+                                <span className="text-[11px] font-bold text-[#4B3621] block">
+                                  ⚪ Chưa chấm công
+                                </span>
+                                <span className="text-[9.5px] text-gray-500 font-semibold block">
+                                  Nhân viên sẽ tự bấm chấm công vào/ra trên điện thoại
+                                </span>
+                              </div>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-gray-200 hover:border-amber-300 transition-all">
+                              <input
+                                type="radio"
+                                name="attMode"
+                                checked={cellRecordAttendance && cellCustomTimes}
+                                onChange={() => {
+                                  setCellRecordAttendance(true);
+                                  setCellCustomTimes(true);
+                                }}
+                                className="text-[#7c4831] focus:ring-[#7c4831]"
+                              />
+                              <div>
+                                <span className="text-[11px] font-bold text-[#4B3621] block">
+                                  ⏱ Chỉnh giờ vào/ra riêng (nếu đi trễ / về sớm)
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+
+                          {cellRecordAttendance && cellCustomTimes && (
+                            <div className="pt-2 border-t border-amber-200 space-y-2 anim-fadeIn">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Giờ vào thực tế:</label>
+                                  <input
+                                    type="time"
+                                    value={cellCheckInTime}
+                                    onChange={e => setCellCheckInTime(e.target.value)}
+                                    className="input w-full text-xs font-bold bg-white border-amber-300"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Giờ ra thực tế:</label>
+                                  <input
+                                    type="time"
+                                    value={cellCheckOutTime}
+                                    onChange={e => setCellCheckOutTime(e.target.value)}
+                                    className="input w-full text-xs font-bold bg-white border-amber-300"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 4. Ghi chú */}
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-gray-500 uppercase block">Ghi chú:</label>
+                          <input
+                            type="text"
+                            value={cellNote}
+                            onChange={e => setCellNote(e.target.value)}
+                            placeholder="VD: Quên chấm công, tăng ca..."
+                            className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-1 anim-fadeIn">
+                        <span className="text-xs font-bold text-rose-800 block">Xác nhận chuyển sang ca NGHỈ (OFF)</span>
+                        <p className="text-[10.5px] text-gray-600">Ca trực và dữ liệu chấm công ngày này sẽ bị xóa khỏi lịch.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nút hành động */}
+                  <div className="flex gap-2.5 pt-3 border-t border-gray-100 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleQuickSaveCell}
+                      className="btn btn-primary flex-grow text-xs py-2.5 font-bold uppercase tracking-wider bg-[#7c4831] hover:bg-[#623723] text-white rounded-xl cursor-pointer"
+                    >
+                      {cellIsOff ? "Lưu Trạng Thái OFF" : "Lưu Ca & Chấm Công"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCell(null)}
+                      className="btn btn-ghost text-xs py-2.5 font-bold px-4 border border-gray-200 rounded-xl cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </ModalPortal>
+          );
+        })()}
+
       </div>
     );
   };;
@@ -5339,8 +5882,15 @@ export default function AdminPortal() {
               .filter(Boolean)
             : [];
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4B3621]/45 backdrop-blur-xs">
-              <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn space-y-4 max-h-[85vh] overflow-y-auto">
+            <ModalPortal>
+              <div 
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+                onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
+              >
+                <div 
+                  className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn space-y-4 my-auto max-h-[90vh] flex flex-col"
+                  onClick={e => e.stopPropagation()}
+                >
                 <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                   <div>
                     <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
@@ -5539,10 +6089,9 @@ export default function AdminPortal() {
                 </div>
               </div>
             </div>
+            </ModalPortal>
           );
         })()}
-
-
       </main>
     </div>
   );

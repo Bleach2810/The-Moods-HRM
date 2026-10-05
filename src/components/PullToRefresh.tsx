@@ -135,7 +135,7 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       {/* Wrapper shifting the screen down during pull */}
       <div
         style={{
-          transform: `translateY(${isRefreshing ? 50 : pullOffset}px)`,
+          transform: (isRefreshing || pullOffset > 0) ? `translateY(${isRefreshing ? 50 : pullOffset}px)` : undefined,
           transition: isPullingRef.current ? "none" : "transform 0.3s cubic-bezier(0.1, 0.8, 0.3, 1)",
         }}
         className="w-full h-full"
