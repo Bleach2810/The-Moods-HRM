@@ -1859,10 +1859,11 @@ export default function StaffPortal() {
                 checkOutMins += 1440;
               }
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-              actualHours = (limitOutMins - checkInMins) / 60;
-              if (actualHours < 0) actualHours = 0;
+              const rawH = (limitOutMins - checkInMins) / 60;
+              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
             } else {
-              actualHours = (eh * 60 + em - (sh * 60 + sm)) / 60;
+              const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
+              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));

@@ -974,6 +974,8 @@ namespace TheMoods.Api.Controllers
 
             double hoursWorked = (actualEndTime - att.CheckInTime).TotalHours;
             if (hoursWorked < 0) hoursWorked = 0;
+            // Làm tròn lên theo giờ nguyên (ví dụ: 4h30 -> 5h để chẵn tiền)
+            double roundedHours = Math.Ceiling(hoursWorked);
 
             return Ok(new
             {
@@ -981,7 +983,7 @@ namespace TheMoods.Api.Controllers
                     ? $"Ra ca thành công! Cảnh báo: Bạn đã về sớm {Math.Round(earlyMinutes)} phút trước khi hết ca." 
                     : "Ra ca thành công!",
                 checkOutTime = nowTime.ToString("HH:mm:ss"),
-                hoursWorked = Math.Round(hoursWorked, 1),
+                hoursWorked = roundedHours,
                 isEarly = isEarlyCheckout,
                 earlyMinutes = Math.Round(earlyMinutes)
             });
@@ -1105,11 +1107,13 @@ namespace TheMoods.Api.Controllers
                         {
                             // Giờ làm tối đa tính theo ca trực chính thức (No OT)
                             var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var hours = (checkOutLimit - att.CheckInTime).TotalHours;
-                            if (hours < 0) hours = 0;
+                            var rawHours = (checkOutLimit - att.CheckInTime).TotalHours;
+                            if (rawHours < 0) rawHours = 0;
 
-                            // Bỏ qua ca làm dưới 30 phút (0.5 giờ) — không tính lương
-                            if (hours < 0.5) continue;
+                            if (rawHours <= 0) continue;
+
+                            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 tính là 5h để chẵn tiền
+                            var hours = Math.Ceiling(rawHours);
 
                             totalHours += hours;
 
@@ -1253,7 +1257,7 @@ namespace TheMoods.Api.Controllers
                     fullName = user.FullName,
                     phoneNumber = user.PhoneNumber,
                     hourlyWage,
-                    totalWorkedHours = Math.Round(totalHours, 1),
+                    totalWorkedHours = Math.Round(totalHours, 0),
                     baseSalary = Math.Round(baseSalary),
                     totalBonus = Math.Round(bonus),
                     totalPenalty = Math.Round(penalty),
@@ -1489,7 +1493,7 @@ namespace TheMoods.Api.Controllers
                 ws.Cell(rowIdx, 1).Value = user.FullName;
                 ws.Cell(rowIdx, 2).Value = user.PhoneNumber;
                 ws.Cell(rowIdx, 3).Value = hourlyWage;
-                ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 1);
+                ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 0);
                 ws.Cell(rowIdx, 5).Value = Math.Round(baseSalary);
                 ws.Cell(rowIdx, 6).Value = Math.Round(bonus);
                 ws.Cell(rowIdx, 7).Value = Math.Round(penalty);
@@ -2224,12 +2228,15 @@ namespace TheMoods.Api.Controllers
 
                         if (att.CheckOutTime != null)
                         {
+                            // Giờ làm tối đa tính theo ca trực chính thức (No OT)
                             var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var hours = (checkOutLimit - att.CheckInTime).TotalHours;
-                            if (hours < 0) hours = 0;
+                            var rawHours = (checkOutLimit - att.CheckInTime).TotalHours;
+                            if (rawHours < 0) rawHours = 0;
 
-                            // Bỏ qua ca làm dưới 30 phút
-                            if (hours < 0.5) continue;
+                            if (rawHours <= 0) continue;
+
+                            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 tính là 5h để chẵn tiền
+                            var hours = Math.Ceiling(rawHours);
 
                             totalHours += hours;
 
@@ -2310,7 +2317,7 @@ namespace TheMoods.Api.Controllers
                     LocationId = dto.LocationId,
                     FromDate = start,
                     ToDate = end,
-                    TotalWorkedHours = Math.Round(totalHours, 1),
+                    TotalWorkedHours = Math.Round(totalHours, 0),
                     HourlyWage = hourlyWage,
                     BaseSalary = Math.Round(baseSalary),
                     TotalBonus = Math.Round(bonus),

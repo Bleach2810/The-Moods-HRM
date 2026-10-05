@@ -109,7 +109,7 @@ export default function AdminPortal() {
   const [cellStartTime, setCellStartTime] = useState("08:00");
   const [cellEndTime, setCellEndTime] = useState("16:00");
   const [cellHasExistingAtt, setCellHasExistingAtt] = useState(false);
-  const [cellRecordAttendance, setCellRecordAttendance] = useState(true);
+  const [cellRecordAttendance, setCellRecordAttendance] = useState(false);
   const [cellCheckInTime, setCellCheckInTime] = useState("08:00");
   const [cellCheckOutTime, setCellCheckOutTime] = useState("16:00");
   const [cellNote, setCellNote] = useState("Ghi nhận / điều chỉnh ca làm");
@@ -125,6 +125,7 @@ export default function AdminPortal() {
   const [manualCheckOutTime, setManualCheckOutTime] = useState("16:00");
   const [manualNote, setManualNote] = useState("Tăng ca đột xuất");
   const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualLogMode, setManualLogMode] = useState<"schedule" | "attendance">("schedule");
 
 
 
@@ -1786,6 +1787,7 @@ export default function AdminPortal() {
       }
 
       setManualSubmitting(true);
+      const isSchedule = manualLogMode === "schedule";
       try {
         const res = await fetch(`${getApiBaseUrl()}/api/attendance/manual-log`, {
           method: "POST",
@@ -1796,9 +1798,9 @@ export default function AdminPortal() {
             date: manualDate,
             startTime: manualStartTime,
             endTime: manualEndTime,
-            checkInTime: manualRecordAttendance ? manualCheckInTime : null,
-            checkOutTime: manualRecordAttendance ? manualCheckOutTime : null,
-            recordAttendance: manualRecordAttendance,
+            checkInTime: !isSchedule && manualRecordAttendance ? manualCheckInTime : null,
+            checkOutTime: !isSchedule && manualRecordAttendance ? manualCheckOutTime : null,
+            recordAttendance: !isSchedule && manualRecordAttendance,
             note: manualNote.trim(),
             adminName: activeStaff?.name || "Admin"
           })
@@ -1806,16 +1808,16 @@ export default function AdminPortal() {
 
         const data = await res.json();
         if (res.ok) {
-          alert("Lưu chấm công / Thêm giờ làm thành công!");
+          alert(isSchedule ? "Lên lịch ca trực thành công!" : "Lưu chấm công / Thêm giờ làm thành công!");
           setShowManualLogModal(false);
           fetchOfficialSchedules();
           fetchPayrollData();
         } else {
-          alert(data.message || "Ghi nhận giờ làm thất bại!");
+          alert(data.message || (isSchedule ? "Lên lịch ca trực thất bại!" : "Ghi nhận giờ làm thất bại!"));
         }
       } catch (err) {
         console.error(err);
-        alert("Lỗi kết nối khi ghi nhận giờ làm!");
+        alert(isSchedule ? "Lỗi kết nối khi lên lịch ca trực!" : "Lỗi kết nối khi ghi nhận giờ làm!");
       } finally {
         setManualSubmitting(false);
       }
@@ -1917,6 +1919,7 @@ export default function AdminPortal() {
                 setManualRecordAttendance(true);
                 setManualNote("Quên chấm công");
                 setManualCustomTimes(false);
+                setManualLogMode("attendance");
                 setShowManualLogModal(true);
               }}
               className="btn btn-primary py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer rounded-xl shadow-xs"
@@ -1940,13 +1943,13 @@ export default function AdminPortal() {
               onClick={() => { setDevTab("matrix"); setSelectedDayDetail(null); }}
               className={`py-1.5 px-4 text-xs font-extrabold uppercase rounded-xl transition-all ${devTab === "matrix" && !selectedDayDetail ? "bg-white text-[#7c4831] shadow-xs" : "text-[#7c4831]/60 hover:bg-white/30 hover:text-[#7c4831]"}`}
             >
-              Bảng phân ca chính (Matrix)
+              Bảng phân ca chính (Theo ca)
             </button>
             <button
               onClick={() => { setDevTab("avail_matrix"); setSelectedDayDetail(null); }}
               className={`py-1.5 px-4 text-xs font-extrabold uppercase rounded-xl transition-all ${devTab === "avail_matrix" ? "bg-white text-[#7c4831] shadow-xs" : "text-[#7c4831]/60 hover:bg-white/30 hover:text-[#7c4831]"}`}
             >
-              Bảng đăng ký ca rảnh
+              Bảng đăng ký ca rảnh (Theo nhân sự)
             </button>
           </div>
           {selectedDayDetail && (
@@ -1956,307 +1959,343 @@ export default function AdminPortal() {
           )}
         </div>
 
-        {/* KPI CARDS */}
-        {devTab === "matrix" && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
-              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
-            </div>
-            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
-              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
-            </div>
-            <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
-              <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
-            </div>
-            <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
-              <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
-            </div>
-            <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
-              <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
-            </div>
+        ﻿        {/* KPI CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
+            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
           </div>
-        )}
-
-        {/* MAIN MATRIX TAB */}
-        {/* Legend guide (Top version) */}
-        {devTab === "matrix" && (
-          <div className="card p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-emerald-100 border border-emerald-250 inline-block" />
-              <span>Khớp 100% đăng ký</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-amber-100 border border-amber-250 inline-block" />
-              <span>Lệch khung giờ đăng ký</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-rose-100 border border-rose-250 inline-block" />
-              <span>Không đăng ký rảnh (Bận/Chưa đăng ký)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-blue-50 border border-dashed border-blue-200 inline-block" />
-              <span>OFF (Có đăng ký rảnh)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-gray-100 border border-gray-250 inline-block" />
-              <span>OFF (Không đăng ký rảnh)</span>
-            </div>
+          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
+            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
           </div>
-        )}
-
-        {devTab === "matrix" && (
-          <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
-            <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
-              <table className="w-full min-w-[1000px] text-center border-collapse">
-                <thead>
-                  <tr className="bg-[#FAF9F6] border-b border-gray-200 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                    <th className="p-3 text-left w-[15%]">Nhân viên</th>
-                    {weekDays.map(day => (
-                      <th
-                        key={day.dateStr}
-                        onClick={() => setSelectedDayDetail(day.dateStr)}
-                        className="p-1.5 md:p-2.5 border-l border-gray-250/70 hover:bg-[#7c4831]/5 cursor-pointer transition-colors"
-                      >
-                        <div className="flex flex-col items-center">
-                          <span className="text-[9px] md:text-[10px]">{day.label}</span>
-                          <span className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</span>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
-                  {staffOnly.map((staff: any) => (
-                    <tr key={staff.id} className="hover:bg-stone-50/50 transition-colors">
-                      <td className="p-3 text-left bg-stone-50/30 w-[110px] min-w-[110px] whitespace-nowrap">
-                        <div className="font-extrabold uppercase">{staff.fullName}</div>
-                        <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{staff.phoneNumber}</div>
-                      </td>
-                      {weekDays.map(day => {
-                        const sched = weekScheds.find((s: any) => s.userId === staff.id && s.date === day.dateStr);
-                        const status = getShiftStatus(staff.id, day.dateStr, sched);
-                        const avails = devAvailsList.filter((a: any) => a.userId === staff.id && a.date === day.dateStr);
-                        const hasAvail = avails.length > 0;
-                        const crossesMidnight = sched && parseTime(sched.endTime) < parseTime(sched.startTime);
-
-                        const isLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === sched?.id && r.status === "approved");
-                        let cellClass = "bg-stone-100 text-stone-400 border-stone-200";
-                        if (sched) {
-                          if (isLeaveApproved) cellClass = "bg-stone-200/60 text-stone-500 border-stone-300 border-dashed hover:bg-stone-300/60";
-                          else if (status.color === "green") cellClass = "bg-emerald-100 text-emerald-950 border-emerald-350 hover:bg-emerald-200/70";
-                          else if (status.color === "yellow") cellClass = "bg-amber-100 text-amber-950 border-amber-350 hover:bg-amber-200/70";
-                          else if (status.color === "red") cellClass = "bg-rose-100 text-rose-950 border-rose-350 hover:bg-rose-200/70";
-                        } else if (hasAvail) {
-                          cellClass = "bg-[#E6F4FE] text-blue-900 border-2 border-dashed border-[#60A5FA] hover:bg-[#D4ECFC]";
-                        }
-
-                        return (
-                          <td
-                            key={day.dateStr}
-                            onClick={() => {
-                              setEditingCell({
-                                userId: staff.id,
-                                userName: staff.fullName,
-                                date: day.dateStr,
-                                dateLabel: `${day.label} (${day.dayNum})`
-                              });
-                              if (sched) {
-                                setCellIsOff(false);
-                                setCellStartTime(sched.startTime);
-                                setCellEndTime(sched.endTime);
-                                const hasAtt = !!(sched.clockedIn || sched.checkInTime);
-                                setCellHasExistingAtt(hasAtt);
-                                setCellRecordAttendance(true);
-                                setCellCheckInTime(sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime);
-                                setCellCheckOutTime(sched.checkOutTime ? sched.checkOutTime.slice(0, 5) : sched.endTime);
-                                setCellNote("Điều chỉnh giờ ca / chấm công");
-                              } else {
-                                setCellIsOff(true);
-                                setCellHasExistingAtt(false);
-                                setCellRecordAttendance(true);
-                                if (avails && avails.length > 0) {
-                                  setCellStartTime(avails[0].startTime);
-                                  setCellEndTime(avails[0].endTime);
-                                  setCellCheckInTime(avails[0].startTime);
-                                  setCellCheckOutTime(avails[0].endTime);
-                                } else {
-                                  setCellStartTime("08:00");
-                                  setCellEndTime("16:00");
-                                  setCellCheckInTime("08:00");
-                                  setCellCheckOutTime("16:00");
-                                }
-                                setCellNote("Log bù giờ làm / Tăng ca");
-                              }
-                            }}
-                            className={`p-3.5 border-l border-gray-150 cursor-pointer transition-all duration-150 select-none`}
-                          >
-                            <div className={`mx-auto max-w-[105px] py-1.5 px-2 rounded-xl border text-[10px] font-black uppercase text-center space-y-1.5 tracking-wide shadow-xs pointer-events-none ${cellClass}`}>
-                              {sched ? (
-                                <div>
-{isLeaveApproved ? (
-                                    <div className="text-[7.5px] font-black tracking-tight mb-1 text-rose-800">🚨 XIN VẮNG</div>
-                                  ) : (
-                                    <div className={`text-[7.5px] font-black tracking-tight mb-1 ${
-                                      status.color === "green" ? "text-emerald-800" :
-                                      status.color === "yellow" ? "text-amber-800" :
-                                      "text-rose-800"
-                                    }`}>
-                                      {status.color === "green" ? "🟢 ĐÃ CHỐT" :
-                                       status.color === "yellow" ? "🟡 LỆCH GIỜ" :
-                                       "🔴 SAI LỊCH"}
-                                    </div>
-                                  )}
-{isLeaveApproved ? (
-                                    <>
-                                      <div className="line-through text-stone-400">{sched.startTime}</div>
-                                      <div className="text-[8px] font-semibold text-stone-400 my-0.5">đến</div>
-                                      <div className="line-through text-stone-400">{sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div>{sched.startTime}</div>
-                                      <div className="text-[8px] font-semibold text-stone-500/80 my-0.5">đến</div>
-                                      <div>{sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</div>
-                                    </>
-                                  )}
-                                </div>
-                              ) : hasAvail ? (
-                                <>
-                                  <div className="text-blue-900 font-black tracking-wide">RẢNH</div>
-                                  <div className="text-[8px] font-extrabold text-blue-800 tracking-tight mt-1.5 leading-normal">
-                                    Rảnh: {avails.map((a: any) => parseTime(a.endTime) < parseTime(a.startTime) ? `${a.startTime}-${a.endTime} (Hôm sau)` : `${a.startTime}-${a.endTime}`).join(', ')}
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="py-2.5 font-bold tracking-widest opacity-60">OFF</div>
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-
+          <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
+            <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
           </div>
-        )}
+          <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
+            <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
+          </div>
+          <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
+            <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
+          </div>
+        </div>
 
-        {/* STAFF AVAILS REGISTRY MATRIX */}
-        {devTab === "avail_matrix" && !selectedDayDetail && (() => {
+        {/* TAB 1: BẢNG PHÂN CA CHÍNH (THEO BUỔI CA) */}
+        {devTab === "matrix" && (() => {
           const shiftCategories = [
-            { key: "sang", title: "Sáng", hours: "06:00 - 12:00", startHour: 6, filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
-            { key: "chieu", title: "Chiều", hours: "12:00 - 18:00", startHour: 12, filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
-            { key: "toi", title: "Tối", hours: "18:00 - 00:00", startHour: 18, filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
-            { key: "khuya", title: "Khuya", hours: "00:00 - 06:00", startHour: 0, filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
+            { key: "sang", title: "Ca Sáng", hours: "06:00 - 12:00", filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
+            { key: "chieu", title: "Ca Chiều", hours: "12:00 - 18:00", filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
+            { key: "toi", title: "Ca Tối", hours: "18:00 - 00:00", filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) !== 0 },
+            { key: "khuya", title: "Ca Khuya", hours: "00:00 - 06:00", filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
           ];
 
           return (
+            <div className="space-y-3">
+              {/* Legend guide for Schedule */}
+              <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                  <span>Đang trực / Đã chấm công</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                  <span>Đã hoàn thành ca</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
+                  <span>Chưa chấm công</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+                  <span>Xin vắng</span>
+                </div>
+              </div>
+
+              <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
+                <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+                  <div>
+                    <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Phân Công Lịch Trực (Theo Ca Làm Việc)</h3>
+                    <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Sắp xếp trực quan theo từng ca làm việc trong ngày</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+                  <table className="w-full min-w-[1000px] text-center border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
+                        <th className="p-3 text-left w-[120px] min-w-[120px] whitespace-nowrap">Buổi ca</th>
+                        {weekDays.map(day => (
+                          <th
+                            key={day.dateStr}
+                            onClick={() => setSelectedDayDetail(day.dateStr)}
+                            className="p-1.5 md:p-2.5 border-l border-gray-200 hover:bg-[#7c4831]/5 cursor-pointer transition-colors"
+                          >
+                            <div className="text-[9px] md:text-[10px]">{day.label}</div>
+                            <div className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
+                      {shiftCategories.map(cat => (
+                        <tr key={cat.key} className="hover:bg-stone-50/30 transition-colors">
+                          <td className="p-3 text-left bg-stone-50/30 w-[120px] min-w-[120px] whitespace-nowrap">
+                            <div className="font-extrabold text-xs uppercase text-[#7c4831]">{cat.title}</div>
+                            <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
+                          </td>
+                          {weekDays.map(day => {
+                            const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && cat.filter(s.startTime));
+
+                            return (
+                              <td key={day.dateStr} className="p-2 border-l border-gray-150 align-top text-left min-w-[130px]">
+                                <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
+                                  {cellScheds.length === 0 ? (
+                                    <div
+                                      onClick={() => {
+                                        setManualStaffId(staffOnly[0]?.id || "");
+                                        setManualDate(day.dateStr);
+                                        setManualStartTime(cat.hours.split(" - ")[0]);
+                                        setManualEndTime(cat.hours.split(" - ")[1]);
+                                        setManualCheckInTime(cat.hours.split(" - ")[0]);
+                                        setManualCheckOutTime(cat.hours.split(" - ")[1]);
+                                        setManualRecordAttendance(false);
+                                        setManualCustomTimes(false);
+                                        setManualNote("");
+                                        setManualLogMode("schedule");
+                                        setShowManualLogModal(true);
+                                      }}
+                                      className="py-6 px-1 text-center border border-dashed border-gray-200 hover:border-[#7c4831]/40 hover:bg-amber-50/30 rounded-2xl text-[8.5px] text-gray-400 font-extrabold uppercase cursor-pointer transition-all flex-grow flex flex-col items-center justify-center gap-1 group select-none"
+                                    >
+                                      <Plus size={13} className="text-gray-300 group-hover:text-[#7c4831] transition-colors" />
+                                      <span className="group-hover:text-[#7c4831]">Trống • Bấm xếp ca</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {cellScheds.map((sched: any) => {
+                                        const sIdx = staffOnly.findIndex((s: any) => s.id === sched.userId);
+                                        const s = sIdx !== -1 ? staffOnly[sIdx] : staffList.find((x: any) => x.id === sched.userId) || { fullName: "Nhân viên", phoneNumber: "" };
+                                        const skill = sIdx !== -1 ? getStaffSkill(sIdx) : "Nhân viên";
+                                        const col = sIdx !== -1 ? getStaffColor(sIdx) : { bg: "bg-amber-50 border-amber-200 text-[#4B3621]" };
+                                        const crossesMidnight = parseTime(sched.endTime) < parseTime(sched.startTime);
+                                        const isLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === sched.id && r.status === "approved");
+                                        const hasClockedIn = !!(sched.clockedIn || sched.checkInTime);
+                                        const hasClockedOut = !!(sched.clockedOut || sched.checkOutTime);
+
+                                        return (
+                                          <div
+                                            key={sched.id}
+                                            onClick={() => {
+                                              setEditingCell({
+                                                userId: sched.userId,
+                                                userName: s.fullName,
+                                                date: day.dateStr,
+                                                dateLabel: `${day.label} (${day.dayNum})`
+                                              });
+                                              setCellIsOff(false);
+                                              setCellStartTime(sched.startTime);
+                                              setCellEndTime(sched.endTime);
+                                              setCellHasExistingAtt(hasClockedIn);
+                                              setCellRecordAttendance(hasClockedIn);
+                                              setCellCheckInTime(sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime);
+                                              setCellCheckOutTime(sched.checkOutTime ? sched.checkOutTime.slice(0, 5) : sched.endTime);
+                                              setCellCustomTimes(false);
+                                              setCellNote("Điều chỉnh ca làm việc");
+                                            }}
+                                            className={`p-2 rounded-2xl border ${col.bg} space-y-1.5 shadow-xs transition-all hover:scale-[1.02] cursor-pointer`}
+                                          >
+                                            <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center justify-between gap-1">
+                                              <span className="truncate">{s.fullName}</span>
+                                              <span className="text-[7.5px] px-1 py-0.2 rounded bg-black/5 font-black shrink-0">{skill}</span>
+                                            </div>
+                                            <div className="text-[8.5px] font-black opacity-85 flex items-center gap-1">
+                                              <Clock size={11} className="shrink-0" />
+                                              <span>{sched.startTime} – {sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</span>
+                                            </div>
+
+                                            {/* Trạng thái chấm công */}
+                                            {isLeaveApproved ? (
+                                              <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
+                                                🚨 Xin vắng
+                                              </div>
+                                            ) : hasClockedOut ? (
+                                              <div className="text-[7.5px] font-black uppercase text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-250 w-fit">
+                                                ✓ Đã hoàn thành
+                                              </div>
+                                            ) : hasClockedIn ? (
+                                              <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
+                                                🟢 Đang trực ({sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime})
+                                              </div>
+                                            ) : (
+                                              <div className="text-[7.5px] font-bold text-gray-500 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                                ⚪ Lịch trực
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setManualStaffId(staffOnly[0]?.id || "");
+                                          setManualDate(day.dateStr);
+                                          setManualStartTime(cat.hours.split(" - ")[0]);
+                                          setManualEndTime(cat.hours.split(" - ")[1]);
+                                          setManualCheckInTime(cat.hours.split(" - ")[0]);
+                                          setManualCheckOutTime(cat.hours.split(" - ")[1]);
+                                          setManualRecordAttendance(false);
+                                          setManualCustomTimes(false);
+                                          setManualNote("");
+                                          setManualLogMode("schedule");
+                                          setShowManualLogModal(true);
+                                        }}
+                                        className="w-full py-1 text-center rounded-xl border border-dashed border-gray-200 hover:border-[#7c4831] hover:bg-[#7c4831]/5 text-[8.5px] font-extrabold uppercase text-[#7c4831] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                      >
+                                        <Plus size={10} />
+                                        <span>+ Thêm người</span>
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB 2: BẢNG ĐĂNG KÝ CA RẢNH (THEO NHÂN VIÊN) */}
+        {devTab === "avail_matrix" && !selectedDayDetail && (
+          <div className="space-y-3">
+            {/* Legend guide for Availability */}
+            <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-emerald-100 border border-emerald-300 inline-block" />
+                <span>Đã xếp ca làm việc</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-[#E6F4FE] border border-blue-400 inline-block" />
+                <span>Có đăng ký rảnh (Chờ xếp)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-stone-100 border border-stone-200 inline-block" />
+                <span>Bận (OFF / Chưa đăng ký)</span>
+              </div>
+            </div>
+
             <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
               <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
                 <div>
-                  <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Đăng Ký Khung Giờ Rảnh</h3>
-                  <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Sắp xếp trực quan theo ca làm việc của từng nhân sự</p>
+                  <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Đăng Ký Ca Rảnh (Theo Nhân Sự)</h3>
+                  <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Theo dõi lịch rảnh của từng nhân viên để sắp xếp ca trực phù hợp</p>
                 </div>
               </div>
 
               <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
                 <table className="w-full min-w-[1000px] text-center border-collapse">
                   <thead>
-                    <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                      <th className="p-3 text-left w-[110px] min-w-[110px] whitespace-nowrap">Buổi ca</th>
+                    <tr className="bg-[#FAF9F6] border-b border-gray-200 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
+                      <th className="p-3 text-left w-[130px] min-w-[130px] whitespace-nowrap">Nhân viên</th>
                       {weekDays.map(day => (
-                        <th key={day.dateStr} className="p-1.5 md:p-2.5 border-l border-gray-200">
-                          <div className="text-[9px] md:text-[10px]">{day.label}</div>
-                          <div className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</div>
+                        <th
+                          key={day.dateStr}
+                          onClick={() => setSelectedDayDetail(day.dateStr)}
+                          className="p-1.5 md:p-2.5 border-l border-gray-250/70 hover:bg-[#7c4831]/5 cursor-pointer transition-colors"
+                        >
+                          <div className="flex flex-col items-center">
+                            <span className="text-[9px] md:text-[10px]">{day.label}</span>
+                            <span className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</span>
+                          </div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
-                    {shiftCategories.map(cat => (
-                      <tr key={cat.key} className="hover:bg-stone-50/30 transition-colors">
-                        <td className="p-3 text-left bg-stone-50/30 w-[110px] min-w-[110px] whitespace-nowrap">
-                          <div className="font-extrabold text-xs uppercase text-[#7c4831]">{cat.title}</div>
-                          <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
+                    {staffOnly.map((staff: any) => (
+                      <tr key={staff.id} className="hover:bg-stone-50/50 transition-colors">
+                        <td className="p-3 text-left bg-stone-50/30 w-[130px] min-w-[130px] whitespace-nowrap">
+                          <div className="font-extrabold uppercase">{staff.fullName}</div>
+                          <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{staff.phoneNumber || "Không SĐT"}</div>
                         </td>
                         {weekDays.map(day => {
-                          const avails = devAvailsList.filter((a: any) => a.date === day.dateStr && cat.filter(a.startTime)).filter((v: any, i: number, arr: any[]) => arr.findIndex(t => t.id === v.id) === i);
+                          const avails = devAvailsList.filter((a: any) => a.userId === staff.id && a.date === day.dateStr);
+                          const sched = weekScheds.find((s: any) => s.userId === staff.id && s.date === day.dateStr);
+                          const hasAvail = avails.length > 0;
 
                           return (
-                            <td key={day.dateStr} className="p-2 border-l border-gray-150 align-top text-left min-w-[125px]">
-                              <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
-                                {avails.length === 0 ? (
-                                  <div className="py-7 px-1 text-center border border-dashed border-gray-200 rounded-2xl text-[8.5px] text-gray-400 font-extrabold uppercase select-none flex-grow flex items-center justify-center">
-                                    Trống
+                            <td
+                              key={day.dateStr}
+                              onClick={() => {
+                                setEditingCell({
+                                  userId: staff.id,
+                                  userName: staff.fullName,
+                                  date: day.dateStr,
+                                  dateLabel: `${day.label} (${day.dayNum})`
+                                });
+                                if (sched) {
+                                  setCellIsOff(false);
+                                  setCellStartTime(sched.startTime);
+                                  setCellEndTime(sched.endTime);
+                                  const hasAtt = !!(sched.clockedIn || sched.checkInTime);
+                                  setCellHasExistingAtt(hasAtt);
+                                  setCellRecordAttendance(hasAtt);
+                                  setCellCustomTimes(false);
+                                  setCellCheckInTime(sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime);
+                                  setCellCheckOutTime(sched.checkOutTime ? sched.checkOutTime.slice(0, 5) : sched.endTime);
+                                  setCellNote(hasAtt ? "Điều chỉnh chấm công" : "Xếp ca trực");
+                                } else {
+                                  setCellIsOff(false);
+                                  setCellHasExistingAtt(false);
+                                  setCellRecordAttendance(false);
+                                  setCellCustomTimes(false);
+                                  if (hasAvail) {
+                                    setCellStartTime(avails[0].startTime);
+                                    setCellEndTime(avails[0].endTime);
+                                    setCellCheckInTime(avails[0].startTime);
+                                    setCellCheckOutTime(avails[0].endTime);
+                                  } else {
+                                    setCellStartTime("08:00");
+                                    setCellEndTime("16:00");
+                                    setCellCheckInTime("08:00");
+                                    setCellCheckOutTime("16:00");
+                                  }
+                                  setCellNote("Chốt ca từ ca rảnh");
+                                }
+                              }}
+                              className="p-2 border-l border-gray-150 cursor-pointer select-none align-middle"
+                            >
+                              {sched ? (
+                                <div className="p-2 rounded-xl border border-emerald-300 bg-emerald-100/80 text-emerald-950 text-center space-y-1 shadow-xs hover:scale-[1.02] transition-transform">
+                                  <div className="font-extrabold text-[10px]">
+                                    {sched.startTime} – {sched.endTime}
                                   </div>
-                                ) : (
-                                  avails.map((avail: any) => {
-                                    const sIdx = staffOnly.findIndex((s: any) => s.id === avail.userId);
-                                    if (sIdx === -1) return null;
-                                    const s = staffOnly[sIdx];
-                                    const skill = getStaffSkill(sIdx);
-                                    const col = getStaffColor(sIdx);
-                                    const crossesMidnight = parseTime(avail.endTime) < parseTime(avail.startTime);
-                                    
-                                    // Check if this candidate is scheduled on this day
-                                    const dayScheds = devOfficialSchedsList.filter((sc: any) => sc.userId === avail.userId && sc.date === day.dateStr);
-                                    const currentSched = dayScheds.find((sc: any) => {
-                                      let ss = parseTime(sc.startTime);
-                                      let se = parseTime(sc.endTime);
-                                      if (se < ss) se += 24;
-                                      let as = parseTime(avail.startTime);
-                                      let ae = parseTime(avail.endTime);
-                                      if (ae < as) ae += 24;
-                                      return ss >= as && se <= ae;
-                                    });
-
-                                    return (
-                                      <div key={avail.id} className={`p-2.5 rounded-2xl border ${col.bg} space-y-2 shadow-xs transition-transform duration-100 hover:scale-[1.02] pointer-events-none`}>
-                                        <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center gap-1">
-                                          <span>{skill === "Pha chế" ? "☕" : skill === "Phục vụ" ? "🛎" : "💵"}</span>
-                                          <span>{s.fullName} [{skill}]</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                          <div className="text-[8px] font-black opacity-85">
-                                            {avail.startTime} - {avail.endTime}{crossesMidnight ? " (Hôm sau)" : ""}
-                                          </div>
-                                        </div>
-                                        
-                                        {/* Scheduling status badge */}
-                                        {currentSched ? (
-                                          (() => {
-                                            const isLeaveApprovedForColleague = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === currentSched?.id && r.status === "approved");
-                                            if (isLeaveApprovedForColleague) {
-                                              return (
-                                                <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50/90 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
-                                                  🚨 XIN VẮNG
-                                                </div>
-                                              );
-                                            }
-                                            return (
-                                              <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50/90 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
-                                                🟢 Đã chốt: {currentSched.startTime}-{currentSched.endTime}{parseTime(currentSched.endTime) < parseTime(currentSched.startTime) ? " (Hôm sau)" : ""}
-                                              </div>
-                                            );
-                                          })()
-                                        ) : (
-                                          <div className="text-[7.5px] font-black uppercase text-gray-500 bg-stone-50/90 px-1.5 py-0.5 rounded-md border border-stone-200 w-fit">
-                                            ⚪ Chưa chốt
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
+                                  <span className="text-[7.5px] bg-emerald-700 text-white font-black px-1.5 py-0.2 rounded block w-fit mx-auto uppercase">
+                                    Đã chốt lịch
+                                  </span>
+                                </div>
+                              ) : hasAvail ? (
+                                <div className="p-2 rounded-xl border-2 border-dashed border-[#60A5FA] bg-[#E6F4FE] text-blue-950 text-center space-y-1 hover:bg-[#D4ECFC] transition-colors">
+                                  <div className="font-extrabold text-[9.5px]">
+                                    {avails.map((a: any) => `${a.startTime}-${a.endTime}`).join(", ")}
+                                  </div>
+                                  <span className="text-[7.5px] bg-blue-600 text-white font-black px-1.5 py-0.2 rounded block w-fit mx-auto uppercase">
+                                    Rảnh (Bấm chốt ca)
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="py-2.5 text-center text-stone-400 text-[10px] font-bold uppercase opacity-60">
+                                  Bận (OFF)
+                                </div>
+                              )}
                             </td>
                           );
                         })}
@@ -2266,8 +2305,9 @@ export default function AdminPortal() {
                 </table>
               </div>
             </div>
-          );
-        })()}
+          </div>
+        )}
+
 
         {/* DAILY DETAIL VIEW */}
         {devTab === "matrix" && selectedDayDetail && (
@@ -2463,10 +2503,13 @@ export default function AdminPortal() {
             let [eh, em] = end.split(":").map(Number);
             if (eh < sh) eh += 24;
             const m = (eh * 60 + em) - (sh * 60 + sm);
-            return Math.max(0, Math.round((m / 60) * 10) / 10);
+            if (m <= 0) return 0;
+            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 -> 5h để chẵn tiền
+            return Math.ceil(m / 60);
           };
 
-          const workHours = manualCustomTimes
+          const isSchedule = manualLogMode === "schedule";
+          const workHours = (!isSchedule && manualCustomTimes)
             ? calcDuration(manualCheckInTime, manualCheckOutTime)
             : calcDuration(manualStartTime, manualEndTime);
 
@@ -2485,15 +2528,19 @@ export default function AdminPortal() {
                   {/* Header */}
                   <div className="flex justify-between items-center border-b border-gray-100 pb-3 shrink-0">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-[#7c4831] flex items-center justify-center font-bold">
-                        <Clock size={20} />
+                      <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold ${
+                        isSchedule ? "bg-[#7c4831]/10 text-[#7c4831]" : "bg-amber-500/10 text-amber-700"
+                      }`}>
+                        {isSchedule ? <Calendar size={20} /> : <Clock size={20} />}
                       </div>
                       <div>
                         <h3 className="text-sm font-black uppercase tracking-tight text-[#7c4831]">
-                          Chấm Công Bù & Thêm Giờ Làm
+                          {isSchedule ? "Xếp Ca Trực Cho Nhân Viên" : "Chấm Công Bù & Thêm Giờ Làm"}
                         </h3>
                         <p className="text-[10.5px] text-gray-500 font-semibold">
-                          Bù công khi quên bấm máy hoặc ghi nhận ca làm thêm
+                          {isSchedule 
+                            ? "Lên lịch phân công ca làm việc (Nhân viên sẽ tự bấm chấm công khi vào ca)" 
+                            : "Bù công khi quên bấm máy hoặc ghi nhận ca làm thêm đã diễn ra"}
                         </p>
                       </div>
                     </div>
@@ -2506,11 +2553,47 @@ export default function AdminPortal() {
                     </button>
                   </div>
 
+                  {/* Chế độ chuyển đổi Tab: Xếp ca vs Chấm bù */}
+                  <div className="flex bg-[#FAF9F6] p-1 rounded-2xl border border-gray-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualLogMode("schedule");
+                        setManualRecordAttendance(false);
+                        if (manualNote === "Quên chấm công") setManualNote("");
+                      }}
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        isSchedule
+                          ? "bg-[#7c4831] text-white shadow-xs"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      <Calendar size={13} />
+                      <span>Xếp ca trực (Lên lịch)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualLogMode("attendance");
+                        setManualRecordAttendance(true);
+                        if (!manualNote) setManualNote("Quên chấm công");
+                      }}
+                      className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        !isSchedule
+                          ? "bg-amber-700 text-white shadow-xs"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
+                    >
+                      <Clock size={13} />
+                      <span>Chấm công bù (Đã làm)</span>
+                    </button>
+                  </div>
+
                   <form onSubmit={handleManualLogSubmit} className="space-y-4 text-xs font-semibold text-[#4B3621] overflow-y-auto pr-1 flex-grow">
                     {/* 1. Chọn Nhân viên */}
                     <div className="space-y-1.5">
                       <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
-                        1. Nhân viên nhận công *
+                        {isSchedule ? "1. Nhân viên được phân ca *" : "1. Nhân viên nhận công *"}
                       </label>
                       <select
                         required
@@ -2519,11 +2602,14 @@ export default function AdminPortal() {
                         className="input w-full text-xs font-bold bg-[#FAF9F6] border-gray-200 py-2.5 rounded-xl cursor-pointer"
                       >
                         <option value="">-- Bấm chọn nhân viên --</option>
-                        {staffList.map((s: any) => (
-                          <option key={s.id} value={s.id}>
-                            {s.fullName} ({s.phoneNumber || s.phone || "Không SĐT"}) • {s.hourlyWage ? s.hourlyWage.toLocaleString("vi-VN") : "25.000"}đ/h
-                          </option>
-                        ))}
+                        {staffList.map((s: any) => {
+                          const isAvail = devAvailsList.some((a: any) => a.userId === s.id && a.date === manualDate && !a.isOff);
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {isAvail ? "⭐ " : ""}{s.fullName} ({s.phoneNumber || s.phone || "Không SĐT"}){isAvail ? " [ĐÃ ĐĂNG KÝ RẢNH NGÀY NÀY]" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 
@@ -2541,11 +2627,11 @@ export default function AdminPortal() {
                       />
                     </div>
 
-                    {/* 3. Thời gian làm việc */}
+                    {/* 3. Khung giờ ca */}
                     <div className="space-y-2.5 p-3.5 bg-[#FAF9F6] border border-gray-200/80 rounded-2xl">
                       <div className="flex items-center justify-between">
                         <span className="text-[10.5px] font-black uppercase text-[#7c4831] tracking-wider flex items-center gap-1.5">
-                          <Calendar size={14} /> 3. Thời gian làm việc *
+                          <Calendar size={14} /> 3. {isSchedule ? "Khung giờ ca trực *" : "Thời gian làm việc *"}
                         </span>
                         <span className="text-[10px] text-gray-400 font-bold">Khung giờ ca</span>
                       </div>
@@ -2579,16 +2665,17 @@ export default function AdminPortal() {
                         </div>
                       </div>
 
-                      {/* Chọn nhanh ca */}
+                      {/* Chọn nhanh ca mẫu */}
                       <div className="space-y-1 pt-1">
                         <span className="text-[8.5px] font-black text-gray-400 uppercase block">Chọn nhanh ca mẫu:</span>
                         <div className="flex flex-wrap gap-1.5">
                           {[
-                            { label: "Ca Sáng (06 - 14)", start: "06:00", end: "14:00" },
-                            { label: "Ca Chiều (14 - 22)", start: "14:00", end: "22:00" },
+                            { label: "Ca Sáng (06 - 12)", start: "06:00", end: "12:00" },
+                            { label: "Ca Chiều (12 - 18)", start: "12:00", end: "18:00" },
                             { label: "Ca Tối (18 - 00)", start: "18:00", end: "00:00" },
-                            { label: "+2h Tăng ca (16 - 18)", start: "16:00", end: "18:00" },
-                            { label: "+4h Tăng ca (16 - 20)", start: "16:00", end: "20:00" }
+                            { label: "Ca Khuya (00 - 06)", start: "00:00", end: "06:00" },
+                            { label: "Ca 8h (08 - 16)", start: "08:00", end: "16:00" },
+                            { label: "+2h Tăng ca (16 - 18)", start: "16:00", end: "18:00" }
                           ].map(p => (
                             <button
                               key={p.label}
@@ -2609,89 +2696,115 @@ export default function AdminPortal() {
                         </div>
                       </div>
 
-                      {/* Tùy chọn chỉnh giờ vào/ra riêng */}
-                      <div className="pt-2 border-t border-gray-200/60">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = !manualCustomTimes;
-                            setManualCustomTimes(next);
-                            if (!next) {
-                              setManualCheckInTime(manualStartTime);
-                              setManualCheckOutTime(manualEndTime);
-                            }
-                          }}
-                          className="text-[10px] font-bold text-[#7c4831] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Settings size={12} />
-                          {manualCustomTimes
-                            ? "Thu gọn (Dùng giờ ca làm giờ chấm công)"
-                            : "Tùy chỉnh giờ vào / ra thực tế (nếu nhân viên đi trễ hoặc về sớm)"}
-                        </button>
+                      {/* Tùy chỉnh giờ vào / ra riêng (CHỈ HIỂN THỊ KHI CHẤM CÔNG BÙ) */}
+                      {!isSchedule && (
+                        <div className="pt-2 border-t border-gray-200/60">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !manualCustomTimes;
+                              setManualCustomTimes(next);
+                              if (!next) {
+                                setManualCheckInTime(manualStartTime);
+                                setManualCheckOutTime(manualEndTime);
+                              }
+                            }}
+                            className="text-[10px] font-bold text-[#7c4831] hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Settings size={12} />
+                            {manualCustomTimes
+                              ? "Thu gọn (Dùng giờ ca làm giờ chấm công)"
+                              : "Tùy chỉnh giờ vào / ra thực tế (nếu nhân viên đi trễ hoặc về sớm)"}
+                          </button>
 
-                        {manualCustomTimes && (
-                          <div className="mt-2.5 p-3 bg-white border border-amber-200 rounded-xl space-y-2 anim-fadeIn">
-                            <span className="text-[9px] font-extrabold uppercase text-amber-800 block">
-                              ⏱ Giờ thực tế nhân viên có mặt tại quán:
-                            </span>
-                            <div className="grid grid-cols-2 gap-2.5">
-                              <div>
-                                <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Vào ca:</label>
-                                <input
-                                  type="time"
-                                  value={manualCheckInTime}
-                                  onChange={e => setManualCheckInTime(e.target.value)}
-                                  className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Ra ca:</label>
-                                <input
-                                  type="time"
-                                  value={manualCheckOutTime}
-                                  onChange={e => setManualCheckOutTime(e.target.value)}
-                                  className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
-                                />
+                          {manualCustomTimes && (
+                            <div className="mt-2.5 p-3 bg-white border border-amber-200 rounded-xl space-y-2 anim-fadeIn">
+                              <span className="text-[9px] font-extrabold uppercase text-amber-800 block">
+                                ⏱ Giờ thực tế nhân viên có mặt tại quán:
+                              </span>
+                              <div className="grid grid-cols-2 gap-2.5">
+                                <div>
+                                  <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Vào ca:</label>
+                                  <input
+                                    type="time"
+                                    value={manualCheckInTime}
+                                    onChange={e => setManualCheckInTime(e.target.value)}
+                                    className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[8.5px] font-bold text-gray-500 uppercase block">Ra ca:</label>
+                                  <input
+                                    type="time"
+                                    value={manualCheckOutTime}
+                                    onChange={e => setManualCheckOutTime(e.target.value)}
+                                    className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200"
+                                  />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Thẻ tóm tắt tính công trực quan */}
-                    <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-emerald-900 shadow-xs">
-                      <div className="flex items-center gap-2.5">
-                        <CheckCircle size={18} className="text-emerald-600 shrink-0" />
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-black text-xs">
-                              {workHours} giờ công
-                            </span>
-                            <span className="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-md uppercase">
-                              Tính vào lương
+                    {/* Thẻ tóm tắt thông tin: Khác nhau giữa Xếp ca và Chấm công bù */}
+                    {isSchedule ? (
+                      <div className="p-3 bg-blue-50 border border-blue-200/80 rounded-2xl flex items-center justify-between text-blue-900 shadow-xs">
+                        <div className="flex items-center gap-2.5">
+                          <Calendar size={18} className="text-blue-600 shrink-0" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-xs">
+                                {workHours} giờ dự kiến
+                              </span>
+                              <span className="text-[9px] bg-blue-600 text-white font-black px-1.5 py-0.2 rounded-md uppercase">
+                                Lịch trực sắp tới
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-blue-700 font-semibold block mt-0.5">
+                              ⚪ Ca trực lưu ở trạng thái chưa chấm công. Nhân viên sẽ tự bấm điểm danh trên máy khi vào ca.
                             </span>
                           </div>
-                          <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
-                            ✓ Tự động xóa phạt đi trễ • Cộng đủ công
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center justify-between text-emerald-900 shadow-xs">
+                        <div className="flex items-center gap-2.5">
+                          <CheckCircle size={18} className="text-emerald-600 shrink-0" />
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-black text-xs">
+                                {workHours} giờ công
+                              </span>
+                              <span className="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-md uppercase">
+                                Tính vào lương
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+                              ✓ Tự động xóa phạt đi trễ • Cộng đủ công
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-emerald-700 block uppercase">Lương dự tính:</span>
+                          <span className="text-xs font-black text-emerald-900 font-mono">
+                            +{estPay.toLocaleString("vi-VN")}đ
                           </span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-[9px] font-bold text-emerald-700 block uppercase">Lương dự tính:</span>
-                        <span className="text-xs font-black text-emerald-900 font-mono">
-                          +{estPay.toLocaleString("vi-VN")}đ
-                        </span>
-                      </div>
-                    </div>
+                    )}
 
-                    {/* 4. Lý do */}
+                    {/* 4. Ghi chú / Lý do */}
                     <div className="space-y-1.5">
                       <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
-                        4. Lý do chấm công bù *
+                        {isSchedule ? "4. Ghi chú phân ca (tùy chọn)" : "4. Lý do chấm công bù *"}
                       </label>
                       <div className="flex gap-1.5 flex-wrap">
-                        {["Quên chấm công", "Tăng ca làm thêm", "Lỗi GPS / Điện thoại", "Đổi ca trực"].map(r => (
+                        {(isSchedule 
+                          ? ["Pha chế chính", "Thu ngân / Order", "Phục vụ bàn", "Hỗ trợ ca"] 
+                          : ["Quên chấm công", "Tăng ca làm thêm", "Lỗi GPS / Điện thoại", "Đổi ca trực"]
+                        ).map(r => (
                           <button
                             key={r}
                             type="button"
@@ -2704,10 +2817,10 @@ export default function AdminPortal() {
                       </div>
                       <input
                         type="text"
-                        required
+                        required={!isSchedule}
                         value={manualNote}
                         onChange={e => setManualNote(e.target.value)}
-                        placeholder="Nhập lý do chi tiết..."
+                        placeholder={isSchedule ? "Nhập ghi chú phân ca (ví dụ: Pha chế chính, Ca thêm...)" : "Nhập lý do chi tiết..."}
                         className="input w-full text-xs font-semibold bg-[#FAF9F6] border-gray-200 py-2 rounded-xl mt-1"
                       />
                     </div>
@@ -2719,7 +2832,9 @@ export default function AdminPortal() {
                         disabled={manualSubmitting}
                         className="btn btn-primary flex-grow text-xs py-3 font-black uppercase tracking-wider bg-[#7c4831] hover:bg-[#623723] text-white rounded-xl cursor-pointer disabled:opacity-50 shadow-sm"
                       >
-                        {manualSubmitting ? "Đang lưu..." : "✓ Lưu Chấm Công"}
+                        {manualSubmitting 
+                          ? (isSchedule ? "Đang lưu ca trực..." : "Đang lưu...") 
+                          : (isSchedule ? "✓ Lưu Ca Trực" : "✓ Lưu Chấm Công")}
                       </button>
                       <button
                         type="button"
@@ -2736,8 +2851,7 @@ export default function AdminPortal() {
           );
         })()}
 
-
-﻿        {/* CELL QUICK EDIT MODAL */}
+        {/* CELL QUICK EDIT MODAL */}
         {editingCell && (() => {
           const cellStaff = staffList.find((s: any) => s.id === editingCell.userId);
           const cellWage = cellStaff?.hourlyWage || 25000;
@@ -2751,7 +2865,8 @@ export default function AdminPortal() {
           };
 
           const schedMins = calcMins(cellStartTime, cellEndTime);
-          const schedHours = Math.max(0, Math.round((schedMins / 60) * 10) / 10);
+          // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 -> 5h để chẵn tiền
+          const schedHours = Math.max(0, Math.ceil(schedMins / 60));
           const schedPay = Math.round(schedHours * cellWage);
 
           return (
@@ -2881,7 +2996,30 @@ export default function AdminPortal() {
                           </span>
 
                           <div className="space-y-1.5">
-                            <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-gray-200 hover:border-amber-300 transition-all">
+                            {/* 1. Mặc định: Chưa chấm công (Xếp ca) */}
+                            <label className={"flex items-center gap-2.5 cursor-pointer p-2.5 rounded-xl border transition-all " + (!cellRecordAttendance ? "bg-white border-[#7c4831] shadow-xs" : "bg-white/60 border-gray-200 hover:border-gray-300")}>
+                              <input
+                                type="radio"
+                                name="attMode"
+                                checked={!cellRecordAttendance}
+                                onChange={() => {
+                                  setCellRecordAttendance(false);
+                                  setCellCustomTimes(false);
+                                }}
+                                className="text-[#7c4831] focus:ring-[#7c4831]"
+                              />
+                              <div>
+                                <span className="text-[11px] font-extrabold text-[#4B3621] block">
+                                  ⚪ Chưa chấm công (Mặc định khi xếp ca)
+                                </span>
+                                <span className="text-[9.5px] text-gray-500 font-semibold block">
+                                  Lên lịch ca trực. Nhân viên sẽ tự bấm điểm danh vào/ra trên điện thoại khi đến quán
+                                </span>
+                              </div>
+                            </label>
+
+                            {/* 2. Chấm công bù / Tính đủ công ngay */}
+                            <label className={"flex items-center gap-2.5 cursor-pointer p-2.5 rounded-xl border transition-all " + (cellRecordAttendance && !cellCustomTimes ? "bg-emerald-50/70 border-emerald-400 shadow-xs" : "bg-white/60 border-gray-200 hover:border-gray-300")}>
                               <input
                                 type="radio"
                                 name="attMode"
@@ -2895,32 +3033,11 @@ export default function AdminPortal() {
                                 className="text-[#7c4831] focus:ring-[#7c4831]"
                               />
                               <div>
-                                <span className="text-[11px] font-bold text-[#4B3621] block">
-                                  ✓ Tính đủ {schedHours}h công (Xóa phạt trễ)
+                                <span className="text-[11px] font-extrabold text-emerald-900 block">
+                                  ✓ Chấm công bù / Tính đủ {schedHours}h công (Xóa phạt trễ)
                                 </span>
                                 <span className="text-[9.5px] text-emerald-700 font-semibold block">
-                                  Lương ca: +{schedPay.toLocaleString("vi-VN")}đ • Không bị tính trễ
-                                </span>
-                              </div>
-                            </label>
-
-                            <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-white border border-gray-200 hover:border-amber-300 transition-all">
-                              <input
-                                type="radio"
-                                name="attMode"
-                                checked={!cellRecordAttendance}
-                                onChange={() => {
-                                  setCellRecordAttendance(false);
-                                  setCellCustomTimes(false);
-                                }}
-                                className="text-[#7c4831] focus:ring-[#7c4831]"
-                              />
-                              <div>
-                                <span className="text-[11px] font-bold text-[#4B3621] block">
-                                  ⚪ Chưa chấm công
-                                </span>
-                                <span className="text-[9.5px] text-gray-500 font-semibold block">
-                                  Nhân viên sẽ tự bấm chấm công vào/ra trên điện thoại
+                                  Chỉ chọn khi nhân viên quên chấm công hoặc tăng ca • Lương ca: +{schedPay.toLocaleString("vi-VN")}đ
                                 </span>
                               </div>
                             </label>
@@ -2997,7 +3114,7 @@ export default function AdminPortal() {
                       onClick={handleQuickSaveCell}
                       className="btn btn-primary flex-grow text-xs py-2.5 font-bold uppercase tracking-wider bg-[#7c4831] hover:bg-[#623723] text-white rounded-xl cursor-pointer"
                     >
-                      {cellIsOff ? "Lưu Trạng Thái OFF" : "Lưu Ca & Chấm Công"}
+                      {cellIsOff ? "Lưu Trạng Thái OFF" : cellRecordAttendance ? "Lưu Ca & Chấm Công Bù" : "Lưu Ca Trực"}
                     </button>
                     <button
                       type="button"
@@ -3692,10 +3809,11 @@ export default function AdminPortal() {
                 checkOutMins += 1440;
               }
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-              actualHours = (limitOutMins - checkInMins) / 60;
-              if (actualHours < 0) actualHours = 0;
+              const rawH = (limitOutMins - checkInMins) / 60;
+              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
             } else {
-              actualHours = (eh * 60 + em - (sh * 60 + sm)) / 60;
+              const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
+              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -5858,10 +5976,11 @@ export default function AdminPortal() {
                     checkOutMins += 1440;
                   }
                   const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-                  actualHours = (limitOutMins - checkInMins) / 60;
-                  if (actualHours < 0) actualHours = 0;
+                  const rawH = (limitOutMins - checkInMins) / 60;
+                  actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
                 } else {
-                  actualHours = (eh * 60 + em - (sh * 60 + sm)) / 60;
+                  const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
+                  actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
                 }
 
                 const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
