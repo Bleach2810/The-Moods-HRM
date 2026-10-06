@@ -752,8 +752,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [activeStaff?.id]);
 
   // Sync attendance state from server on active staff or location change
-  useEffect(() => {
-    const syncTimekeepingFromServer = async () => {
+  const syncTimekeepingFromServer = async () => {
       if (!activeStaff || !activeLocation) return;
       try {
         const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules?locationId=${activeLocation.id}&userId=${activeStaff.id}`);
@@ -776,33 +775,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           // Filter shifts for today only, ignore other days' un-clocked-out/stale shifts
           const todaySchedules = data.filter((s: any) => s.date === todayStr);
+          todaySchedules.sort((a: any, b: any) => parseTimeToFloat(a.startTime) - parseTimeToFloat(b.startTime));
 
-          // Find if there is a shift currently active (within shift time window [start - 30m, end])
+          // Ưu tiên 1: Ca đang trong khung giờ [start - 30m, end] và CHƯA hoàn thành (chưa clockedOut)
           let activeSchedule = todaySchedules.find((s: any) => {
+            if (s.clockedOut) return false;
             const startFloat = parseTimeToFloat(s.startTime);
             let endFloat = parseTimeToFloat(s.endTime);
-            if (endFloat < startFloat) endFloat += 24; // overnight shift
+            if (endFloat < startFloat) endFloat += 24;
             return currentTimeFloat >= (startFloat - 0.5) && currentTimeFloat <= endFloat;
           });
 
-          // If no shift is currently in its time window, but we have today's shifts:
-          if (!activeSchedule && todaySchedules.length > 0) {
-            // Find today's shift closest to current time that is NOT yet fully past
-            const futureOrCurrentShifts = todaySchedules.filter((s: any) => {
+          // Ưu tiên 2: Ca kế tiếp hôm nay CHƯA hoàn thành (chưa clockedOut)
+          if (!activeSchedule) {
+            const nextUnfinished = todaySchedules.filter((s: any) => {
+              if (s.clockedOut) return false;
               let endFloat = parseTimeToFloat(s.endTime);
               const startFloat = parseTimeToFloat(s.startTime);
               if (endFloat < startFloat) endFloat += 24;
               return currentTimeFloat <= endFloat;
             });
-
-            if (futureOrCurrentShifts.length > 0) {
-              futureOrCurrentShifts.sort((a: any, b: any) => parseTimeToFloat(a.startTime) - parseTimeToFloat(b.startTime));
-              activeSchedule = futureOrCurrentShifts[0];
-            } else {
-              // All today's shifts are in the past. Grab the last one of today
-              todaySchedules.sort((a: any, b: any) => parseTimeToFloat(a.startTime) - parseTimeToFloat(b.startTime));
-              activeSchedule = todaySchedules[todaySchedules.length - 1];
+            if (nextUnfinished.length > 0) {
+              activeSchedule = nextUnfinished[0];
             }
+          }
+
+          // Ưu tiên 3: Nếu tất cả ca chưa hoàn thành không có (hoặc đã xong hết), lấy ca theo khung giờ
+          if (!activeSchedule) {
+            activeSchedule = todaySchedules.find((s: any) => {
+              const startFloat = parseTimeToFloat(s.startTime);
+              let endFloat = parseTimeToFloat(s.endTime);
+              if (endFloat < startFloat) endFloat += 24;
+              return currentTimeFloat >= (startFloat - 0.5) && currentTimeFloat <= endFloat;
+            });
+          }
+
+          // Ưu tiên 4: Ca cuối cùng trong ngày
+          if (!activeSchedule && todaySchedules.length > 0) {
+            activeSchedule = todaySchedules[todaySchedules.length - 1];
           }
 
           if (activeSchedule) {
@@ -850,8 +860,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (err) {
         console.error("Failed to sync attendance status from server:", err);
       }
-    };
+  };
 
+  useEffect(() => {
     if (isMounted) {
       syncTimekeepingFromServer();
     }
@@ -1237,6 +1248,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clockedOut: true,
         clockOutTime: data.checkOutTime
       }));
+
+      // Tự động đồng bộ ca kế tiếp trong ngày (nếu có 2 ca trở lên)
+      setTimeout(() => {
+        syncTimekeepingFromServer();
+      }, 300);
 
       alert(data.message);
 

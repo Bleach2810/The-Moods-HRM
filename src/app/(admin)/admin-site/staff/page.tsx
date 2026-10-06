@@ -439,6 +439,7 @@ export default function StaffPortal() {
   };
   const [officialSchedulesList, setOfficialSchedulesList] = useState<any[]>([]);
   const [schedSubTab, setSchedSubTab] = useState<"official" | "free">("official");
+  const [selectedTodayShiftId, setSelectedTodayShiftId] = useState<string | null>(null);
   const [showRegModal, setShowRegModal] = useState(false);
   const [selectedStartHour, setSelectedStartHour] = useState("07:00");
   const [selectedEndHour, setSelectedEndHour] = useState("12:00");
@@ -650,6 +651,7 @@ export default function StaffPortal() {
         } else {
           showToast("Chấm công thất bại: " + (result.message || ""), "warning");
         }
+        await fetchOfficialSchedules();
       },
       (error) => {
         console.error(error);
@@ -663,6 +665,7 @@ export default function StaffPortal() {
     if (confirm("Xác nhận ra ca? Lưu ý: Nếu Checkout sớm trước giờ ca kết thúc, hệ thống sẽ ghi nhận cảnh báo sớm gửi về quản lý!")) {
       await clockOutStaff();
       showToast("Chấm công ra ca thành công!", "success");
+      await fetchOfficialSchedules();
     }
   };
 
@@ -852,15 +855,54 @@ export default function StaffPortal() {
 
     const currentHourFloat = now.getHours() + now.getMinutes() / 60;
 
-    const activeShiftNow = shiftsToday.find((s: any) => {
-      const startFloat = parseTimeToFloat(s.startTime);
-      let endFloat = parseTimeToFloat(s.endTime);
-      if (endFloat < startFloat) endFloat += 24;
-      return currentHourFloat >= (startFloat - 0.5) && currentHourFloat <= endFloat;
-    });
+    // Sắp xếp các ca hôm nay theo thời gian bắt đầu
+    const sortedShiftsToday = [...shiftsToday].sort(
+      (a: any, b: any) => parseTimeToFloat(a.startTime) - parseTimeToFloat(b.startTime)
+    );
 
-    const hasShiftToday = timekeeping.clockedIn || shiftsToday.length > 0;
-    const isShiftTimeNow = timekeeping.clockedIn || !!activeShiftNow;
+    // Xác định ca trực mục tiêu (Current Target Shift)
+    const currentShift = (() => {
+      if (selectedTodayShiftId) {
+        const manual = sortedShiftsToday.find(s => s.id === selectedTodayShiftId);
+        if (manual) return manual;
+      }
+      // Ưu tiên ca đang trong khung giờ trực [start - 30m, end]
+      const inWindow = sortedShiftsToday.find(s => {
+        const sStart = parseTimeToFloat(s.startTime);
+        let sEnd = parseTimeToFloat(s.endTime);
+        if (sEnd < sStart) sEnd += 24;
+        return currentHourFloat >= (sStart - 0.5) && currentHourFloat <= sEnd;
+      });
+      if (inWindow) return inWindow;
+
+      // Ưu tiên ca kế tiếp hôm nay chưa hoàn thành
+      const nextUnfinished = sortedShiftsToday.find(s => !s.clockedOut);
+      if (nextUnfinished) return nextUnfinished;
+
+      return sortedShiftsToday[0];
+    })();
+
+    const activeShiftNow = currentShift;
+    const shiftStartFloat = currentShift ? parseTimeToFloat(currentShift.startTime) : -1;
+    let shiftEndFloat = currentShift ? parseTimeToFloat(currentShift.endTime) : -1;
+    if (shiftEndFloat < shiftStartFloat) shiftEndFloat += 24;
+
+    const isShiftWindowOpen = currentShift && currentHourFloat >= (shiftStartFloat - 0.5);
+    const isShiftWindowClosed = currentShift && currentHourFloat > shiftEndFloat;
+
+    const isThisShiftClockedIn = !!(currentShift?.clockedIn || currentShift?.checkInTime);
+    const isThisShiftClockedOut = !!(currentShift?.clockedOut || currentShift?.checkOutTime);
+
+    const hasShiftToday = shiftsToday.length > 0;
+    const isShiftTimeNow = isShiftWindowOpen && !isShiftWindowClosed;
+
+    const displayCheckIn = currentShift?.checkInTime
+      ? currentShift.checkInTime.slice(0, 5)
+      : (isThisShiftClockedIn ? (timekeeping.clockInTime || currentShift.startTime) : "--:--");
+
+    const displayCheckOut = currentShift?.checkOutTime
+      ? currentShift.checkOutTime.slice(0, 5)
+      : (isThisShiftClockedOut ? (timekeeping.clockOutTime || currentShift.endTime) : "--:--");
 
     return (
       <div className="space-y-4 pb-28 anim-fadeUp">
@@ -894,52 +936,147 @@ export default function StaffPortal() {
             <span>Yêu cầu định vị GPS thực tế khi chấm công</span>
           </div>
 
-          {/* Minimal Time Logs */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/10 rounded-xl space-y-1 text-center">
-              <span className="text-[9px] font-bold text-[#7c4831]/60 uppercase tracking-wider">Giờ vào</span>
-              <p className="text-sm  font-black text-[#7c4831]">{timekeeping.clockInTime || "--:--"}</p>
-            </div>
-            <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/10 rounded-xl space-y-1 text-center">
-              <span className="text-[9px] font-bold text-[#7c4831]/60 uppercase tracking-wider">Giờ ra</span>
-              <p className="text-sm  font-black text-[#7c4831]">{timekeeping.clockOutTime || "--:--"}</p>
-            </div>
-          </div>
+          {/* Multi-shift selector if employee has >= 2 shifts today */}
+          {sortedShiftsToday.length > 1 && (
+            <div className="space-y-2 p-3 bg-stone-50/80 border border-[#7c4831]/15 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <span className="text-[9.5px] font-black uppercase text-[#7c4831] tracking-wider flex items-center gap-1.5">
+                  <span>📅</span> Bạn có {sortedShiftsToday.length} ca trực hôm nay:
+                </span>
+                <span className="text-[8.5px] text-gray-500 font-semibold">Chọn ca cần xem/chấm</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {sortedShiftsToday.map((sh: any, idx: number) => {
+                  const isSel = currentShift?.id === sh.id;
+                  const isDone = !!(sh.clockedOut || sh.checkOutTime);
+                  const isInProg = !!(sh.clockedIn || sh.checkInTime) && !isDone;
 
-          {timekeeping.lateMinutes > 0 && (
-            <div className="p-3 rounded-xl bg-[#FEF3C7] text-[10px] text-[#92400E] flex items-center gap-1.5 font-bold border border-[#92400E]/10">
-              <AlertTriangle size={12} /> Ghi nhận đi trễ {timekeeping.lateMinutes} phút
+                  return (
+                    <button
+                      key={sh.id}
+                      type="button"
+                      onClick={() => setSelectedTodayShiftId(sh.id)}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                        isSel
+                          ? "border-[#7c4831] bg-white shadow-xs ring-2 ring-[#7c4831]/20"
+                          : "border-gray-200 bg-white/70 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-extrabold uppercase">
+                        <span className={isSel ? "text-[#7c4831]" : "text-gray-700"}>
+                          Ca {idx + 1}: {sh.startTime} – {sh.endTime}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        {isDone ? (
+                          <span className="text-[7.5px] font-black uppercase text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block">
+                            ✓ Đã hoàn thành
+                          </span>
+                        ) : isInProg ? (
+                          <span className="text-[7.5px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block">
+                            🟢 Đang trực
+                          </span>
+                        ) : (
+                          <span className="text-[7.5px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded inline-block">
+                            ⚪ Chưa vào ca
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* Unified Primary Action Button */}
-          <div className="pt-1">
+          {/* Minimal Time Logs */}
+          <div className="space-y-1.5">
+            {currentShift && (
+              <div className="flex justify-between items-center text-[10px] font-bold text-[#7c4831] px-1">
+                <span>Chi tiết ca: {currentShift.startTime} – {currentShift.endTime}</span>
+                {sortedShiftsToday.length > 1 && (
+                  <span className="text-[8.5px] font-extrabold text-gray-400">
+                    Ca {sortedShiftsToday.findIndex((s: any) => s.id === currentShift.id) + 1}/{sortedShiftsToday.length}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/10 rounded-xl space-y-1 text-center">
+                <span className="text-[9px] font-bold text-[#7c4831]/60 uppercase tracking-wider">Giờ vào</span>
+                <p className="text-sm font-mono font-black text-[#7c4831]">{displayCheckIn}</p>
+              </div>
+              <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/10 rounded-xl space-y-1 text-center">
+                <span className="text-[9px] font-bold text-[#7c4831]/60 uppercase tracking-wider">Giờ ra</span>
+                <p className="text-sm font-mono font-black text-[#7c4831]">{displayCheckOut}</p>
+              </div>
+            </div>
+          </div>
+          
+{/* Unified Primary Action Button */}
+          <div className="pt-1 space-y-2.5">
             {!hasShiftToday ? (
               <div className="p-4 bg-amber-50 text-[#7c4831] border border-amber-200/50 rounded-2xl text-center text-xs font-bold space-y-1">
                 <AlertTriangle size={20} className="mx-auto text-amber-600 mb-1" />
                 <p>Hôm nay bạn không có ca trực nào được xếp.</p>
-                <p className="text-[10px] text-gray-500 font-semibold">Chức năng chấm công chỉ mở khi bạn có  chính thức hôm nay.</p>
+                <p className="text-[10px] text-gray-500 font-semibold">Chức năng chấm công chỉ mở khi bạn có lịch trực chính thức hôm nay.</p>
               </div>
-            ) : !isShiftTimeNow ? (
+            ) : isThisShiftClockedOut ? (
+              <div className="space-y-2">
+                <button
+                  disabled
+                  className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all bg-blue-100 text-blue-800 border border-blue-200 cursor-not-allowed"
+                >
+                  <CheckCircle size={14} /> ĐÃ HOÀN THÀNH CA ({currentShift.startTime} – {currentShift.endTime})
+                </button>
+
+                {/* Tự động gợi ý chuyển sang ca tiếp theo nếu hôm nay còn ca */}
+                {(() => {
+                  const nextShift = sortedShiftsToday.find(s => s.id !== currentShift.id && !s.clockedOut);
+                  if (nextShift) {
+                    return (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-[11px] font-bold text-[#7c4831] flex items-center justify-between gap-2 shadow-2xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base">👉</span>
+                          <div className="min-w-0">
+                            <p className="font-extrabold uppercase truncate">Ca kế tiếp: {nextShift.startTime} – {nextShift.endTime}</p>
+                            <p className="text-[9.5px] text-gray-500 font-medium">Hệ thống đã sẵn sàng cho ca trực tiếp theo.</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTodayShiftId(nextShift.id)}
+                          className="px-3 py-1.5 bg-[#7c4831] text-white rounded-xl text-[10px] font-black uppercase hover:bg-[#643621] shrink-0 cursor-pointer shadow-xs"
+                        >
+                          Chuyển ca
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            ) : !isShiftWindowOpen ? (
               <div className="p-4 bg-amber-50 text-[#7c4831] border border-amber-200/50 rounded-2xl text-center text-xs font-bold space-y-1">
                 <AlertTriangle size={20} className="mx-auto text-amber-600 mb-1" />
-                <p>Chưa đến giờ làm việc hoặc đã qua ca trực của bạn.</p>
-                <p className="text-[10px] text-gray-500 font-semibold">Chức năng vào ca chỉ mở từ 30 phút trước khi ca trực bắt đầu cho đến khi kết thúc ca.</p>
+                <p>Chưa đến giờ làm ca {currentShift.startTime} – {currentShift.endTime}.</p>
+                <p className="text-[10px] text-gray-500 font-semibold">
+                  Cổng vào ca sẽ tự động mở từ 30 phút trước khi ca trực bắt đầu.
+                </p>
               </div>
-            ) : timekeeping.clockedOut ? (
-              <button
-                disabled
-                className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all bg-gray-300 text-gray-500 cursor-not-allowed"
-              >
-                <CheckCircle size={13} /> ĐÃ HOÀN THÀNH CA
-              </button>
-            ) : !timekeeping.clockedIn ? (
+            ) : isShiftWindowClosed ? (
+              <div className="p-4 bg-gray-100 text-gray-600 border border-gray-200 rounded-2xl text-center text-xs font-bold space-y-1">
+                <AlertTriangle size={20} className="mx-auto text-gray-500 mb-1" />
+                <p>Ca trực {currentShift.startTime} – {currentShift.endTime} đã kết thúc.</p>
+                <p className="text-[10px] text-gray-500 font-semibold">Ca này đã qua giờ kết thúc và được hệ thống tự ngưng ca.</p>
+              </div>
+            ) : !isThisShiftClockedIn ? (
               <button
                 onClick={handleClockIn}
                 className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 bg-[#7c4831] text-white hover:bg-[#643621] cursor-pointer"
                 id="clock-in"
               >
-                <Clock size={13} /> VÀO CA
+                <Clock size={14} /> VÀO CA ({currentShift.startTime} – {currentShift.endTime})
               </button>
             ) : (
               <button
@@ -947,7 +1084,7 @@ export default function StaffPortal() {
                 className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 bg-[#7c4831] text-white hover:bg-[#643621]"
                 id="clock-out"
               >
-                <LogOut size={13} /> RA CA
+                <LogOut size={14} /> RA CA ({currentShift.startTime} – {currentShift.endTime})
               </button>
             )}
           </div>
