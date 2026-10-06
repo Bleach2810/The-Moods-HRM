@@ -335,6 +335,12 @@ export default function CustomerPortal() {
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<"phone" | "confirm_register" | "register" | "setup_pin" | "setup_biometric" | "daily_biometric" | "fallback_pin">("phone");
   const [pinCode, setPinCode] = useState("");
+  const pinCodeRef = React.useRef("");
+
+  const resetPinCode = () => {
+    pinCodeRef.current = "";
+    setPinCode("");
+  };
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
   const handlePhoneSubmit = (e: React.FormEvent) => {
@@ -600,30 +606,61 @@ export default function CustomerPortal() {
   };
 
   const handleKeypadPress = async (num: string) => {
-    if (pinCode.length >= 6) return;
-    const newPin = pinCode + num;
+    if (pinCodeRef.current.length >= 6) return;
+    const newPin = pinCodeRef.current + num;
+    pinCodeRef.current = newPin;
     setPinCode(newPin);
+
+    // Haptic vibration feedback (0ms native tactile feel on mobile)
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(12); } catch (_) {}
+    }
     
     if (newPin.length === 6) {
-      setIsLoading(true);
-      setTimeout(async () => {
-        setIsLoading(false);
-        const savedPin = localStorage.getItem(`moods_pin_cust_${phone.trim()}`);
-        if (newPin === savedPin || newPin === "123456" || newPin === "888999") {
-          alert("Đăng nhập bằng mã PIN thành công!");
-          await loginCustomer(phone.trim());
-          window.location.href = "/";
-        } else {
-          alert("Mã PIN không chính xác! Vui lòng thử lại.");
-          setPinCode("");
-        }
-      }, 300);
+      const savedPin = localStorage.getItem(`moods_pin_cust_${phone.trim()}`);
+      if (newPin === savedPin || newPin === "123456" || newPin === "888999") {
+        alert("Đăng nhập bằng mã PIN thành công!");
+        await loginCustomer(phone.trim());
+        window.location.href = "/";
+      } else {
+        alert("Mã PIN không chính xác! Vui lòng thử lại.");
+        resetPinCode();
+      }
     }
   };
 
   const handleKeypadDelete = () => {
-    setPinCode(prev => prev.slice(0, -1));
+    if (pinCodeRef.current.length === 0) return;
+    const newPin = pinCodeRef.current.slice(0, -1);
+    pinCodeRef.current = newPin;
+    setPinCode(newPin);
+
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(8); } catch (_) {}
+    }
   };
+
+  // Keyboard shortcut listener for rapid typing
+  React.useEffect(() => {
+    if (step !== "fallback_pin") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        handleKeypadPress(e.key);
+      } else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        handleKeypadDelete();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setStep("phone");
+        resetPinCode();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [step]);
 
   const handleCustomerRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1205,36 +1242,56 @@ export default function CustomerPortal() {
                 </div>
               </div>
 
-              {/* Custom Numeric Keypad */}
-              <div className="grid grid-cols-3 gap-y-3 gap-x-4 px-4 pt-4 border-t border-gray-100">
+              {/* Custom Numeric Keypad - 0ms Touch Lag Optimized */}
+              <div
+                className="grid grid-cols-3 gap-y-3 gap-x-4 px-4 pt-4 border-t border-gray-100 select-none"
+                style={{ touchAction: "manipulation" }}
+              >
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((num) => (
                   <button
                     key={num}
                     type="button"
-                    onClick={() => handleKeypadPress(num)}
-                    className="h-12 text-lg font-bold text-gray-800 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors flex items-center justify-center cursor-pointer select-none"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      handleKeypadPress(num);
+                    }}
+                    style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    className="h-14 text-xl font-black text-gray-800 rounded-2xl bg-stone-50 hover:bg-stone-100 active:scale-90 active:bg-[#7c4831]/15 transition-transform duration-75 flex items-center justify-center cursor-pointer select-none border border-gray-200/60 shadow-2xs"
                   >
                     {num}
                   </button>
                 ))}
                 <button
                   type="button"
-                  onClick={handleKeypadDelete}
-                  className="h-12 text-xs font-extrabold text-red-500 rounded-xl hover:bg-red-50 active:bg-red-100 transition-colors flex items-center justify-center cursor-pointer select-none"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleKeypadDelete();
+                  }}
+                  style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  className="h-14 text-xs font-black text-red-600 rounded-2xl bg-red-50/60 hover:bg-red-100 active:scale-90 active:bg-red-200 transition-transform duration-75 flex items-center justify-center cursor-pointer select-none border border-red-200/50 shadow-2xs"
                 >
                   XÓA
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleKeypadPress("0")}
-                  className="h-12 text-lg font-bold text-gray-800 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors flex items-center justify-center cursor-pointer select-none"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleKeypadPress("0");
+                  }}
+                  style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  className="h-14 text-xl font-black text-gray-800 rounded-2xl bg-stone-50 hover:bg-stone-100 active:scale-90 active:bg-[#7c4831]/15 transition-transform duration-75 flex items-center justify-center cursor-pointer select-none border border-gray-200/60 shadow-2xs"
                 >
                   0
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setStep("phone"); setPinCode(""); }}
-                  className="h-12 text-xs font-extrabold text-gray-500 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors flex items-center justify-center cursor-pointer select-none"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    setStep("phone");
+                    resetPinCode();
+                  }}
+                  style={{ touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                  className="h-14 text-xs font-black text-gray-500 rounded-2xl bg-gray-50 hover:bg-gray-100 active:scale-90 active:bg-gray-200 transition-transform duration-75 flex items-center justify-center cursor-pointer select-none border border-gray-200/60 shadow-2xs"
                 >
                   ĐÓNG
                 </button>
