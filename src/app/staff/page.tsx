@@ -443,6 +443,7 @@ export default function StaffPortal() {
     }, 4500);
   };
   const [officialSchedulesList, setOfficialSchedulesList] = useState<any[]>([]);
+  const [schedSubTab, setSchedSubTab] = useState<"official" | "free">("official");
   const [showRegModal, setShowRegModal] = useState(false);
   const [selectedStartHour, setSelectedStartHour] = useState("07:00");
   const [selectedEndHour, setSelectedEndHour] = useState("12:00");
@@ -966,6 +967,150 @@ export default function StaffPortal() {
             )}
           </div>
         </div>
+
+        {/* ĐỒNG ĐỘI LÀM CÙNG CA HÔM NAY */}
+        {(() => {
+          const allShiftsToday = (officialSchedulesList || []).filter(
+            (s: any) => s.date === todayDateStr
+          );
+          const myCurrentShift = activeShiftNow || shiftsToday[0];
+          const myStartFloat = myCurrentShift ? parseTimeToFloat(myCurrentShift.startTime) : -1;
+          let myEndFloat = myCurrentShift ? parseTimeToFloat(myCurrentShift.endTime) : -1;
+          if (myEndFloat < myStartFloat) myEndFloat += 24;
+
+          // Các bạn làm cùng ca: ca trùng hoặc giao thoa thời gian
+          const colleaguesSameShift = allShiftsToday.filter((s: any) => {
+            if (s.userId === activeStaff?.id) return false;
+            if (!myCurrentShift) return true;
+            let sStart = parseTimeToFloat(s.startTime);
+            let sEnd = parseTimeToFloat(s.endTime);
+            if (sEnd < sStart) sEnd += 24;
+            return Math.max(sStart, myStartFloat) < Math.min(sEnd, myEndFloat);
+          });
+
+          const otherColleaguesToday = allShiftsToday.filter((s: any) => {
+            if (s.userId === activeStaff?.id) return false;
+            return !colleaguesSameShift.some((c: any) => c.id === s.id);
+          });
+
+          return (
+            <div className="card space-y-4 border border-[#7c4831]/15 bg-white rounded-3xl shadow-xs">
+              <div className="flex items-center justify-between border-b border-gray-150/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-lg bg-[#7c4831]/10 text-[#7c4831] flex items-center justify-center text-sm font-black">👥</span>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wide text-[#7c4831]">
+                      Đồng đội làm cùng ca hôm nay
+                    </h4>
+                    <p className="text-[10px] text-gray-500 font-semibold mt-0.5">
+                      {myCurrentShift ? `Ca trực của bạn: ${myCurrentShift.startTime} – ${myCurrentShift.endTime}` : `Tất cả nhân sự trực ngày ${todayDateStr}`}
+                    </p>
+                  </div>
+                </div>
+                <span className="pill text-[9px] font-black uppercase border bg-amber-50 text-[#7c4831] border-amber-200">
+                  {colleaguesSameShift.length} nhân sự
+                </span>
+              </div>
+
+              {colleaguesSameShift.length === 0 ? (
+                <div className="py-5 text-center bg-[#FAF9F6] border border-dashed border-gray-200 rounded-2xl text-[10.5px] text-gray-500 font-bold space-y-1">
+                  <p>👤 Ca này chỉ có bạn được xếp lịch trực.</p>
+                  <p className="text-[9px] text-gray-400 font-normal">Chưa có nhân sự nào khác cùng ca với bạn hôm nay.</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {colleaguesSameShift.map((colleague: any) => {
+                    const cSkill = colleague.skills && colleague.skills.length > 0 ? colleague.skills[0].name : "Nhân viên";
+                    const cCrossesMidnight = parseTimeToFloat(colleague.endTime) < parseTimeToFloat(colleague.startTime);
+                    const cIsLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === colleague.id && r.status === "approved");
+                    const cIsShiftPassed = (() => {
+                      const now = new Date();
+                      const [sy, sm, sd] = (colleague.date || "").split("-").map(Number);
+                      const [eh, em] = (colleague.endTime || "00:00").split(":").map(Number);
+                      const [sh, smin] = (colleague.startTime || "00:00").split(":").map(Number);
+                      const endDt = new Date(sy, (sm || 1) - 1, sd || 1, eh || 0, em || 0, 0);
+                      if ((eh || 0) < (sh || 0) || (eh === sh && (em || 0) < (smin || 0))) {
+                        endDt.setDate(endDt.getDate() + 1);
+                      }
+                      return now > endDt;
+                    })();
+                    const cHasClockedIn = !!(colleague.clockedIn || colleague.checkInTime);
+                    const cHasClockedOut = !!(colleague.clockedOut || colleague.checkOutTime) || (cHasClockedIn && cIsShiftPassed);
+                    const cIsAutoEnded = cHasClockedIn && !colleague.clockedOut && !colleague.checkOutTime && cIsShiftPassed;
+
+                    return (
+                      <div key={colleague.id} className="p-3 bg-[#FAF9F6] hover:bg-amber-50/40 border border-gray-200 rounded-2xl flex items-center justify-between gap-3 shadow-2xs transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-white border border-[#7c4831]/20 flex items-center justify-center font-black text-sm text-[#7c4831] shadow-2xs shrink-0">
+                            {colleague.staffName ? colleague.staffName.charAt(0) : "NV"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-extrabold uppercase text-xs text-[#4B3621] truncate flex items-center gap-1.5">
+                              <span className="truncate">{colleague.staffName}</span>
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-[#7c4831]/10 text-[#7c4831] shrink-0">
+                                {cSkill === "Pha chế" ? "☕ Pha chế" : cSkill === "Phục vụ" ? "🛎 Phục vụ" : cSkill === "Thu ngân" ? "💵 Thu ngân" : cSkill}
+                              </span>
+                            </div>
+                            <div className="text-[10px] font-semibold text-gray-500 flex items-center gap-1.5 mt-0.5">
+                              <Clock size={11} className="shrink-0 text-gray-400" />
+                              <span>{colleague.startTime} – {colleague.endTime}{cCrossesMidnight ? " (Hôm sau)" : ""}</span>
+                              {colleague.staffPhone && (
+                                <a href={`tel:${colleague.staffPhone}`} className="text-[#7c4831] hover:underline font-mono text-[9.5px]">
+                                  · 📞 {colleague.staffPhone}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
+                          {cIsLeaveApproved ? (
+                            <span className="text-[8px] font-black uppercase text-rose-800 bg-rose-50 px-2 py-1 rounded-lg border border-rose-250">
+                              🚨 Xin vắng
+                            </span>
+                          ) : cHasClockedOut ? (
+                            <span className="text-[8px] font-black uppercase text-blue-800 bg-blue-50 px-2 py-1 rounded-lg border border-blue-250">
+                              ✓ {cIsAutoEnded ? "Tự ngưng ca" : "Đã xong ca"}
+                            </span>
+                          ) : cHasClockedIn ? (
+                            <span className="text-[8px] font-black uppercase text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-250 flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                              Đang trực ({colleague.checkInTime ? colleague.checkInTime.slice(0, 5) : colleague.startTime})
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-bold text-gray-500 bg-white px-2 py-1 rounded-lg border border-gray-250">
+                              ⚪ Chưa vào ca
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Đồng nghiệp ca khác trong ngày */}
+              {otherColleaguesToday.length > 0 && (
+                <div className="pt-2 border-t border-gray-150/60 space-y-1.5">
+                  <span className="text-[9px] font-black uppercase text-[#7c4831]/70 tracking-wider block">
+                    Đồng nghiệp trực các ca khác hôm nay ({otherColleaguesToday.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {otherColleaguesToday.map((other: any) => {
+                      const oCross = parseTimeToFloat(other.endTime) < parseTimeToFloat(other.startTime);
+                      return (
+                        <div key={other.id} className="text-[9.5px] font-bold px-2 py-1 rounded-xl bg-gray-50 border border-gray-200/80 text-gray-700 flex items-center gap-1">
+                          <span className="font-extrabold uppercase">{other.staffName}</span>
+                          <span className="text-gray-400 font-mono text-[8.5px]">({other.startTime}–{other.endTime}{oCross ? " hôm sau" : ""})</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -1142,13 +1287,193 @@ export default function StaffPortal() {
           </div>
         </div>
 
-        {/* Info Legend */}
-        <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap gap-x-4 gap-y-2 text-[9px] font-black uppercase text-[#7c4831]">
-          <span>💡 Nhấn vào ngày bất kỳ trên bảng để đăng ký hoặc chỉnh sửa ca rảnh</span>
+        {/* Sub-tab navigation */}
+        <div className="flex p-1 bg-stone-100/90 border border-gray-200 rounded-2xl gap-1">
+          <button
+            type="button"
+            onClick={() => setSchedSubTab("official")}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              schedSubTab === "official"
+                ? "bg-[#7c4831] text-white shadow-xs"
+                : "text-gray-600 hover:text-[#7c4831] hover:bg-white/60"
+            }`}
+          >
+            <Calendar size={13} />
+            Lịch trực chính thức
+          </button>
+          <button
+            type="button"
+            onClick={() => setSchedSubTab("free")}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 ${
+              schedSubTab === "free"
+                ? "bg-[#7c4831] text-white shadow-xs"
+                : "text-gray-600 hover:text-[#7c4831] hover:bg-white/60"
+            }`}
+          >
+            <Clock size={13} />
+            Đăng ký ca rảnh
+          </button>
         </div>
 
-        {/* Bảng Đăng Ký Khung Giờ Rảnh */}
-        <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white rounded-3xl">
+        {/* TAB 1: BẢNG LỊCH TRỰC CHÍNH THỨC */}
+        {schedSubTab === "official" && (
+          <div className="space-y-3">
+            {/* Legend guide */}
+            <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-4 md:gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                <span>Đang trực (Trong ca)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                <span>Đã hoàn thành / Tự ngưng ca</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
+                <span>Chưa chấm công</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+                <span>Xin vắng</span>
+              </div>
+            </div>
+
+            <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full rounded-3xl">
+              <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-[#7c4831]">Bảng Phân Công Lịch Trực (Toàn Chi Nhánh)</h4>
+                  <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5">Xem tất cả đồng đội làm cùng ca và các ca làm việc trong tuần</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+                <table className="w-full min-w-[750px] text-center border-collapse">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
+                      <th className="p-3 text-left w-[110px] min-w-[110px] whitespace-nowrap bg-stone-100/50">Buổi ca</th>
+                      {weekDays.map(day => (
+                        <th key={day.dateStr} className="p-2 border-l border-gray-200">
+                          <div className="text-[10px]">{day.label}</div>
+                          <div className="text-gray-400 text-[9px] font-bold mt-0.5">{day.dayNum}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
+                    {shiftCategories.map(cat => (
+                      <tr key={cat.key} className="hover:bg-stone-50/30 transition-colors">
+                        <td className="p-3 text-left bg-stone-50/40 w-[110px] min-w-[110px] whitespace-nowrap">
+                          <div className="font-extrabold text-xs uppercase text-[#7c4831]">{cat.title}</div>
+                          <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
+                        </td>
+                        {weekDays.map(day => {
+                          const cellScheds = (officialSchedulesList || []).filter(
+                            (s: any) => s.date === day.dateStr && cat.filter(s.startTime)
+                          );
+
+                          return (
+                            <td key={day.dateStr} className="p-2 border-l border-gray-150 align-top text-left min-w-[125px]">
+                              <div className="space-y-1.5 min-h-[95px] flex flex-col justify-start">
+                                {cellScheds.length === 0 ? (
+                                  <div className="py-7 px-1 text-center border border-dashed border-gray-200 rounded-2xl text-[8px] text-gray-400 font-extrabold uppercase select-none flex-grow flex items-center justify-center">
+                                    Trống
+                                  </div>
+                                ) : (
+                                  cellScheds.map((sched: any) => {
+                                    const isMe = sched.userId === activeStaff?.id;
+                                    const skill = sched.skills && sched.skills.length > 0 ? sched.skills[0].name : "Nhân viên";
+                                    const crossesMidnight = parseTimeToFloat(sched.endTime) < parseTimeToFloat(sched.startTime);
+                                    const isLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === sched.id && r.status === "approved");
+
+                                    const isShiftPassed = (() => {
+                                      const now = new Date();
+                                      const [sy, sm, sd] = (sched.date || "").split("-").map(Number);
+                                      const [eh, em] = (sched.endTime || "00:00").split(":").map(Number);
+                                      const [sh, smin] = (sched.startTime || "00:00").split(":").map(Number);
+                                      const endDt = new Date(sy, (sm || 1) - 1, sd || 1, eh || 0, em || 0, 0);
+                                      if ((eh || 0) < (sh || 0) || (eh === sh && (em || 0) < (smin || 0))) {
+                                        endDt.setDate(endDt.getDate() + 1);
+                                      }
+                                      return now > endDt;
+                                    })();
+
+                                    const hasClockedIn = !!(sched.clockedIn || sched.checkInTime);
+                                    const hasClockedOut = !!(sched.clockedOut || sched.checkOutTime) || (hasClockedIn && isShiftPassed);
+                                    const isAutoEnded = hasClockedIn && !sched.clockedOut && !sched.checkOutTime && isShiftPassed;
+
+                                    return (
+                                      <div
+                                        key={sched.id}
+                                        className={`p-2 rounded-2xl border ${
+                                          isMe
+                                            ? "border-2 border-blue-500 bg-[#E6F4FE] shadow-xs ring-1 ring-blue-400/30"
+                                            : "border-amber-200/90 bg-[#FFF9E6]"
+                                        } space-y-1 shadow-2xs transition-all`}
+                                      >
+                                        <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center justify-between gap-1">
+                                          <span className="truncate flex items-center gap-1">
+                                            {isMe && <span className="text-blue-600 font-black">⭐</span>}
+                                            <span className={isMe ? "text-blue-900 font-black" : "text-[#4B3621]"}>
+                                              {isMe ? `${sched.staffName} (Bạn)` : sched.staffName}
+                                            </span>
+                                          </span>
+                                          <span className={`text-[7.5px] px-1 py-0.2 rounded font-black shrink-0 ${isMe ? "bg-blue-200 text-blue-900" : "bg-black/5 text-[#7c4831]"}`}>
+                                            {skill}
+                                          </span>
+                                        </div>
+                                        <div className="text-[8.5px] font-black opacity-85 flex items-center gap-1 text-[#4B3621]">
+                                          <Clock size={11} className="shrink-0" />
+                                          <span>{sched.startTime} – {sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</span>
+                                        </div>
+
+                                        {/* Trạng thái chấm công */}
+                                        {isLeaveApproved ? (
+                                          <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
+                                            🚨 Xin vắng
+                                          </div>
+                                        ) : hasClockedOut ? (
+                                          <div className="text-[7.5px] font-black uppercase text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-250 w-fit">
+                                            ✓ {isAutoEnded ? "Tự ngưng ca" : "Đã hoàn thành"}
+                                          </div>
+                                        ) : hasClockedIn ? (
+                                          <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
+                                            🟢 Đang trực ({sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime})
+                                          </div>
+                                        ) : isShiftPassed ? (
+                                          <div className="text-[7.5px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                            ⚪ Chưa chấm công
+                                          </div>
+                                        ) : (
+                                          <div className="text-[7.5px] font-bold text-gray-500 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                            ⚪ Lịch trực
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: BẢNG ĐĂNG KÝ KHUNG GIỜ RẢNH */}
+        {schedSubTab === "free" && (
+          <div className="space-y-3">
+            {/* Info Legend */}
+            <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap gap-x-4 gap-y-2 text-[9px] font-black uppercase text-[#7c4831]">
+              <span>💡 Nhấn vào ngày bất kỳ trên bảng để đăng ký hoặc chỉnh sửa ca rảnh</span>
+            </div>
+
+            <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white rounded-3xl">
           <div className="overflow-x-auto overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
             <table className="w-full border-collapse text-left min-w-[700px]">
               <thead>
@@ -1231,17 +1556,27 @@ export default function StaffPortal() {
                           }`}
                         >
                           <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
-                            {avails.length === 0 ? (
-                              hasOfficialInCat ? (
-                                <div className="py-7 px-1 text-center border border-dashed border-stone-250 bg-stone-100 rounded-2xl text-[8px] text-stone-500 font-extrabold uppercase select-none flex-grow flex items-center justify-center gap-1">
-                                  <span>🔒 Đã có người trực</span>
-                                </div>
-                              ) : (
-                                <div className="py-7 px-1 text-center border border-dashed border-gray-200 rounded-2xl text-[8px] text-gray-400 font-extrabold uppercase select-none flex-grow flex items-center justify-center">
-                                  Trống
-                                </div>
-                              )
-                            ) : (
+                            {(() => {
+                              const cellOfficials = (officialSchedulesList || []).filter((s: any) => s.date === day.dateStr && cat.filter(s.startTime));
+                              if (avails.length === 0) {
+                                if (hasOfficialInCat || cellOfficials.length > 0) {
+                                  return (
+                                    <div className="py-5 px-1.5 text-center border border-dashed border-stone-250 bg-stone-100/90 rounded-2xl text-[8px] text-stone-600 font-extrabold uppercase select-none flex-grow flex flex-col items-center justify-center gap-1">
+                                      <span className="text-stone-500 font-black">🔒 Đã chốt ca</span>
+                                      <span className="text-[8.5px] font-black text-[#7c4831] normal-case line-clamp-2 max-w-[110px]" title={cellOfficials.map((o: any) => o.staffName).join(", ")}>
+                                        {cellOfficials.map((o: any) => o.staffName).join(", ") || "Đã có người trực"}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="py-7 px-1 text-center border border-dashed border-gray-200 rounded-2xl text-[8px] text-gray-400 font-extrabold uppercase select-none flex-grow flex items-center justify-center">
+                                    Trống
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })() || (
                               avails.map((avail: any) => {
                                 const sIdx = (staffList || []).findIndex((s: any) => s.id === avail.userId);
                                 const isMe = avail.userId === activeStaff?.id;
@@ -1320,6 +1655,8 @@ export default function StaffPortal() {
             </table>
           </div>
         </div>
+          </div>
+        )}
 
         {/* REGISTRATION MODAL WITH FIXED OVERLAY CLASS */}
         {showRegModal && (
