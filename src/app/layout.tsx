@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 
@@ -16,12 +17,11 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: false },
   title: "The Moods - Hệ Thống Tích Điểm & Vận Hành F&B SaaS",
   description: "Giải pháp đa chi nhánh (Multi-tenant) F&B hiện đại phong cách Neo-brutalism. Tích hợp Customer Mobile PWA, Staff Portal di động và Admin Dashboard chuyên sâu.",
   keywords: "themoods, f&b saas, loyalty program, coffee shop app, neo-brutalism web, tích điểm cà phê, phần mềm nhà hàng",
   icons: {
-    icon: "/logo.png?v=7",
+    icon: "/logo.png?v=5",
     shortcut: "/favicon.png?v=5",
     apple: [
       { url: "/ios/180.png", sizes: "180x180", type: "image/png" },
@@ -52,9 +52,13 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="The Moods" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <script
+        <Script
+          src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          strategy="beforeInteractive"
+        />
+        <Script
+          id="sw-registration"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
