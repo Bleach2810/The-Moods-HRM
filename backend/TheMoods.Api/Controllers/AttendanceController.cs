@@ -541,6 +541,38 @@ namespace TheMoods.Api.Controllers
         {
             if (string.IsNullOrEmpty(locationId)) locationId = "govap-branch";
 
+            // Auto-checkout: Tự động chốt checkout cho các ca trực đã quá giờ kết thúc (hệ thống tự ngưng ca / Anti-OT)
+            try
+            {
+                var nowLocal = DateTime.UtcNow.AddHours(7);
+                var unclosedAtts = await _context.Attendances
+                    .Include(a => a.Schedule)
+                    .Where(a => a.LocationId == locationId && a.CheckOutTime == null && a.Schedule != null)
+                    .ToListAsync();
+
+                bool hasAutoClosed = false;
+                foreach (var att in unclosedAtts)
+                {
+                    var baseDate = att.Schedule!.Date.Date;
+                    var schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), DateTimeKind.Utc);
+                    if (att.Schedule.EndTime < att.Schedule.StartTime)
+                    {
+                        schedEnd = schedEnd.AddDays(1);
+                    }
+
+                    if (nowLocal >= schedEnd)
+                    {
+                        att.CheckOutTime = schedEnd;
+                        hasAutoClosed = true;
+                    }
+                }
+                if (hasAutoClosed)
+                {
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch { }
+
             var query = _context.OfficialSchedules
                 .Include(s => s.User)
                     .ThenInclude(u => u!.UserSkills)

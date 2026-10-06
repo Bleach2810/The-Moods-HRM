@@ -1998,11 +1998,11 @@ export default function AdminPortal() {
               <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-                  <span>Đang trực / Đã chấm công</span>
+                  <span>Đang trực (Trong ca)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                  <span>Đã hoàn thành ca</span>
+                  <span>Đã hoàn thành / Tự ngưng ca</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
@@ -2081,8 +2081,24 @@ export default function AdminPortal() {
                                         const col = sIdx !== -1 ? getStaffColor(sIdx) : { bg: "bg-amber-50 border-amber-200 text-[#4B3621]" };
                                         const crossesMidnight = parseTime(sched.endTime) < parseTime(sched.startTime);
                                         const isLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === sched.id && r.status === "approved");
+
+                                        // Kiểm tra xem ca trực đã qua giờ kết thúc chưa
+                                        const isShiftPassed = (() => {
+                                          const now = new Date();
+                                          const [sy, sm, sd] = (sched.date || "").split("-").map(Number);
+                                          const [eh, em] = (sched.endTime || "00:00").split(":").map(Number);
+                                          const [sh, smin] = (sched.startTime || "00:00").split(":").map(Number);
+                                          const endDt = new Date(sy, (sm || 1) - 1, sd || 1, eh || 0, em || 0, 0);
+                                          if ((eh || 0) < (sh || 0) || (eh === sh && (em || 0) < (smin || 0))) {
+                                            endDt.setDate(endDt.getDate() + 1);
+                                          }
+                                          return now > endDt;
+                                        })();
+
                                         const hasClockedIn = !!(sched.clockedIn || sched.checkInTime);
-                                        const hasClockedOut = !!(sched.clockedOut || sched.checkOutTime);
+                                        // Nếu đã có CheckOut hoặc (đã Check-In nhưng ca đã quá giờ kết thúc -> tự ngưng ca)
+                                        const hasClockedOut = !!(sched.clockedOut || sched.checkOutTime) || (hasClockedIn && isShiftPassed);
+                                        const isAutoEnded = hasClockedIn && !sched.clockedOut && !sched.checkOutTime && isShiftPassed;
 
                                         return (
                                           <div
@@ -2122,11 +2138,15 @@ export default function AdminPortal() {
                                               </div>
                                             ) : hasClockedOut ? (
                                               <div className="text-[7.5px] font-black uppercase text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-250 w-fit">
-                                                ✓ Đã hoàn thành
+                                                ✓ {isAutoEnded ? "Tự ngưng ca" : "Đã hoàn thành"}
                                               </div>
                                             ) : hasClockedIn ? (
                                               <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
                                                 🟢 Đang trực ({sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime})
+                                              </div>
+                                            ) : isShiftPassed ? (
+                                              <div className="text-[7.5px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                                ⚪ Chưa chấm công
                                               </div>
                                             ) : (
                                               <div className="text-[7.5px] font-bold text-gray-500 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
