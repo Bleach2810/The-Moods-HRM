@@ -430,6 +430,7 @@ export default function StaffPortal() {
   const [latePenaltyBaseAmount, setLatePenaltyBaseAmount] = useState("50000");
   const [latePenaltyIntervalMinutes, setLatePenaltyIntervalMinutes] = useState("10");
   const [latePenaltyMultiplier, setLatePenaltyMultiplier] = useState("2");
+  const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
   const [adjustmentsList, setAdjustmentsList] = useState<any[]>([]);
   const [detailedHolidaysList, setDetailedHolidaysList] = useState<any[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -538,6 +539,8 @@ export default function StaffPortal() {
         if (intervalVal) setLatePenaltyIntervalMinutes(intervalVal);
         const multVal = data.find((c: any) => c.configKey === "LatePenaltyMultiplier")?.configValue;
         if (multVal) setLatePenaltyMultiplier(multVal);
+        const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
+        if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
 
         const adjVal = data.find((c: any) => c.configKey === "Adjustments")?.configValue;
         if (adjVal) {
@@ -2274,11 +2277,14 @@ export default function StaffPortal() {
       const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
       const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
       const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+      const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
 
       if (lateMin < startMins) return 0;
       const intervals = Math.floor((lateMin - startMins) / intervalMins);
       const multiplierFactor = Math.pow(multiplier, intervals);
-      return baseAmt * multiplierFactor;
+      const calculatedPenalty = baseAmt * multiplierFactor;
+      if (maxAmt > 0 && calculatedPenalty > maxAmt) return maxAmt;
+      return calculatedPenalty;
     };
 
     const myManualAdjustments = adjustmentsList.filter(
@@ -2308,7 +2314,7 @@ export default function StaffPortal() {
           Date: s.date,
           Type: "penalty",
           Amount: amount,
-          Note: `Đi muộn ${lateMin} phút (Ca ${s.startTime} - ${s.endTime})`,
+          Note: `Đi muộn ${lateMin} phút (Ca ${s.startTime} - ${s.endTime})${((parseFloat(latePenaltyMaxAmount) || 500000) > 0 && (parseFloat(latePenaltyBaseAmount) || 50000) * Math.pow(parseFloat(latePenaltyMultiplier) || 2, Math.floor((lateMin - (parseInt(latePenaltyStartMinutes) || 10)) / (parseInt(latePenaltyIntervalMinutes) || 10))) > (parseFloat(latePenaltyMaxAmount) || 500000)) ? ' [Đã giới hạn mức phạt tối đa]' : ''}`,
           IsAuto: true
         };
       })

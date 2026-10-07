@@ -874,6 +874,7 @@ export default function AdminPortal() {
           { configKey: "LatePenaltyBaseAmount", configValue: latePenaltyBaseAmount },
           { configKey: "LatePenaltyIntervalMinutes", configValue: latePenaltyIntervalMinutes },
           { configKey: "LatePenaltyMultiplier", configValue: latePenaltyMultiplier },
+          { configKey: "LatePenaltyMaxAmount", configValue: latePenaltyMaxAmount },
           { configKey: "HolidayMultiplier", configValue: holidayMultiplier },
           { configKey: "GpsLatitude", configValue: gpsLatitude },
           { configKey: "GpsLongitude", configValue: gpsLongitude },
