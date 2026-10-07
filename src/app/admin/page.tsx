@@ -1928,12 +1928,6 @@ export default function AdminPortal() {
               <Plus size={14} />
               <span>Chấm công bù</span>
             </button>
-            <button
-              onClick={() => window.open(`${getApiBaseUrl()}/api/attendance/schedules/export?locationId=${activeLocation?.id || "govap-branch"}&weekOffset=${weekOffset}`, "_blank")}
-              className="btn btn-ghost py-1.5 px-3 text-xs font-bold flex items-center gap-1 cursor-pointer rounded-xl border border-gray-200 hover:bg-gray-100 bg-white"
-            >
-              <span>Xuất Excel</span>
-            </button>
           </div>
         </div>
 
@@ -3156,10 +3150,6 @@ export default function AdminPortal() {
   };;
   // === PAYROLL ===
   const PayrollView = () => {
-    const exportPayrollToExcel = () => {
-      window.open(`${getApiBaseUrl()}/api/attendance/payroll/export?locationId=${activeLocation?.id || "govap-branch"}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`, "_blank");
-    };
-
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200/50 pb-4">
@@ -3167,15 +3157,6 @@ export default function AdminPortal() {
             <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Tính Lương Nhân Sự</h2>
             <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Tính toán tự động tiền lương, thưởng/phạt đi trễ của nhân viên chi nhánh</p>
           </div>
-          <button
-            onClick={exportPayrollToExcel}
-            disabled={payrollList.length === 0}
-            type="button"
-            className="btn btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-          >
-            <RefreshCw size={13} />
-            <span>Xuất Báo Cáo Bảng Lương (Excel)</span>
-          </button>
         </div>
 
         {/* Date Selector Form */}
@@ -3921,25 +3902,12 @@ export default function AdminPortal() {
 
         {/* Tab 0: Payroll calculator */}
         {adjActiveTab === "payroll" && (() => {
-          const exportPayrollToExcel = () => {
-            window.open(`${getApiBaseUrl()}/api/attendance/payroll/export?locationId=${activeLocation?.id || "govap-branch"}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`, "_blank");
-          };
-
           return (
             <div className="space-y-6">
               {/* Date Selector Form */}
               <div className="card space-y-4">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex justify-between items-center time">
-                  <span>Chọn thời gian</span>
-                  <button
-                    onClick={exportPayrollToExcel}
-                    disabled={payrollList.length === 0}
-                    type="button"
-                    className="btn btn-primary py-1.5 px-3 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw size={11} />
-                    <span>Xuất Excel</span>
-                  </button>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">
+                  Chọn thời gian
                 </h3>
                 <div className="flex flex-wrap gap-4 items-end">
                   <div className="space-y-1">
