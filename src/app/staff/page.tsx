@@ -433,6 +433,67 @@ export default function StaffPortal() {
   const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
   const [adjustmentsList, setAdjustmentsList] = useState<any[]>([]);
   const [detailedHolidaysList, setDetailedHolidaysList] = useState<any[]>([]);
+  const [payrollFromDate, setPayrollFromDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+  });
+  const [payrollToDate, setPayrollToDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(year, d.getMonth() + 1, 0).getDate();
+    return `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+  });
+  const [payrollDetailTab, setPayrollDetailTab] = useState<"adjustments" | "shifts">("adjustments");
+  const [backendStaffPayroll, setBackendStaffPayroll] = useState<any>(null);
+
+  const setPayrollThisMonth = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const lastDay = new Date(year, d.getMonth() + 1, 0).getDate();
+    setPayrollFromDate(`${year}-${month}-01`);
+    setPayrollToDate(`${year}-${month}-${String(lastDay).padStart(2, '0')}`);
+  };
+
+  const setPayrollLastMonth = () => {
+    const now = new Date();
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastOfPrevMonth = new Date(firstOfThisMonth.getTime() - 1);
+    const prevYear = lastOfPrevMonth.getFullYear();
+    const prevMonth = String(lastOfPrevMonth.getMonth() + 1).padStart(2, '0');
+    const prevLastDay = String(lastOfPrevMonth.getDate()).padStart(2, '0');
+    setPayrollFromDate(`${prevYear}-${prevMonth}-01`);
+    setPayrollToDate(`${prevYear}-${prevMonth}-${prevLastDay}`);
+  };
+
+  const setPayrollAllTime = () => {
+    setPayrollFromDate("");
+    setPayrollToDate("");
+  };
+
+  const fetchStaffPayroll = async () => {
+    if (!activeStaff) return;
+    try {
+      const locId = activeLocation?.id || "govap-branch";
+      const fromParam = payrollFromDate || "2000-01-01";
+      const toParam = payrollToDate || "2099-12-31";
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/payroll?locationId=${locId}&fromDate=${fromParam}&toDate=${toParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        const myP = data.find((p: any) => p.userId === activeStaff.id || (activeStaff.phone && p.phoneNumber === activeStaff.phone));
+        if (myP) {
+          setBackendStaffPayroll(myP);
+        } else {
+          setBackendStaffPayroll(null);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "warning" | "info">("success");
 
@@ -617,6 +678,7 @@ export default function StaffPortal() {
       fetchAvails();
       fetchOfficialSchedules();
       fetchColleagues();
+      fetchStaffPayroll();
       if (!reqDate) {
         const todayStr = new Date().toISOString().split('T')[0];
         setReqDate(todayStr);
@@ -626,7 +688,7 @@ export default function StaffPortal() {
         setSwapColleagueDate(new Date().toISOString().split('T')[0]);
       }
     }
-  }, [activeStaff, tab, activeLocation?.id, reqDate, swapColleagueDate]);
+  }, [activeStaff, tab, activeLocation?.id, reqDate, swapColleagueDate, payrollFromDate, payrollToDate]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2287,17 +2349,30 @@ export default function StaffPortal() {
       return calculatedPenalty;
     };
 
-    const myManualAdjustments = adjustmentsList.filter(
-      (item: any) =>
-        activeStaff &&
-        ((item.EmployeeId && item.EmployeeId === activeStaff.id) ||
-          (item.EmployeeName && item.EmployeeName === activeStaff.name) ||
-          (item.EmployeeId && item.EmployeeId === activeStaff.name))
-    );
+    // 1. Thưởng/phạt thủ công được lọc theo ngày
+    const myManualAdjustments = adjustmentsList
+      .filter(
+        (item: any) =>
+          activeStaff &&
+          ((item.EmployeeId && item.EmployeeId === activeStaff.id) ||
+            (item.EmployeeName && item.EmployeeName === activeStaff.name) ||
+            (item.EmployeeId && item.EmployeeId === activeStaff.name))
+      )
+      .filter((item: any) => {
+        if (!item.Date) return true;
+        if (payrollFromDate && item.Date < payrollFromDate) return false;
+        if (payrollToDate && item.Date > payrollToDate) return false;
+        return true;
+      });
 
-    // Tính toán các ca đi trễ tự động từ lịch sử check-in
+    // 2. Tính toán các ca đi trễ tự động từ lịch sử check-in trong khoảng ngày
     const myAutoLatePenalties = (officialSchedulesList || [])
       .filter((s: any) => activeStaff && s.userId === activeStaff.id && s.checkInTime)
+      .filter((s: any) => {
+        if (payrollFromDate && s.date < payrollFromDate) return false;
+        if (payrollToDate && s.date > payrollToDate) return false;
+        return true;
+      })
       .map((s: any) => {
         const startParts = s.startTime.split(":");
         const realParts = s.checkInTime.split(":");
@@ -2320,9 +2395,14 @@ export default function StaffPortal() {
       })
       .filter((item: any) => item.Amount > 0);
 
-    // Tính toán các ca đi làm ngày lễ tự động (Thưởng lễ hệ số & flat bonus)
+    // 3. Tính toán các ca đi làm ngày lễ tự động (Thưởng lễ hệ số & flat bonus) trong khoảng ngày
     const myAutoHolidayBonuses = (officialSchedulesList || [])
       .filter((s: any) => activeStaff && s.userId === activeStaff.id && s.clockedOut)
+      .filter((s: any) => {
+        if (payrollFromDate && s.date < payrollFromDate) return false;
+        if (payrollToDate && s.date > payrollToDate) return false;
+        return true;
+      })
       .map((s: any) => {
         const matchedHoliday = detailedHolidaysList.find((h: any) => h.Date === s.date);
         if (matchedHoliday) {
@@ -2375,7 +2455,7 @@ export default function StaffPortal() {
       ...myManualAdjustments,
       ...myAutoLatePenalties,
       ...myAutoHolidayBonuses
-    ];
+    ].sort((a: any, b: any) => (b.Date || "").localeCompare(a.Date || ""));
 
     const totalBonus = myAdjustments
       .filter((item: any) => item.Type === "bonus")
@@ -2389,64 +2469,331 @@ export default function StaffPortal() {
       .filter((item: any) => item.Type === "advance")
       .reduce((sum: number, item: any) => sum + (item.Amount || (item.Quantity * item.AmountPerUnit) || 0), 0);
 
-    const netAdjustment = totalBonus - totalPenalty - totalAdvance;
+    // 4. Tính toán ca làm việc và LƯƠNG LÀM THEO GIỜ trong khoảng ngày
+    const hourlyWage = activeStaff?.hourlyWage || 25000;
+    const myCompletedShifts = (officialSchedulesList || [])
+      .filter((s: any) => activeStaff && (s.userId === activeStaff.id || (s.staffPhone && (s.staffPhone === activeStaff.phone || s.staffPhone === activeStaff.phoneNumber))))
+      .filter((s: any) => {
+        if (payrollFromDate && s.date < payrollFromDate) return false;
+        if (payrollToDate && s.date > payrollToDate) return false;
+        return true;
+      })
+      .filter((s: any) => s.clockedOut || (s.checkInTime && s.checkOutTime))
+      .map((s: any) => {
+        const [sh, sm] = (s.startTime || "00:00").split(":").map(Number);
+        let [eh, em] = (s.endTime || "00:00").split(":").map(Number);
+        if (eh < sh) eh += 24;
+
+        let actualHours = 0;
+        if (s.checkInTime && s.checkOutTime) {
+          const [ciH, ciM] = s.checkInTime.split(":").map(Number);
+          let [coH, coM] = s.checkOutTime.split(":").map(Number);
+          const schedEndMins = eh * 60 + em;
+          const checkInMins = ciH * 60 + ciM;
+          let checkOutMins = coH * 60 + coM;
+          if (checkOutMins < checkInMins) {
+            checkOutMins += 1440;
+          }
+          const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
+          const rawH = (limitOutMins - checkInMins) / 60;
+          actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+        } else {
+          const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
+          actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+        }
+
+        const shiftPay = actualHours * hourlyWage;
+        return {
+          ...s,
+          actualHours,
+          shiftPay
+        };
+      })
+      .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
+
+    const clientWorkedHours = myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0);
+    const clientBaseSalary = clientWorkedHours * hourlyWage;
+
+    // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client
+    const totalWorkedHours = backendStaffPayroll?.totalWorkedHours !== undefined ? backendStaffPayroll.totalWorkedHours : clientWorkedHours;
+    const baseSalary = backendStaffPayroll?.baseSalary !== undefined ? backendStaffPayroll.baseSalary : clientBaseSalary;
+
+    // LƯƠNG THỰC NHẬN = Lương làm theo giờ + Tổng thưởng - Tổng phạt - Tạm ứng
+    const finalNetSalary = baseSalary + totalBonus - totalPenalty - totalAdvance;
+
+    const dNow = new Date();
+    const curYear = dNow.getFullYear();
+    const curMonth = String(dNow.getMonth() + 1).padStart(2, '0');
+    const curLastDay = String(new Date(curYear, dNow.getMonth() + 1, 0).getDate()).padStart(2, '0');
+    const isThisMonthActive = payrollFromDate === `${curYear}-${curMonth}-01` && payrollToDate === `${curYear}-${curMonth}-${curLastDay}`;
+    const isAllTimeActive = !payrollFromDate && !payrollToDate;
 
     return (
       <div className="space-y-4 pb-28 anim-fadeUp">
-        {/* Rewards / Penalties Summary */}
+        {/* Main Card: Bảng Lương & Thưởng Phạt */}
         <div className="card space-y-4">
-          <h3 className="text-base font-bold text-[#7c4831] uppercase flex items-center gap-1.5">
-            <Award size={18} className="text-[#7c4831]" /> Thưởng & Phạt của tôi
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-base font-bold text-[#7c4831] uppercase flex items-center gap-1.5 font-sans">
+              <Award size={18} className="text-[#7c4831]" /> Thu Nhập & Thưởng Phạt
+            </h3>
+            <span className="text-[10px] font-bold text-[#7c4831]/80 bg-[#7c4831]/10 px-2.5 py-1 rounded-full font-mono">
+              {Number(hourlyWage).toLocaleString("vi-VN")}đ/giờ
+            </span>
+          </div>
 
-          <div className="grid grid-cols-4 gap-1.5">
-            <div className="p-1 sm:p-2 bg-emerald-50 border border-emerald-150 rounded-xl text-center flex flex-col justify-between">
-              <span className="text-[7px] sm:text-[9px] font-black uppercase text-emerald-800">Tổng thưởng</span>
-              <p className="text-[10px] sm:text-xs font-bold text-emerald-600 mt-1 font-mono">+{totalBonus.toLocaleString("vi-VN")}đ</p>
+          {/* Bộ lọc khoảng ngày */}
+          <div className="bg-[#FAF9F6] p-3 rounded-2xl border border-[#7c4831]/10 space-y-2.5 font-sans">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase text-[#7c4831] flex items-center gap-1.5 tracking-wider">
+                <Calendar size={13} className="text-[#7c4831]" /> Khoảng ngày xem lương
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={setPayrollThisMonth}
+                  className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${
+                    isThisMonthActive ? "bg-[#7c4831] text-white shadow-xs" : "bg-white border border-[#7c4831]/20 text-[#7c4831] hover:bg-[#7c4831]/5"
+                  }`}
+                >
+                  Tháng này
+                </button>
+                <button
+                  type="button"
+                  onClick={setPayrollLastMonth}
+                  className="px-2 py-0.5 rounded-lg text-[9px] font-bold bg-white border border-[#7c4831]/20 text-[#7c4831] hover:bg-[#7c4831]/5 transition-all cursor-pointer"
+                >
+                  Tháng trước
+                </button>
+                <button
+                  type="button"
+                  onClick={setPayrollAllTime}
+                  className={`px-2 py-0.5 rounded-lg text-[9px] font-bold transition-all cursor-pointer ${
+                    isAllTimeActive ? "bg-[#7c4831] text-white shadow-xs" : "bg-white border border-[#7c4831]/20 text-[#7c4831] hover:bg-[#7c4831]/5"
+                  }`}
+                >
+                  Tất cả
+                </button>
+              </div>
             </div>
-            <div className="p-1 sm:p-2 bg-red-50 border border-red-150 rounded-xl text-center flex flex-col justify-between">
-              <span className="text-[7px] sm:text-[9px] font-black uppercase text-red-800">Tổng phạt</span>
-              <p className="text-[10px] sm:text-xs font-bold text-red-600 mt-1 font-mono">-{totalPenalty.toLocaleString("vi-VN")}đ</p>
-            </div>
-            <div className="p-1 sm:p-2 bg-amber-50 border border-amber-150 rounded-xl text-center flex flex-col justify-between">
-              <span className="text-[7px] sm:text-[9px] font-black uppercase text-amber-800">Tạm ứng</span>
-              <p className="text-[10px] sm:text-xs font-bold text-amber-600 mt-1 font-mono">-{totalAdvance.toLocaleString("vi-VN")}đ</p>
-            </div>
-            <div className={`p-1 sm:p-2 border rounded-xl text-center flex flex-col justify-between ${netAdjustment >= 0 ? "bg-amber-50 border-amber-150" : "bg-red-50 border-red-150"}`}>
-              <span className="text-[7px] sm:text-[9px] font-black uppercase text-[#7c4831]">Thực nhận</span>
-              <p className={`text-[10px] sm:text-xs font-bold mt-1 font-mono ${netAdjustment >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                {netAdjustment >= 0 ? "+" : ""}{netAdjustment.toLocaleString("vi-VN")}đ
-              </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-[#7c4831]/80 block">Từ ngày</label>
+                <input
+                  type="date"
+                  value={payrollFromDate}
+                  onChange={e => setPayrollFromDate(e.target.value)}
+                  className="input w-full text-xs font-semibold py-1.5 px-2.5 bg-white border border-[#7c4831]/20 rounded-xl"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold uppercase text-[#7c4831]/80 block">Đến ngày</label>
+                <input
+                  type="date"
+                  value={payrollToDate}
+                  onChange={e => setPayrollToDate(e.target.value)}
+                  className="input w-full text-xs font-semibold py-1.5 px-2.5 bg-white border border-[#7c4831]/20 rounded-xl"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Details list of adjustments */}
-          {myAdjustments.length > 0 ? (
-            <div className="border-t border-[#7c4831]/10 pt-3 space-y-2 max-h-48 overflow-y-auto pr-1">
-              <span className="text-[9px] font-black uppercase text-gray-400 block tracking-wide">Chi tiết các khoản</span>
-              {myAdjustments.map((item: any, idx: number) => {
-                const amount = item.Amount || (item.Quantity * item.AmountPerUnit) || 0;
-                return (
-                  <div key={idx} className="flex justify-between items-center bg-[#FAF9F6] border border-[#7c4831]/5 p-2 rounded-xl text-[11px] font-semibold">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-mono text-gray-400">{item.Date}</span>
-                        <span className={`pill ${item.Type === "bonus" ? "pill-green" : item.Type === "advance" ? "pill-amber" : "pill-red"} border text-[7px] font-black uppercase px-1 py-0`}>
-                          {item.Type === "bonus" ? "Thưởng" : item.Type === "advance" ? "Tạm ứng" : "Phạt"}
+          {/* Banner nổi bật: LƯƠNG THỰC NHẬN */}
+          <div
+            style={{ background: "linear-gradient(135deg, #7c4831 0%, #452112 100%)" }}
+            className="p-4 rounded-2xl text-white shadow-md flex justify-between items-center relative overflow-hidden bg-[#7c4831]"
+          >
+            <div className="space-y-1 max-w-[68%]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-200 block">
+                Lương Thực Nhận (Net Pay)
+              </span>
+              <p className="text-xl sm:text-2xl font-black font-mono tracking-tight text-white drop-shadow-xs break-words">
+                {finalNetSalary >= 0 ? "+" : ""}{finalNetSalary.toLocaleString("vi-VN")}đ
+              </p>
+              <p className="text-[9px] text-white/90 font-medium leading-tight">
+                = Lương ca ({baseSalary.toLocaleString("vi-VN")}đ) + Thưởng ({totalBonus.toLocaleString("vi-VN")}đ) - Phạt ({totalPenalty.toLocaleString("vi-VN")}đ) - Tạm ứng ({totalAdvance.toLocaleString("vi-VN")}đ)
+              </p>
+            </div>
+            <div
+              style={{ background: "rgba(255, 255, 255, 0.16)" }}
+              className="text-right backdrop-blur-xs px-3 py-2 rounded-xl border border-white/20 shrink-0 ml-2"
+            >
+              <span className="text-[8.5px] uppercase font-extrabold text-amber-200 block">Tổng công</span>
+              <span className="text-base font-black font-mono text-white">{totalWorkedHours}h</span>
+              <span className="text-[8px] text-white/80 block mt-0.5">{myCompletedShifts.length} ca làm</span>
+            </div>
+          </div>
+
+          {/* 4 Cards chi tiết thành phần: Bố cục 2 cột rộng rãi chứa thoải mái số tiền hàng triệu */}
+          <div className="grid grid-cols-2 gap-2.5 font-sans">
+            {/* 1. Lương ca làm */}
+            <div className="p-3 bg-blue-50/90 border border-blue-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[9.5px] font-black uppercase text-blue-900 tracking-wider">Lương ca làm</span>
+                <span className="p-1 rounded-lg bg-blue-100 text-blue-700">
+                  <Clock size={13} />
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-black text-blue-700 font-mono tracking-tight whitespace-nowrap">
+                +{baseSalary.toLocaleString("vi-VN")}đ
+              </p>
+              <span className="text-[9px] text-blue-600/80 font-bold mt-0.5">
+                {totalWorkedHours} giờ làm ({Number(hourlyWage).toLocaleString("vi-VN")}đ/h)
+              </span>
+            </div>
+
+            {/* 2. Tổng thưởng */}
+            <div className="p-3 bg-emerald-50/90 border border-emerald-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[9.5px] font-black uppercase text-emerald-900 tracking-wider">Tổng thưởng</span>
+                <span className="p-1 rounded-lg bg-emerald-100 text-emerald-700">
+                  <Award size={13} />
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-black text-emerald-600 font-mono tracking-tight whitespace-nowrap">
+                +{totalBonus.toLocaleString("vi-VN")}đ
+              </p>
+              <span className="text-[9px] text-emerald-600/80 font-bold mt-0.5">
+                {myAdjustments.filter((a: any) => a.Type === "bonus").length} khoản thưởng
+              </span>
+            </div>
+
+            {/* 3. Tổng phạt */}
+            <div className="p-3 bg-red-50/90 border border-red-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[9.5px] font-black uppercase text-red-900 tracking-wider">Tổng phạt</span>
+                <span className="p-1 rounded-lg bg-red-100 text-red-700">
+                  <AlertTriangle size={13} />
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-black text-red-600 font-mono tracking-tight whitespace-nowrap">
+                -{totalPenalty.toLocaleString("vi-VN")}đ
+              </p>
+              <span className="text-[9px] text-red-600/80 font-bold mt-0.5">
+                {myAdjustments.filter((a: any) => a.Type === "penalty").length} khoản phạt
+              </span>
+            </div>
+
+            {/* 4. Tạm ứng */}
+            <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[9.5px] font-black uppercase text-amber-900 tracking-wider">Tạm ứng</span>
+                <span className="p-1 rounded-lg bg-amber-100 text-amber-700">
+                  <FileText size={13} />
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-black text-amber-600 font-mono tracking-tight whitespace-nowrap">
+                -{totalAdvance.toLocaleString("vi-VN")}đ
+              </p>
+              <span className="text-[9px] text-amber-600/80 font-bold mt-0.5">
+                {myAdjustments.filter((a: any) => a.Type === "advance").length} khoản ứng
+              </span>
+            </div>
+          </div>
+
+          {/* Sub-tabs chuyển giữa: Thưởng/Phạt và Ca làm việc */}
+          <div className="border-t border-[#7c4831]/10 pt-3 space-y-2.5">
+            <div className="flex gap-1.5 p-1 bg-[#FAF9F6] rounded-xl border border-[#7c4831]/10">
+              <button
+                type="button"
+                onClick={() => setPayrollDetailTab("adjustments")}
+                className={`flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
+                  payrollDetailTab === "adjustments"
+                    ? "bg-[#7c4831] text-white shadow-xs"
+                    : "text-[#7c4831]/70 hover:text-[#7c4831]"
+                }`}
+              >
+                Thưởng / Phạt ({myAdjustments.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayrollDetailTab("shifts")}
+                className={`flex-1 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
+                  payrollDetailTab === "shifts"
+                    ? "bg-[#7c4831] text-white shadow-xs"
+                    : "text-[#7c4831]/70 hover:text-[#7c4831]"
+                }`}
+              >
+                Ca làm việc ({myCompletedShifts.length})
+              </button>
+            </div>
+
+            {/* Chi tiết Thưởng & Phạt */}
+            {payrollDetailTab === "adjustments" && (
+              myAdjustments.length > 0 ? (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {myAdjustments.map((item: any, idx: number) => {
+                    const amount = item.Amount || (item.Quantity * item.AmountPerUnit) || 0;
+                    return (
+                      <div key={idx} className="flex justify-between items-center bg-[#FAF9F6] border border-[#7c4831]/5 p-2 rounded-xl text-[11px] font-semibold">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-mono text-gray-400">{item.Date || "Không rõ ngày"}</span>
+                            <span className={`pill ${item.Type === "bonus" ? "pill-green" : item.Type === "advance" ? "pill-amber" : "pill-red"} border text-[7px] font-black uppercase px-1 py-0`}>
+                              {item.Type === "bonus" ? "Thưởng" : item.Type === "advance" ? "Tạm ứng" : "Phạt"}
+                            </span>
+                          </div>
+                          <p className="text-[#4B3621] text-[10px] leading-tight italic">{item.Note}</p>
+                        </div>
+                        <span className={`font-bold font-mono text-xs ${item.Type === "bonus" ? "text-emerald-600" : item.Type === "advance" ? "text-amber-600" : "text-red-600"}`}>
+                          {item.Type === "bonus" ? "+" : "-"}{amount.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
-                      <p className="text-[#4B3621] text-[10px] leading-tight italic">{item.Note}</p>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4 space-y-1">
+                  <p className="text-[10.5px] text-gray-400 italic font-sans">Không có khoản thưởng/phạt nào trong khoảng thời gian đã chọn.</p>
+                  <button
+                    type="button"
+                    onClick={setPayrollAllTime}
+                    className="text-[10px] font-bold text-[#7c4831] underline cursor-pointer"
+                  >
+                    Xem tất cả thời gian
+                  </button>
+                </div>
+              )
+            )}
+
+            {/* Chi tiết Ca làm việc */}
+            {payrollDetailTab === "shifts" && (
+              myCompletedShifts.length > 0 ? (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {myCompletedShifts.map((s: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center bg-[#FAF9F6] border border-[#7c4831]/5 p-2 rounded-xl text-[11px] font-semibold">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-mono font-bold text-[#7c4831]">{s.date}</span>
+                          <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold">
+                            Ca {s.startTime} - {s.endTime}
+                          </span>
+                        </div>
+                        <p className="text-gray-500 text-[9.5px]">
+                          Vào: {s.checkInTime ? s.checkInTime.slice(0, 5) : "--:--"} • Ra: {s.checkOutTime ? s.checkOutTime.slice(0, 5) : "--:--"}
+                          <span className="font-bold text-[#7c4831] ml-1">({s.actualHours}h tính lương)</span>
+                        </p>
+                      </div>
+                      <span className="font-bold font-mono text-xs text-blue-700">
+                        +{s.shiftPay.toLocaleString("vi-VN")}đ
+                      </span>
                     </div>
-                    <span className={`font-bold font-mono text-xs ${item.Type === "bonus" ? "text-emerald-600" : item.Type === "advance" ? "text-amber-600" : "text-red-600"}`}>
-                      {item.Type === "bonus" ? "+" : "-"}{amount.toLocaleString("vi-VN")}đ
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-[10px] text-gray-400 italic text-center pt-2">Không có khoản thưởng/phạt riêng nào.</p>
-          )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 space-y-1">
+                  <p className="text-[10.5px] text-gray-400 italic font-sans">Không có ca làm việc nào đã hoàn thành trong khoảng thời gian này.</p>
+                  <button
+                    type="button"
+                    onClick={setPayrollAllTime}
+                    className="text-[10px] font-bold text-[#7c4831] underline cursor-pointer"
+                  >
+                    Xem tất cả thời gian
+                  </button>
+                </div>
+              )
+            )}
+          </div>
         </div>
 
         {/* Activity Logs */}
