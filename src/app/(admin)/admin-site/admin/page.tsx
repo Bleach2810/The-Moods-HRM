@@ -202,6 +202,18 @@ export default function AdminPortal() {
     }
   }, [showNotification]);
 
+  const handleNotificationClick = (n: any) => {
+    if (!n.isRead) markNotificationAsRead?.(n.id);
+    setShowNotification(false);
+    const titleLower = (n.title || "").toLowerCase();
+    const msgLower = (n.message || "").toLowerCase();
+    if (n.link === "requests" || titleLower.includes("ca") || titleLower.includes("đơn") || titleLower.includes("nghỉ") || titleLower.includes("yêu cầu") || msgLower.includes("đổi ca") || msgLower.includes("kéo ca") || msgLower.includes("nghỉ phép")) {
+      handleSetPage("requests");
+    } else if (n.link === "schedule" || titleLower.includes("lịch") || msgLower.includes("lịch")) {
+      handleSetPage("schedule");
+    }
+  };
+
   const [desktopExpanded, setDesktopExpanded] = useState(true);
 
   // Staff Management States
@@ -1352,13 +1364,13 @@ export default function AdminPortal() {
   const DashView = () => {
     const totalCust = customers?.length || 0;
     const totalPts = customers?.reduce((s: number, c: any) => s + c.points, 0) || 0;
-    const pendingReqs = requests?.filter((r: any) => r.status === "pending").length || 0;
+    const pendingReqs = requests?.filter((r: any) => r.type === "leave" && r.status === "pending").length || 0;
     const totalShifts = shifts?.length || 0;
 
     const kpis = [
       { label: "Tổng Khách Hàng", value: totalCust, icon: Users, subText: "+4.2% so với tháng trước", subClass: "text-emerald-600" },
       { label: "Tổng Điểm Tích Lũy", value: totalPts, icon: TrendingUp, subText: "+8.5% so với tháng trước", subClass: "text-emerald-600" },
-      { label: "Đơn Chờ Xét Duyệt", value: pendingReqs, icon: FileCheck, subText: "Yêu cầu cần giải quyết", subClass: pendingReqs > 0 ? "text-[#7A2F1E]" : "text-gray-400" },
+      { label: "Đơn Nghỉ Chờ Duyệt", value: pendingReqs, icon: FileCheck, subText: "Đơn nghỉ phép cần xử lý", subClass: pendingReqs > 0 ? "text-[#7A2F1E]" : "text-gray-400" },
       { label: "Số Ca Trực Tuần", value: totalShifts, icon: Calendar, subText: "Đã phân bổ ca trực", subClass: "text-gray-400" },
     ];
 
@@ -3381,22 +3393,24 @@ export default function AdminPortal() {
 
   // === REQUESTS ===
   const ReqsView = () => {
-    const pending = requests?.filter((r: any) => r.status === "pending") || [];
+    const adminPending = requests?.filter((r: any) => r.type === "leave" && r.status === "pending") || [];
+    const peerPending = requests?.filter((r: any) => (r.type === "swap" || r.type === "extension") && r.status === "pending") || [];
     const resolved = requests?.filter((r: any) => r.status !== "pending") || [];
     return (
       <div className="space-y-6 anim-fadeUp text-[#4B3621]">
         <div className="border-b border-gray-200/50 pb-4">
           <h2 className="text-2xl font-black uppercase tracking-tight text-[#7c4831]">Phê Duyệt Đơn Nhân Sự</h2>
-          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Duyệt xin nghỉ phép và yêu cầu đổi ca trực của nhân viên</p>
+          <p className="text-xs font-bold text-[#7c4831]/60 uppercase mt-0.5">Duyệt xin nghỉ phép của nhân viên & Theo dõi đơn tự đổi ca / kéo ca của nhân sự</p>
         </div>
 
+        {/* 1. Đơn Nghỉ Phép Chờ Quản Lý Duyệt */}
         <div className="card space-y-4">
           <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#92400E] border-b border-gray-100 pb-3">
-            <FileCheck size={16} /> Danh Sách Đơn Đang Chờ ({pending.length})
+            <FileCheck size={16} /> Đơn Nghỉ Phép Chờ Quản Lý Duyệt ({adminPending.length})
           </h3>
-          {pending.length === 0 ? (
-            <p className="text-xs text-gray-400 italic py-6 text-center">Hiện tại không có đơn nào đang chờ duyệt.</p>
-          ) : pending.map((r: any) => (
+          {adminPending.length === 0 ? (
+            <p className="text-xs text-gray-400 italic py-6 text-center">Hiện tại không có đơn xin nghỉ phép nào đang chờ duyệt.</p>
+          ) : adminPending.map((r: any) => (
             <div key={r.id} className="p-4 rounded-2xl bg-[#FAF9F6] border border-gray-100 space-y-3.5 shadow-xs anim-scaleIn">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2.5">
@@ -3405,15 +3419,71 @@ export default function AdminPortal() {
                   </div>
                   <span className="font-extrabold text-sm uppercase tracking-tight text-[#4B3621]">{r.staffName}</span>
                 </div>
-                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"} border`}>{r.type === "leave" ? "Nghỉ phép" : "Đổi ca"}</span>
+                <span className="pill pill-violet border">Nghỉ phép</span>
               </div>
-              <p className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed">{r.date} — Lý do: {r.details}</p>
+              <div className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed space-y-1">
+                <p>{r.date} — {r.details}</p>
+              </div>
               <div className="flex gap-2.5 pt-1">
                 <button onClick={async () => {
                   await approveRequest(r.id);
                   fetchOfficialSchedules();
-                }} className="btn btn-success py-2 px-4 text-[10px] font-bold shadow-xs">Duyệt Đơn</button>
-                <button onClick={() => { rejectRequest(r.id); }} className="btn btn-danger py-2 px-4 text-[10px] font-bold shadow-xs">Từ Chối</button>
+                }} className="btn btn-success py-2 px-4 text-[10px] font-bold shadow-xs">
+                  Duyệt Đơn
+                </button>
+                <button onClick={() => { rejectRequest(r.id); }} className="btn btn-danger py-2 px-4 text-[10px] font-bold shadow-xs">
+                  Từ Chối
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 2. Đơn nhân sự tự duyệt với nhau (Kéo ca & Đổi ca) - Admin chỉ theo dõi, không cần duyệt */}
+        <div className="card space-y-4">
+          <div className="border-b border-gray-100 pb-3">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-2 text-[#7c4831]">
+              <Users size={16} /> Đơn Kéo Ca & Đổi Ca — Nhân Sự Tự Duyệt Với Nhau ({peerPending.length})
+            </h3>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+              Các đơn này do nhân viên gửi trực tiếp cho đồng nghiệp và tự duyệt với nhau trên ứng dụng nhân viên. Quản lý không cần duyệt.
+            </p>
+          </div>
+          {peerPending.length === 0 ? (
+            <p className="text-xs text-gray-400 italic py-4 text-center">Không có đơn đổi ca hoặc kéo ca nào đang chờ đồng nghiệp phản hồi.</p>
+          ) : peerPending.map((r: any) => (
+            <div key={r.id} className="p-4 rounded-2xl bg-[#FAF9F6]/80 border border-gray-100 space-y-2.5 shadow-xs">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-[10px] shadow-xs border ${getAvatarBg(r.staffName)}`}>
+                    {getInitials(r.staffName)}
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-sm uppercase tracking-tight text-[#4B3621]">{r.staffName}</span>
+                    <span className="text-[10px] text-gray-400 block font-semibold">Người gửi đơn</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`pill ${r.type === "extension" ? "pill-amber" : "pill-blue"} border`}>
+                    {r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                  </span>
+                  <span className="pill pill-amber text-[9px] border font-bold">
+                    {r.type === "extension" 
+                      ? `Đang chờ ${r.swapWithStaffName || "đồng nghiệp"} duyệt kéo ca` 
+                      : `Đang chờ ${r.swapWithStaffName || "đồng nghiệp"} duyệt đổi ca`}
+                  </span>
+                </div>
+              </div>
+              <div className="text-xs text-[#4B3621] font-semibold bg-white p-3 rounded-xl border border-gray-100 leading-relaxed space-y-1">
+                <p>{r.date} — {r.details}</p>
+                {r.swapWithStaffName && (
+                  <p className="text-[10px] text-gray-500">
+                    Gửi tới đồng nghiệp: <strong className="text-[#7c4831]">{r.swapWithStaffName}</strong>
+                  </p>
+                )}
+              </div>
+              <div className="text-[10px] text-amber-700 bg-amber-50/80 px-3 py-1.5 rounded-lg border border-amber-200/50 font-semibold">
+                ℹ️ Nhân viên {r.swapWithStaffName || "được chọn"} sẽ nhận thông báo và tự duyệt đơn này trong ca của mình.
               </div>
             </div>
           ))}
@@ -3429,8 +3499,16 @@ export default function AdminPortal() {
                     {getInitials(r.staffName)}
                   </div>
                   <div>
-                    <p className="font-extrabold uppercase text-[#4B3621] tracking-tight">{r.staffName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-extrabold uppercase text-[#4B3621] tracking-tight">{r.staffName}</p>
+                      <span className={`pill ${r.type === "leave" ? "pill-violet" : r.type === "extension" ? "pill-amber" : "pill-blue"} text-[8px]`}>
+                        {r.type === "leave" ? "Nghỉ phép" : r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                      </span>
+                    </div>
                     <p className="text-[#7c4831]/70 font-semibold mt-0.5">{r.date} — {r.details}</p>
+                    {r.swapWithStaffName && (
+                      <p className="text-[10px] text-gray-500">Đổi với: <strong className="text-[#7c4831]">{r.swapWithStaffName}</strong></p>
+                    )}
                   </div>
                 </div>
                 <span className={`pill ${r.status === "approved" ? "pill-green" : "pill-red"} text-[8px] font-bold border`}>{r.status === "approved" ? "Đã Duyệt" : "Bác Bỏ"}</span>
@@ -5744,9 +5822,9 @@ export default function AdminPortal() {
               notifications.map((n: any) => (
                 <div
                   key={n.id}
-                  onClick={() => !n.isRead && markNotificationAsRead?.(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`p-3 rounded-2xl border text-xs transition-all relative ${n.isRead
-                    ? "bg-gray-50 border-gray-100 opacity-75"
+                    ? "bg-gray-50 border-gray-100 opacity-75 hover:bg-gray-100/70 cursor-pointer"
                     : "bg-[#7c4831]/5 border-[#7c4831]/20 font-bold cursor-pointer hover:bg-[#7c4831]/10"
                     }`}
                 >
@@ -5755,7 +5833,14 @@ export default function AdminPortal() {
                   )}
                   <h5 className="text-[#7c4831] font-bold text-[11px]">{n.title}</h5>
                   <p className="text-gray-600 mt-1 leading-relaxed text-[10.5px]">{n.message}</p>
-                  <span className="text-[9px] text-gray-400 font-mono block mt-1">{n.createdAt}</span>
+                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-[#7c4831]/5">
+                    <span className="text-[9px] text-gray-400 font-mono">{n.createdAt}</span>
+                    {(n.link === "requests" || (n.title || "").toLowerCase().includes("ca") || (n.title || "").toLowerCase().includes("đơn") || (n.title || "").toLowerCase().includes("yêu cầu") || (n.message || "").toLowerCase().includes("đổi ca") || (n.message || "").toLowerCase().includes("kéo ca") || (n.message || "").toLowerCase().includes("nghỉ phép")) && (
+                      <span className="text-[10px] text-[#7c4831] font-black flex items-center gap-0.5 hover:underline">
+                        Xem đơn duyệt →
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (

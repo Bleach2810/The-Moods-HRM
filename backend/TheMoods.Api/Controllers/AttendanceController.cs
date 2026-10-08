@@ -596,6 +596,9 @@ namespace TheMoods.Api.Controllers
                     date = s.Date.ToString("yyyy-MM-dd"),
                     startTime = s.StartTime.ToString(@"hh\:mm"),
                     endTime = s.EndTime.ToString(@"hh\:mm"),
+                    originalStartTime = s.OriginalStartTime != null ? s.OriginalStartTime.Value.ToString(@"hh\:mm") : null,
+                    originalEndTime = s.OriginalEndTime != null ? s.OriginalEndTime.Value.ToString(@"hh\:mm") : null,
+                    extensionDurationMinutes = s.ExtensionDurationMinutes,
                     clockedIn = s.Attendances.Any(),
                     clockedOut = s.Attendances.Any(a => a.CheckOutTime != null),
                     checkInTime = s.Attendances.Any() ? s.Attendances.First().CheckInTime.ToString("HH:mm:ss") : null,
@@ -1646,6 +1649,10 @@ namespace TheMoods.Api.Controllers
                     r.SwapWithStaffName,
                     r.SwapWithStaffId,
                     r.SwapWithShiftId,
+                    extensionDurationMinutes = r.ExtensionDurationMinutes,
+                    originalStartTime = r.OriginalStartTime != null ? r.OriginalStartTime.Value.ToString(@"hh\:mm") : null,
+                    requestedStartTime = r.RequestedStartTime != null ? r.RequestedStartTime.Value.ToString(@"hh\:mm") : null,
+                    requestedEndTime = r.RequestedEndTime != null ? r.RequestedEndTime.Value.ToString(@"hh\:mm") : null,
                     createdAt = r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
                 })
                 .ToListAsync();
@@ -1683,7 +1690,21 @@ namespace TheMoods.Api.Controllers
                 var initiator = await _context.Users.FindAsync(dto.UserId);
                 if (dto.Type == "swap")
                 {
-                    // 1. Notify target staff
+                    // 1. Notify initiator (A)
+                    if (initiator != null)
+                    {
+                        var initiatorNotif = new Notification
+                        {
+                            UserId = dto.UserId,
+                            Title = "Đã gửi đơn đổi ca trực",
+                            Message = $"Bạn đã gửi đơn đổi ca trực ngày {dto.Date} với {dto.SwapWithStaffName}. Đang chờ {dto.SwapWithStaffName} duyệt đơn.",
+                            Link = "requests"
+                        };
+                        _context.Notifications.Add(initiatorNotif);
+                        await SendPushNotification(dto.UserId, initiatorNotif.Title, initiatorNotif.Message);
+                    }
+
+                    // 2. Notify target staff (B)
                     if (!string.IsNullOrEmpty(dto.SwapWithStaffId))
                     {
                         var targetUser = await _context.Users.FindAsync(dto.SwapWithStaffId);
@@ -1692,8 +1713,9 @@ namespace TheMoods.Api.Controllers
                             var targetNotif = new Notification
                             {
                                 UserId = dto.SwapWithStaffId,
-                                Title = "Yêu cầu đổi ca trực",
-                                Message = $"Bạn nhận được yêu cầu đổi ca trực từ {initiator.FullName} cho ca ngày {dto.Date}. Vui lòng chờ quản lý phê duyệt."
+                                Title = "Yêu cầu đổi ca trực mới",
+                                Message = $"{initiator.FullName} đã gửi đơn đổi ca trực ngày {dto.Date} với bạn. Vui lòng vào duyệt đơn.",
+                                Link = "requests"
                             };
                             _context.Notifications.Add(targetNotif);
                             
@@ -1702,7 +1724,7 @@ namespace TheMoods.Api.Controllers
                         }
                     }
 
-                    // 2. Notify branch admins
+                    // 3. Notify branch admins
                     var branchAdmins = await _context.UserLocations
                         .Include(ul => ul.User)
                         .Where(ul => ul.LocationId == dto.LocationId && (ul.User!.RoleId == 1 || ul.User!.RoleId == 2))
@@ -1715,7 +1737,8 @@ namespace TheMoods.Api.Controllers
                         {
                             UserId = adminId,
                             Title = "Yêu cầu đổi ca trực mới",
-                            Message = $"{initiator?.FullName} đã gửi yêu cầu đổi ca trực với {dto.SwapWithStaffName} ngày {dto.Date}."
+                            Message = $"{initiator?.FullName} đã gửi đơn đổi ca trực với {dto.SwapWithStaffName} ngày {dto.Date}. Đang chờ {dto.SwapWithStaffName} duyệt.",
+                            Link = "requests"
                         };
                         _context.Notifications.Add(adminNotif);
                         
@@ -1738,7 +1761,8 @@ namespace TheMoods.Api.Controllers
                         {
                             UserId = adminId,
                             Title = "Đơn xin nghỉ phép mới",
-                            Message = $"{initiator?.FullName} đã gửi đơn xin nghỉ ca trực ngày {dto.Date}."
+                            Message = $"{initiator?.FullName} đã gửi đơn xin nghỉ ca trực ngày {dto.Date}.",
+                            Link = "requests"
                         };
                         _context.Notifications.Add(adminNotif);
                         
@@ -1758,7 +1782,8 @@ namespace TheMoods.Api.Controllers
                             {
                                 UserId = dto.SwapWithStaffId,
                                 Title = "Yêu cầu kéo ca trực",
-                                Message = $"Bạn nhận được yêu cầu kéo ca từ {initiator.FullName} cho ca ngày {dto.Date}. Vui lòng xác nhận."
+                                Message = $"Bạn nhận được yêu cầu kéo ca từ {initiator.FullName} cho ca ngày {dto.Date}. Vui lòng bấm để xem và xác nhận.",
+                                Link = "requests"
                             };
                             _context.Notifications.Add(targetNotif);
                             await SendPushNotification(dto.SwapWithStaffId, targetNotif.Title, targetNotif.Message);
@@ -1816,7 +1841,8 @@ namespace TheMoods.Api.Controllers
                     {
                         UserId = request.UserId,
                         Title = "Đơn xin nghỉ phép đã được duyệt",
-                        Message = $"Đơn xin nghỉ ca trực ngày {request.Date} của bạn đã được quản lý phê duyệt."
+                        Message = $"Đơn xin nghỉ ca trực ngày {request.Date} của bạn đã được quản lý phê duyệt.",
+                        Link = "requests"
                     };
                     _context.Notifications.Add(initiatorNotif);
                     
@@ -1829,13 +1855,19 @@ namespace TheMoods.Api.Controllers
             {
                 var initSchedule = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
                 var targetSchedule = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
-
                 if (initSchedule != null && targetSchedule != null)
                 {
-                    // Swap user assignments
-                    var tempUserId = initSchedule.UserId;
-                    initSchedule.UserId = targetSchedule.UserId;
-                    targetSchedule.UserId = tempUserId;
+                    // Swap user assignments: A's shift goes to B, B's shift goes to A
+                    var userAId = request.UserId;
+                    var userBId = !string.IsNullOrEmpty(request.SwapWithStaffId) ? request.SwapWithStaffId : targetSchedule.UserId;
+
+                    initSchedule.User = null;
+                    initSchedule.UserId = userBId;
+                    _context.Entry(initSchedule).Property(s => s.UserId).IsModified = true;
+
+                    targetSchedule.User = null;
+                    targetSchedule.UserId = userAId;
+                    _context.Entry(targetSchedule).Property(s => s.UserId).IsModified = true;
 
                     // Notify both users
                     var userA = await _context.Users.FindAsync(request.UserId);
@@ -1845,13 +1877,15 @@ namespace TheMoods.Api.Controllers
                     {
                         UserId = request.UserId,
                         Title = "Đổi ca trực thành công",
-                        Message = $"Yêu cầu đổi ca trực của bạn với {userB?.FullName} ngày {request.Date} đã được quản lý phê duyệt."
+                        Message = $"Yêu cầu đổi ca trực của bạn với {userB?.FullName} ngày {request.Date} đã được phê duyệt.",
+                        Link = "requests"
                     };
                     var notifB = new Notification
                     {
                         UserId = request.SwapWithStaffId ?? string.Empty,
                         Title = "Đổi ca trực thành công",
-                        Message = $"Yêu cầu đổi ca trực giữa bạn và {userA?.FullName} ngày {request.Date} đã được quản lý phê duyệt."
+                        Message = $"Yêu cầu đổi ca trực giữa bạn và {userA?.FullName} ngày {request.Date} đã được phê duyệt.",
+                        Link = "requests"
                     };
 
                     _context.Notifications.Add(notifA);
@@ -1887,7 +1921,8 @@ namespace TheMoods.Api.Controllers
                 {
                     UserId = request.UserId,
                     Title = "Đơn yêu cầu bị từ chối",
-                    Message = $"Đơn yêu cầu {(request.Type == "swap" ? "đổi ca trực" : "nghỉ phép")} ngày {request.Date} của bạn đã bị quản lý từ chối."
+                    Message = $"Đơn yêu cầu {(request.Type == "swap" ? "đổi ca trực" : "nghỉ phép")} ngày {request.Date} của bạn đã bị từ chối.",
+                    Link = "requests"
                 };
                 _context.Notifications.Add(initiatorNotif);
                 await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
@@ -1899,7 +1934,8 @@ namespace TheMoods.Api.Controllers
                     {
                         UserId = request.SwapWithStaffId,
                         Title = "Yêu cầu đổi ca trực bị từ chối",
-                        Message = $"Yêu cầu đổi ca trực ngày {request.Date} liên quan đến bạn đã bị quản lý từ chối."
+                        Message = $"Yêu cầu đổi ca trực ngày {request.Date} liên quan đến bạn đã bị từ chối.",
+                        Link = "requests"
                     };
                     _context.Notifications.Add(targetNotif);
                     await SendPushNotification(request.SwapWithStaffId, targetNotif.Title, targetNotif.Message);
@@ -1912,6 +1948,168 @@ namespace TheMoods.Api.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Từ chối đơn thành công!" });
+        }
+
+        [HttpPost("requests/{id}/accept-swap")]
+        public async Task<IActionResult> AcceptSwap(string id)
+        {
+            var request = await _context.StaffRequests.FindAsync(id);
+
+            if (request == null || request.Type != "swap")
+            {
+                return NotFound(new { message = "Yêu cầu đổi ca không tồn tại!" });
+            }
+
+            if (request.Status != "pending")
+            {
+                return BadRequest(new { message = "Yêu cầu này đã được xử lý!" });
+            }
+
+            if (string.IsNullOrEmpty(request.TargetShiftId) || string.IsNullOrEmpty(request.SwapWithShiftId))
+            {
+                return BadRequest(new { message = "Thông tin ca trực đổi ca không đầy đủ!" });
+            }
+
+            var initSchedule = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
+            var targetSchedule = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
+
+            if (initSchedule == null || targetSchedule == null)
+            {
+                return NotFound(new { message = "Không tìm thấy ca trực của một trong hai bên!" });
+            }
+
+            // Swap user assignments: A's shift goes to B, B's shift goes to A
+            var userAId = request.UserId;
+            var userBId = !string.IsNullOrEmpty(request.SwapWithStaffId) ? request.SwapWithStaffId : targetSchedule.UserId;
+
+            initSchedule.User = null;
+            initSchedule.UserId = userBId;
+            _context.Entry(initSchedule).Property(s => s.UserId).IsModified = true;
+
+            targetSchedule.User = null;
+            targetSchedule.UserId = userAId;
+            _context.Entry(targetSchedule).Property(s => s.UserId).IsModified = true;
+
+            request.Status = "approved";
+
+            try
+            {
+                var userA = await _context.Users.FindAsync(request.UserId);
+                var userB = await _context.Users.FindAsync(request.SwapWithStaffId);
+
+                // 1. Notify A (initiator)
+                var notifA = new Notification
+                {
+                    UserId = request.UserId,
+                    Title = "Đổi ca trực thành công",
+                    Message = $"{userB?.FullName} đã duyệt đơn đổi ca trực ngày {request.Date}. Lịch trực của hai bạn đã tự động đổi cho nhau!",
+                    Link = "requests"
+                };
+                _context.Notifications.Add(notifA);
+                await SendPushNotification(request.UserId, notifA.Title, notifA.Message);
+
+                // 2. Notify B (target staff who approved)
+                if (!string.IsNullOrEmpty(request.SwapWithStaffId))
+                {
+                    var notifB = new Notification
+                    {
+                        UserId = request.SwapWithStaffId,
+                        Title = "Đổi ca trực thành công",
+                        Message = $"Bạn đã duyệt đơn đổi ca trực ngày {request.Date} với {userA?.FullName}. Lịch trực của hai bạn đã tự động đổi cho nhau!",
+                        Link = "requests"
+                    };
+                    _context.Notifications.Add(notifB);
+                    await SendPushNotification(request.SwapWithStaffId, notifB.Title, notifB.Message);
+                }
+
+                // 3. Notify branch admins
+                var branchAdmins = await _context.UserLocations
+                    .Include(ul => ul.User)
+                    .Where(ul => ul.LocationId == request.LocationId && (ul.User!.RoleId == 1 || ul.User!.RoleId == 2))
+                    .Select(ul => ul.UserId)
+                    .ToListAsync();
+
+                foreach (var adminId in branchAdmins)
+                {
+                    var adminNotif = new Notification
+                    {
+                        UserId = adminId,
+                        Title = "Đổi ca trực thành công",
+                        Message = $"{userB?.FullName} đã duyệt đơn đổi ca trực với {userA?.FullName} ngày {request.Date}. Lịch trực đã tự động đổi cho nhau.",
+                        Link = "requests"
+                    };
+                    _context.Notifications.Add(adminNotif);
+                    await SendPushNotification(adminId, adminNotif.Title, adminNotif.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error sending swap notifications: " + ex.Message);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã duyệt đơn đổi ca thành công! Lịch trực của hai bên đã được tự động hoán đổi." });
+        }
+
+        [HttpPost("requests/{id}/reject-swap")]
+        public async Task<IActionResult> RejectSwap(string id)
+        {
+            var request = await _context.StaffRequests.FindAsync(id);
+            if (request == null || request.Type != "swap")
+            {
+                return NotFound(new { message = "Yêu cầu đổi ca không tồn tại!" });
+            }
+
+            if (request.Status != "pending")
+            {
+                return BadRequest(new { message = "Yêu cầu này đã được xử lý!" });
+            }
+
+            request.Status = "rejected";
+
+            try
+            {
+                var userA = await _context.Users.FindAsync(request.UserId);
+                var userB = await _context.Users.FindAsync(request.SwapWithStaffId);
+
+                // 1. Notify A (initiator)
+                var initiatorNotif = new Notification
+                {
+                    UserId = request.UserId,
+                    Title = "Đơn đổi ca bị từ chối",
+                    Message = $"Nhân viên {userB?.FullName ?? request.SwapWithStaffName} đã từ chối đơn đổi ca trực ngày {request.Date} của bạn.",
+                    Link = "requests"
+                };
+                _context.Notifications.Add(initiatorNotif);
+                await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
+
+                // 2. Notify branch admins
+                var branchAdmins = await _context.UserLocations
+                    .Include(ul => ul.User)
+                    .Where(ul => ul.LocationId == request.LocationId && (ul.User!.RoleId == 1 || ul.User!.RoleId == 2))
+                    .Select(ul => ul.UserId)
+                    .ToListAsync();
+
+                foreach (var adminId in branchAdmins)
+                {
+                    var adminNotif = new Notification
+                    {
+                        UserId = adminId,
+                        Title = "Đổi ca trực bị từ chối",
+                        Message = $"{userB?.FullName ?? request.SwapWithStaffName} đã từ chối đơn đổi ca trực ngày {request.Date} từ {userA?.FullName}.",
+                        Link = "requests"
+                    };
+                    _context.Notifications.Add(adminNotif);
+                    await SendPushNotification(adminId, adminNotif.Title, adminNotif.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error sending swap reject notifications: " + ex.Message);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã từ chối đơn đổi ca!" });
         }
 
         [HttpPost("requests/{id}/accept-extension")]
@@ -1987,7 +2185,8 @@ namespace TheMoods.Api.Controllers
                 {
                     UserId = request.UserId,
                     Title = "Yêu cầu kéo ca đã được chấp nhận",
-                    Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca ngày {request.Date}."
+                    Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca ngày {request.Date}.",
+                    Link = "requests"
                 };
                 _context.Notifications.Add(initiatorNotif);
                 await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
@@ -2005,7 +2204,8 @@ namespace TheMoods.Api.Controllers
                     {
                         UserId = adminId,
                         Title = "Thông báo kéo ca trực",
-                        Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca cho {request.User?.FullName} ngày {request.Date}."
+                        Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca cho {request.User?.FullName} ngày {request.Date}.",
+                        Link = "requests"
                     };
                     _context.Notifications.Add(adminNotif);
                     await SendPushNotification(adminId, adminNotif.Title, adminNotif.Message);
@@ -2042,7 +2242,8 @@ namespace TheMoods.Api.Controllers
                 {
                     UserId = request.UserId,
                     Title = "Yêu cầu kéo ca bị từ chối",
-                    Message = $"Nhân viên {request.SwapWithStaffName} đã từ chối yêu cầu kéo ca ngày {request.Date} của bạn."
+                    Message = $"Nhân viên {request.SwapWithStaffName} đã từ chối yêu cầu kéo ca ngày {request.Date} của bạn.",
+                    Link = "requests"
                 };
                 _context.Notifications.Add(initiatorNotif);
                 await SendPushNotification(request.UserId, initiatorNotif.Title, initiatorNotif.Message);
@@ -2443,6 +2644,7 @@ namespace TheMoods.Api.Controllers
                     n.Title,
                     n.Message,
                     n.IsRead,
+                    n.Link,
                     createdAt = n.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
                 })
                 .ToListAsync();

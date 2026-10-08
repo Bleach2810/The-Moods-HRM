@@ -563,6 +563,20 @@ export default function StaffPortal() {
     }
   }, [showNotifications]);
 
+  const handleNotificationClick = (n: any) => {
+    if (!n.isRead) markNotificationAsRead?.(n.id);
+    setShowNotifications(false);
+    const titleLower = (n.title || "").toLowerCase();
+    const msgLower = (n.message || "").toLowerCase();
+    if (n.link === "requests" || titleLower.includes("ca") || titleLower.includes("đơn") || titleLower.includes("nghỉ") || titleLower.includes("yêu cầu") || msgLower.includes("đổi ca") || msgLower.includes("kéo ca") || msgLower.includes("nghỉ phép")) {
+      setTab("requests");
+    } else if (n.link === "schedule" || titleLower.includes("lịch") || msgLower.includes("lịch")) {
+      setTab("schedule");
+    } else if (n.link === "attend" || titleLower.includes("chấm công") || titleLower.includes("giờ làm") || msgLower.includes("tăng ca")) {
+      setTab("attend");
+    }
+  };
+
   const parseTimeToFloat = (timeStr: string) => {
     if (!timeStr) return 0;
     const parts = timeStr.split(":");
@@ -755,16 +769,26 @@ export default function StaffPortal() {
 
   const handleReq = (e: React.FormEvent) => {
     e.preventDefault();
-    if (reqType === "leave" && !targetShiftId) {
-      alert("Vui lòng chọn ca trực muốn xin nghỉ!");
-      return;
+    if (reqType === "leave") {
+      if (!targetShiftId) {
+        alert("Vui lòng chọn ca trực muốn xin nghỉ!");
+        return;
+      }
+      if (!reqDate) return;
     }
-    if (!reqDate) return;
 
     let detailsText = reqDetails;
     if (reqType === "swap") {
+      if (!reqDate) {
+        alert("Vui lòng chọn ngày muốn đổi ca!");
+        return;
+      }
       if (!targetShiftId || !swapWithStaffId || !swapWithShiftId) {
         alert("Vui lòng chọn đầy đủ ca của bạn, đồng nghiệp và ca của đồng nghiệp!");
+        return;
+      }
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do đổi ca!");
         return;
       }
       const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
@@ -772,8 +796,29 @@ export default function StaffPortal() {
       const myTimeRange = mySelectedShift ? `${mySelectedShift.startTime} - ${mySelectedShift.endTime}` : "";
       const colleagueTimeRange = colleagueSelectedShift ? `${colleagueSelectedShift.startTime} - ${colleagueSelectedShift.endTime}` : "";
       detailsText = `Đổi ca (${myTimeRange}) ngày ${reqDate} với đồng nghiệp ${swapStaffName} (ca ${colleagueTimeRange}). Lý do: ${reqDetails}`;
+    } else if (reqType === "extension") {
+      if (!reqDate) {
+        alert("Vui lòng chọn ngày muốn kéo ca!");
+        return;
+      }
+      if (!targetShiftId || !swapWithStaffId || !swapWithShiftId || !extensionDurationMinutes) {
+        alert("Vui lòng chọn đầy đủ ca của bạn, đồng nghiệp, ca của đồng nghiệp và số phút kéo ca!");
+        return;
+      }
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do kéo ca!");
+        return;
+      }
+      const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
+      const colleagueSelectedShift = (officialSchedulesList || []).find((s: any) => s.id === swapWithShiftId);
+      const myTimeRange = mySelectedShift ? `${mySelectedShift.startTime} - ${mySelectedShift.endTime}` : "";
+      const colleagueTimeRange = colleagueSelectedShift ? `${colleagueSelectedShift.startTime} - ${colleagueSelectedShift.endTime}` : "";
+      detailsText = `Kéo ca thêm ${extensionDurationMinutes} phút với đồng nghiệp ${swapStaffName} (ca bạn: ${myTimeRange}, ca đồng nghiệp: ${colleagueTimeRange}). Lý do: ${reqDetails}`;
     } else {
-      if (!reqDetails) return;
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do xin vắng mặt!");
+        return;
+      }
       const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
       if (mySelectedShift) {
         detailsText = `Xin vắng mặt ca ${mySelectedShift.startTime} - ${mySelectedShift.endTime} ngày ${mySelectedShift.date}. Lý do: ${reqDetails}`;
@@ -790,7 +835,7 @@ export default function StaffPortal() {
       (reqType === "swap" || reqType === "extension") ? swapWithShiftId : undefined,
       reqType === "extension" ? parseInt(extensionDurationMinutes) : undefined
     );
-    alert("Yêu cầu đã được gửi lên hệ thống phê duyệt!");
+    alert("Yêu cầu đã được gửi lên hệ thống thành công!");
     setReqDate("");
     setReqDetails("");
     setExtensionDurationMinutes("");
@@ -1984,6 +2029,25 @@ export default function StaffPortal() {
         alert("Có lỗi xảy ra khi thực hiện hành động này");
       }
     };
+
+    const handleSwapAction = async (id: string, action: "accept" | "reject") => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/attendance/requests/${id}/${action}-swap`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          alert(`Đã ${action === "accept" ? "duyệt đơn đổi ca thành công! Lịch trực của hai bạn đã tự động đổi cho nhau." : "từ chối đổi ca!"}`);
+          window.location.reload();
+        } else {
+          const data = await res.json();
+          alert(data.message || "Có lỗi xảy ra");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Có lỗi xảy ra khi thực hiện hành động này");
+      }
+    };
     const formatShiftDisplay = (sched: any) => {
       const daysOfWeek = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
       const startDate = new Date(sched.date);
@@ -2072,11 +2136,12 @@ export default function StaffPortal() {
       }
     );
 
+    const incomingReqs = (requests || []).filter((r: any) => r.swapWithStaffId === activeStaff?.id);
+    const outgoingReqs = (requests || []).filter((r: any) => r.userId === activeStaff?.id || (r.staffId === activeStaff?.id && r.swapWithStaffId !== activeStaff?.id));
+
     return (
       <div className="space-y-4 pb-28 anim-fadeUp">
         <div className="card"><h3 className="text-base font-bold text-[#7c4831] uppercase">Đơn Yêu Cầu Nhân Sự</h3></div>
-
-
 
         <form onSubmit={handleReq} className="card space-y-3">
           <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider flex items-center gap-1.5">
@@ -2119,9 +2184,8 @@ export default function StaffPortal() {
             >
               <option value="">Chọn ca muốn xin nghỉ...</option>
               {(() => {
-                const now = new Date();
                 return (officialSchedulesList || [])
-                  .filter((s: any) => !s.clockedIn && isShiftInFuture(s))
+                  .filter((s: any) => s.userId === activeStaff?.id && !s.clockedIn && isShiftInFuture(s))
                   .map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.date} (Ca: {s.startTime} - {s.endTime})
@@ -2200,7 +2264,7 @@ export default function StaffPortal() {
                 }}
                 className="input w-full text-sm font-semibold cursor-pointer"
               >
-                <option value="">Chọn đồng nghiệp muốn đổi ca</option>
+                <option value="">{reqType === "extension" ? "Chọn đồng nghiệp muốn kéo ca" : "Chọn đồng nghiệp muốn đổi ca"}</option>
                 {colleagues.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.fullName}</option>
                 ))}
@@ -2209,7 +2273,9 @@ export default function StaffPortal() {
               {/* Colleague date selection */}
               {swapWithStaffId && (
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-[#7c4831] block">Ngày trực của đồng nghiệp muốn đổi</label>
+                  <label className="text-[9px] font-black uppercase text-[#7c4831] block">
+                    {reqType === "extension" ? "Ngày trực của đồng nghiệp muốn kéo ca" : "Ngày trực của đồng nghiệp muốn đổi ca"}
+                  </label>
                   <input
                     type="date"
                     required
@@ -2292,36 +2358,91 @@ export default function StaffPortal() {
           </button>
         </form>
 
+        {/* Incoming requests (sent to active staff) */}
+        <div className="card space-y-3.5 border-2 border-[#7c4831]/20">
+          <div className="flex justify-between items-center">
+            <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider flex items-center gap-1.5">
+              📥 Đơn đồng nghiệp gửi tới bạn ({incomingReqs.length})
+            </h4>
+            {incomingReqs.some((r: any) => r.status === "pending") && (
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="Có đơn chờ phản hồi" />
+            )}
+          </div>
+          {incomingReqs.length === 0 ? (
+            <p className="text-xs text-[#4B3621]/60 font-semibold italic">Không có đơn yêu cầu nào gửi tới bạn.</p>
+          ) : incomingReqs.map((r: any) => (
+            <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-[#7c4831]/15 text-xs space-y-2 shadow-sm">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className={`pill ${r.type === "extension" ? "pill-amber" : "pill-blue"}`}>
+                    {r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500">Từ: <strong className="text-[#7c4831]">{r.staffName}</strong></span>
+                </div>
+                <span className={`pill ${r.status === "approved" ? "pill-green" : r.status === "rejected" ? "pill-red" : "pill-amber"} text-[8px]`}>
+                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : "Chờ bạn duyệt"}
+                </span>
+              </div>
+              <p className="text-[#4B3621] font-semibold">{r.date} — {r.details}</p>
+              
+              {/* Action buttons for target staff when status is pending */}
+              {r.status === "pending" && (
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#7c4831]/10">
+                  {r.type === "extension" ? (
+                    <>
+                      <button 
+                        onClick={() => handleExtensionAction(r.id, "reject")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+                      >
+                        Từ chối kéo ca
+                      </button>
+                      <button 
+                        onClick={() => handleExtensionAction(r.id, "accept")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-green-700 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+                      >
+                        Đồng ý kéo ca
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleSwapAction(r.id, "reject")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+                      >
+                        Từ chối
+                      </button>
+                      <button 
+                        onClick={() => handleSwapAction(r.id, "accept")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-green-700 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+                      >
+                        Duyệt đơn đổi ca
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Outgoing requests */}
         <div className="card space-y-3.5">
-          <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">📋 Đơn đã gửi ({myReqs.length})</h4>
-          {myReqs.length === 0 ? (
+          <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">📤 Đơn bạn đã gửi ({outgoingReqs.length})</h4>
+          {outgoingReqs.length === 0 ? (
             <p className="text-xs text-[#4B3621]/60 font-semibold italic">Chưa gửi đơn yêu cầu nào.</p>
-          ) : myReqs.map((r: any) => (
+          ) : outgoingReqs.map((r: any) => (
             <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-[#7c4831]/5 text-xs space-y-1.5 shadow-sm">
               <div className="flex justify-between items-center">
-                <span className={`pill ${r.type === "leave" ? "pill-violet" : r.type === "extension" ? "pill-amber" : "pill-blue"}`}>{r.type === "leave" ? "Nghỉ phép" : r.type === "extension" ? "Kéo ca" : "Đổi ca"}</span>
+                <span className={`pill ${r.type === "leave" ? "pill-violet" : r.type === "extension" ? "pill-amber" : "pill-blue"}`}>
+                  {r.type === "leave" ? "Nghỉ phép" : r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                </span>
                 <span className={`pill ${r.status === "approved" ? "pill-green" : r.status === "rejected" ? "pill-red" : "pill-amber"} text-[8px]`}>
-                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : "Chờ"}
+                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : (r.type === "swap" ? `Chờ ${r.swapWithStaffName || "đồng nghiệp"} duyệt` : "Đang chờ")}
                 </span>
               </div>
               <p className="text-[#4B3621] font-semibold mt-1">{r.date} — {r.details}</p>
-              
-              {/* Action buttons for target staff (Staff A) when status is pending and type is extension */}
-              {r.type === "extension" && r.status === "pending" && r.swapWithStaffId === activeStaff?.id && (
-                <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-[#7c4831]/10">
-                  <button 
-                    onClick={() => handleExtensionAction(r.id, "reject")}
-                    className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
-                  >
-                    Từ chối
-                  </button>
-                  <button 
-                    onClick={() => handleExtensionAction(r.id, "accept")}
-                    className="px-3 py-1.5 text-[10px] font-bold text-green-600 bg-green-50 rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
-                  >
-                    Đồng ý kéo ca
-                  </button>
-                </div>
+              {r.swapWithStaffName && (
+                <p className="text-[10px] text-gray-500">Đồng nghiệp liên quan: <strong className="text-[#7c4831]">{r.swapWithStaffName}</strong></p>
               )}
             </div>
           ))}
@@ -2856,6 +2977,54 @@ export default function StaffPortal() {
           <button type="submit" className="btn btn-primary w-full py-3.5 text-sm font-bold" id="staff-save">Lưu hồ sơ</button>
         </form>
 
+        {/* === THAY ĐỔI MÃ PIN === */}
+        <div className="card space-y-3.5 border border-[#7c4831]/15">
+          <div className="flex items-center gap-2 border-b border-[#7c4831]/10 pb-2.5">
+            <Lock size={16} className="text-[#7c4831]" />
+            <div>
+              <h4 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Thay đổi mã PIN cá nhân</h4>
+              <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">
+                Đổi mã PIN 6 chữ số dùng để đăng nhập ca trực ({activeStaff.phone || activeStaff.phoneNumber})
+              </p>
+            </div>
+          </div>
+          <form onSubmit={handleChangePin} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Mã PIN cũ (6 số) *</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                required
+                placeholder="Nhập 6 số PIN cũ"
+                value={oldPin}
+                onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))}
+                className="input w-full text-sm font-mono font-semibold"
+                id="staff-old-pin"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Mã PIN mới (6 số) *</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                required
+                placeholder="Nhập 6 số PIN mới"
+                value={newPin}
+                onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                className="input w-full text-sm font-mono font-semibold"
+                id="staff-new-pin"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary w-full py-3 text-xs font-bold uppercase tracking-wider" id="staff-change-pin-btn">
+              Cập nhật mã PIN
+            </button>
+          </form>
+        </div>
+
         {/* === NOTE CỦA QUẢN LÝ === */}
         <div className="card space-y-3 border border-[#7c4831]/15 bg-gradient-to-br from-[#FEF3C7]/60 to-[#FAF9F6]"
           style={{ boxShadow: '0 2px 12px rgba(124,72,49,0.07)' }}
@@ -3025,9 +3194,9 @@ export default function StaffPortal() {
                   notifications.map((n: any) => (
                     <div
                       key={n.id}
-                      onClick={() => !n.isRead && markNotificationAsRead?.(n.id)}
+                      onClick={() => handleNotificationClick(n)}
                       className={`p-3.5 rounded-2xl border text-xs transition-all relative ${n.isRead
-                        ? "bg-gray-50 border-gray-100 opacity-75"
+                        ? "bg-gray-50 border-gray-100 opacity-75 hover:bg-gray-100/70 cursor-pointer"
                         : "bg-[#7c4831]/5 border-[#7c4831]/20 font-bold cursor-pointer hover:bg-[#7c4831]/10"
                         }`}
                     >
@@ -3036,7 +3205,14 @@ export default function StaffPortal() {
                       )}
                       <h5 className="text-[#7c4831] font-bold text-[11.5px]">{n.title}</h5>
                       <p className="text-gray-600 mt-1 leading-relaxed text-[11px]">{n.message}</p>
-                      <span className="text-[9px] text-gray-400 font-mono block mt-1.5">{n.createdAt}</span>
+                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-[#7c4831]/5">
+                        <span className="text-[9px] text-gray-400 font-mono">{n.createdAt}</span>
+                        {(n.link === "requests" || (n.title || "").toLowerCase().includes("ca") || (n.title || "").toLowerCase().includes("đơn") || (n.title || "").toLowerCase().includes("yêu cầu") || (n.message || "").toLowerCase().includes("đổi ca") || (n.message || "").toLowerCase().includes("kéo ca")) && (
+                          <span className="text-[10px] text-[#7c4831] font-black flex items-center gap-0.5 hover:underline">
+                            Xem đơn yêu cầu →
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : (

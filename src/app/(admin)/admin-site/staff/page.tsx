@@ -2,11 +2,30 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { ScanLine, Clock, Calendar, ArrowLeftRight, Activity, ArrowLeft, Coffee, Lock, MapPin, CheckCircle, XCircle, AlertTriangle, LogOut, Plus, FileText, Send, User, Award, Bell } from "lucide-react";
+import { Bell, ScanLine, Clock, Calendar, ArrowLeftRight, Activity, ArrowLeft, Coffee, Lock, MapPin, CheckCircle, XCircle, AlertTriangle, LogOut, Plus, FileText, Send, User, Award } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import WheelPicker from "@/components/WheelPicker";
 import { useRouter } from "next/navigation";
+
+const LiveClock = () => {
+  const [time, setTime] = useState("");
+  React.useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className="text-2xl font-black text-[#7c4831] font-mono tracking-widest leading-none">
+      {time || "07:30:00"}
+    </span>
+  );
+};
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -55,7 +74,6 @@ const getVisualEventsForDay = (eventsList: any[], dayDateStr: string) => {
   return list;
 };
 
-
 const getLayoutedEvents = (events: any[]) => {
   const sorted = [...events].sort((a, b) => parseTimeToFloat(a.startTime) - parseTimeToFloat(b.startTime));
   const columns: any[][] = [];
@@ -94,27 +112,15 @@ const getLayoutedEvents = (events: any[]) => {
   return result;
 };
 
-const LiveClock = () => {
-  const [time, setTime] = useState("");
-  React.useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <span className="text-2xl font-black text-[#7c4831]  tracking-widest leading-none">
-      {time || "07:30:00"}
-    </span>
-  );
-};
-
 export default function StaffPortal() {
-  const { activeBrand, activeLocation, activeStaff: contextActiveStaff, loginStaff, logoutStaff, timekeeping, clockInStaff, clockOutStaff, shifts, registerShift, requests, submitRequest, logs, addPointsToCustomer, customers, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
+  const { activeBrand, activeLocation, activeStaff: contextActiveStaff, loginStaff, logoutStaff, timekeeping, clockInStaff, clockOutStaff, shifts, registerShift, requests, submitRequest, logs, addPointsToCustomer, customers, notifications, markNotificationAsRead, subscribeUserToPush, getDeviceSubscriptions, testPushNotification, getCurrentPushEndpoint, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
+
+  const [managerNote, setManagerNote] = React.useState("");
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setManagerNote(localStorage.getItem("moods_manager_note") || "");
+    }
+  }, []);
 
   const [localStaff, setLocalStaff] = useState<any>(null);
   const [tab, setTab] = useState<"scan" | "attend" | "schedule" | "requests" | "logs" | "profile">("scan");
@@ -174,7 +180,7 @@ export default function StaffPortal() {
         router.push("/");
         return;
       }
-      
+
       setIsAuthChecking(false);
 
       if (stored) {
@@ -282,7 +288,7 @@ export default function StaffPortal() {
         const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/setup-biometric`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey, locationId: activeLocation?.id || "govap-branch" }) // Staff-per-Branch
+          body: JSON.stringify({ phoneNumber: phone, biometricKey: bioKey, locationId: activeStaff?.locationId || activeLocation?.id || "govap-branch" }) // Staff-per-Branch
         });
         if (res.ok) {
           console.log("Biometric linked to DB successfully");
@@ -418,15 +424,15 @@ export default function StaffPortal() {
   }, []);
   const [staffId, setStaffId] = useState("");
   const [isRegGateLocked, setIsRegGateLocked] = useState(false);
-  const [managerNote, setManagerNote] = useState("Chúc mọi người một tuần làm việc vui vẻ!");
   const [availList, setAvailList] = useState<any[]>([]);
-  const [adjustmentsList, setAdjustmentsList] = useState<any[]>([]);
-  const [detailedHolidaysList, setDetailedHolidaysList] = useState<any[]>([]);
+  const [weekOffset, setWeekOffset] = useState(0);
   const [latePenaltyStartMinutes, setLatePenaltyStartMinutes] = useState("10");
   const [latePenaltyBaseAmount, setLatePenaltyBaseAmount] = useState("50000");
   const [latePenaltyIntervalMinutes, setLatePenaltyIntervalMinutes] = useState("10");
   const [latePenaltyMultiplier, setLatePenaltyMultiplier] = useState("2");
   const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
+  const [adjustmentsList, setAdjustmentsList] = useState<any[]>([]);
+  const [detailedHolidaysList, setDetailedHolidaysList] = useState<any[]>([]);
   const [payrollFromDate, setPayrollFromDate] = useState(() => {
     const d = new Date();
     const year = d.getFullYear();
@@ -488,7 +494,6 @@ export default function StaffPortal() {
       console.error(err);
     }
   };
-
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "warning" | "info">("success");
 
@@ -518,26 +523,32 @@ export default function StaffPortal() {
   const [isNearCounter, setIsNearCounter] = useState(true);
 
   // Schedule
-  const [shiftDate, setShiftDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [shiftDate, setShiftDate] = useState("");
   const [shiftType, setShiftType] = useState("Sáng (07:00 - 12:00)");
   const [expandReg, setExpandReg] = useState(false);
   const [expandShifts, setExpandShifts] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState("2026-06-02");
+
 
   // Requests
-  const [reqType, setReqType] = useState<"leave" | "swap">("leave");
+  const [reqType, setReqType] = useState<"leave" | "swap" | "extension">("leave");
+  const [extensionDurationMinutes, setExtensionDurationMinutes] = useState("");
   const [reqDate, setReqDate] = useState("");
   const [reqDetails, setReqDetails] = useState("");
   const [swapShiftId, setSwapShiftId] = useState("");
   const [swapStaffName, setSwapStaffName] = useState("");
   const [targetShiftId, setTargetShiftId] = useState("");
+  const [colleagues, setColleagues] = useState<any[]>([]);
+  const [ownShiftsCollapsed, setOwnShiftsCollapsed] = useState(false);
+  const [colleagueShiftsCollapsed, setColleagueShiftsCollapsed] = useState(false);
   const [swapWithStaffId, setSwapWithStaffId] = useState("");
   const [swapWithShiftId, setSwapWithShiftId] = useState("");
   const [swapColleagueDate, setSwapColleagueDate] = useState("");
-  const [colleagues, setColleagues] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pushPermission, setPushPermission] = useState<string>("");
+  const [pushDebugInfo, setPushDebugInfo] = useState<any>(null);
+  const [pushTestResult, setPushTestResult] = useState<any>(null);
+  const [loadingPushDebug, setLoadingPushDebug] = useState(false);
 
   React.useEffect(() => {
     if (showPushNotificationPrompt) {
@@ -551,6 +562,20 @@ export default function StaffPortal() {
       setPushPermission(Notification.permission);
     }
   }, [showNotifications]);
+
+  const handleNotificationClick = (n: any) => {
+    if (!n.isRead) markNotificationAsRead?.(n.id);
+    setShowNotifications(false);
+    const titleLower = (n.title || "").toLowerCase();
+    const msgLower = (n.message || "").toLowerCase();
+    if (n.link === "requests" || titleLower.includes("ca") || titleLower.includes("đơn") || titleLower.includes("nghỉ") || titleLower.includes("yêu cầu") || msgLower.includes("đổi ca") || msgLower.includes("kéo ca") || msgLower.includes("nghỉ phép")) {
+      setTab("requests");
+    } else if (n.link === "schedule" || titleLower.includes("lịch") || msgLower.includes("lịch")) {
+      setTab("schedule");
+    } else if (n.link === "attend" || titleLower.includes("chấm công") || titleLower.includes("giờ làm") || msgLower.includes("tăng ca")) {
+      setTab("attend");
+    }
+  };
 
   const parseTimeToFloat = (timeStr: string) => {
     if (!timeStr) return 0;
@@ -567,9 +592,6 @@ export default function StaffPortal() {
       setIsOvernightReg(false);
     }
   }, [selectedStartHour, selectedEndHour]);
-
-  const [ownShiftsCollapsed, setOwnShiftsCollapsed] = useState(false);
-  const [colleagueShiftsCollapsed, setColleagueShiftsCollapsed] = useState(false);
 
   const locked = activeBrand?.status === "suspended" || activeLocation?.status === "suspended";
 
@@ -648,7 +670,7 @@ export default function StaffPortal() {
 
   const fetchColleagues = async () => {
     try {
-      // Staff-per-Branch: chỉ lấy đồng nghiệp cùng Branch
+      // Staff-per-Branch: chỉ lấy đồng nghiệp cùng Branch qua API
       const locId = activeLocation?.id || "govap-branch";
       const res = await fetch(`${getApiBaseUrl()}/api/auth/staff?locationId=${locId}`);
       if (res.ok) {
@@ -747,16 +769,26 @@ export default function StaffPortal() {
 
   const handleReq = (e: React.FormEvent) => {
     e.preventDefault();
-    if (reqType === "leave" && !targetShiftId) {
-      alert("Vui lòng chọn ca trực muốn xin nghỉ!");
-      return;
+    if (reqType === "leave") {
+      if (!targetShiftId) {
+        alert("Vui lòng chọn ca trực muốn xin nghỉ!");
+        return;
+      }
+      if (!reqDate) return;
     }
-    if (!reqDate) return;
 
     let detailsText = reqDetails;
     if (reqType === "swap") {
+      if (!reqDate) {
+        alert("Vui lòng chọn ngày muốn đổi ca!");
+        return;
+      }
       if (!targetShiftId || !swapWithStaffId || !swapWithShiftId) {
         alert("Vui lòng chọn đầy đủ ca của bạn, đồng nghiệp và ca của đồng nghiệp!");
+        return;
+      }
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do đổi ca!");
         return;
       }
       const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
@@ -764,8 +796,29 @@ export default function StaffPortal() {
       const myTimeRange = mySelectedShift ? `${mySelectedShift.startTime} - ${mySelectedShift.endTime}` : "";
       const colleagueTimeRange = colleagueSelectedShift ? `${colleagueSelectedShift.startTime} - ${colleagueSelectedShift.endTime}` : "";
       detailsText = `Đổi ca (${myTimeRange}) ngày ${reqDate} với đồng nghiệp ${swapStaffName} (ca ${colleagueTimeRange}). Lý do: ${reqDetails}`;
+    } else if (reqType === "extension") {
+      if (!reqDate) {
+        alert("Vui lòng chọn ngày muốn kéo ca!");
+        return;
+      }
+      if (!targetShiftId || !swapWithStaffId || !swapWithShiftId || !extensionDurationMinutes) {
+        alert("Vui lòng chọn đầy đủ ca của bạn, đồng nghiệp, ca của đồng nghiệp và số phút kéo ca!");
+        return;
+      }
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do kéo ca!");
+        return;
+      }
+      const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
+      const colleagueSelectedShift = (officialSchedulesList || []).find((s: any) => s.id === swapWithShiftId);
+      const myTimeRange = mySelectedShift ? `${mySelectedShift.startTime} - ${mySelectedShift.endTime}` : "";
+      const colleagueTimeRange = colleagueSelectedShift ? `${colleagueSelectedShift.startTime} - ${colleagueSelectedShift.endTime}` : "";
+      detailsText = `Kéo ca thêm ${extensionDurationMinutes} phút với đồng nghiệp ${swapStaffName} (ca bạn: ${myTimeRange}, ca đồng nghiệp: ${colleagueTimeRange}). Lý do: ${reqDetails}`;
     } else {
-      if (!reqDetails) return;
+      if (!reqDetails) {
+        alert("Vui lòng nhập lý do xin vắng mặt!");
+        return;
+      }
       const mySelectedShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
       if (mySelectedShift) {
         detailsText = `Xin vắng mặt ca ${mySelectedShift.startTime} - ${mySelectedShift.endTime} ngày ${mySelectedShift.date}. Lý do: ${reqDetails}`;
@@ -776,14 +829,21 @@ export default function StaffPortal() {
       reqType,
       detailsText,
       reqDate,
-      reqType === "leave" ? targetShiftId : (reqType === "swap" ? targetShiftId : undefined),
-      reqType === "swap" ? swapStaffName : undefined,
-      reqType === "swap" ? swapWithStaffId : undefined,
-      reqType === "swap" ? swapWithShiftId : undefined
+      targetShiftId || undefined,
+      (reqType === "swap" || reqType === "extension") ? swapStaffName : undefined,
+      (reqType === "swap" || reqType === "extension") ? swapWithStaffId : undefined,
+      (reqType === "swap" || reqType === "extension") ? swapWithShiftId : undefined,
+      reqType === "extension" ? parseInt(extensionDurationMinutes) : undefined
     );
-    alert("Yêu cầu đã được gửi lên hệ thống phê duyệt!");
-    setReqDate(""); setReqDetails(""); setSwapShiftId(""); setSwapStaffName(""); setTargetShiftId("");
-    setSwapWithStaffId(""); setSwapWithShiftId("");
+    alert("Yêu cầu đã được gửi lên hệ thống thành công!");
+    setReqDate("");
+    setReqDetails("");
+    setExtensionDurationMinutes("");
+    setSwapShiftId("");
+    setSwapStaffName("");
+    setTargetShiftId("");
+    setSwapWithStaffId("");
+    setSwapWithShiftId("");
   };
 
   // === LOCK ===
@@ -811,7 +871,7 @@ export default function StaffPortal() {
           <img src="/logo.png?v=7" alt="Logo" className="w-8 h-8 object-contain" />
         </div>
         <h2 className="text-base font-black text-[#7c4831] uppercase tracking-wide">Cổng Nhân Viên</h2>
-        <p className="text-[10px] text-[#4B3621]/60 font-bold uppercase tracking-widest ">Staff Authentication Portal</p>
+        <p className="text-[10px] text-[#4B3621]/60 font-bold uppercase tracking-widest font-mono">Staff Authentication Portal</p>
       </div>
       <form onSubmit={handleLogin} className="space-y-4">
         <div className="space-y-1.5">
@@ -850,7 +910,7 @@ export default function StaffPortal() {
         <div className="card text-center bg-[#D3ECE1] border border-[#7c4831]/10 shadow-sm anim-scaleIn py-8">
           <CheckCircle size={40} className="text-[#1B523A] mx-auto mb-3" />
           <h4 className="text-base font-bold text-[#1B523A] uppercase">Thao Tác Thành Công!</h4>
-          <p className="text-xs  font-bold text-[#1B523A] mt-2">+{scanResult.pointsAdded} điểm đã nạp vào tài khoản khách</p>
+          <p className="text-xs font-mono font-bold text-[#1B523A] mt-2">+{scanResult.pointsAdded} điểm đã nạp vào tài khoản khách</p>
         </div>
       ) : (
         <form onSubmit={handleScan} className="card space-y-4 anim-fadeUp">
@@ -1077,8 +1137,14 @@ export default function StaffPortal() {
               </div>
             </div>
           </div>
-          
-{/* Unified Primary Action Button */}
+
+          {timekeeping.lateMinutes > 0 && (
+            <div className="p-3 rounded-xl bg-[#FEF3C7] text-[10px] text-[#92400E] flex items-center gap-1.5 font-bold border border-[#92400E]/10">
+              <AlertTriangle size={12} /> Ghi nhận đi trễ {timekeeping.lateMinutes} phút
+            </div>
+          )}
+
+          {/* Unified Primary Action Button */}
           <div className="pt-1 space-y-2.5">
             {!hasShiftToday ? (
               <div className="p-4 bg-amber-50 text-[#7c4831] border border-amber-200/50 rounded-2xl text-center text-xs font-bold space-y-1">
@@ -1943,25 +2009,70 @@ export default function StaffPortal() {
   };
   // === REQUESTS ===
   const ReqView = () => {
-    const myReqs = requests?.filter((r: any) => r.staffId === activeStaff?.id) || [];
+    const myReqs = requests?.filter((r: any) => r.userId === activeStaff?.id || r.staffId === activeStaff?.id || r.swapWithStaffId === activeStaff?.id) || [];
 
+    const handleExtensionAction = async (id: string, action: "accept" | "reject") => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/attendance/requests/${id}/${action}-extension`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          alert(`Đã ${action === "accept" ? "chấp nhận" : "từ chối"} kéo ca thành công!`);
+          window.location.reload();
+        } else {
+          const data = await res.json();
+          alert(data.message || "Có lỗi xảy ra");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Có lỗi xảy ra khi thực hiện hành động này");
+      }
+    };
+
+    const handleSwapAction = async (id: string, action: "accept" | "reject") => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/attendance/requests/${id}/${action}-swap`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        if (res.ok) {
+          alert(`Đã ${action === "accept" ? "duyệt đơn đổi ca thành công! Lịch trực của hai bạn đã tự động đổi cho nhau." : "từ chối đổi ca!"}`);
+          window.location.reload();
+        } else {
+          const data = await res.json();
+          alert(data.message || "Có lỗi xảy ra");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Có lỗi xảy ra khi thực hiện hành động này");
+      }
+    };
     const formatShiftDisplay = (sched: any) => {
       const daysOfWeek = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
-      const parts = sched.date.split('-');
-      const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      const startDayStr = daysOfWeek[dObj.getDay()];
+      const startDate = new Date(sched.date);
+      const startDayStr = daysOfWeek[startDate.getDay()];
+      const startHour = sched.startTime.slice(0, 5);
+      const endHour = sched.endTime.slice(0, 5);
 
-      const startHour = sched.startTime;
-      const endHour = sched.endTime;
-
-      if (endHour < startHour) {
-        // Shift extends to next day
-        const endDate = new Date(dObj);
+      const isOvernight = parseTimeToFloat(sched.endTime) < parseTimeToFloat(sched.startTime);
+      let displayStr = "";
+      if (isOvernight) {
+        const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 1);
         const endDayStr = daysOfWeek[endDate.getDay()];
-        return `${startDayStr} (${sched.date}) ${startHour} - ${endDayStr} (${endDate.toISOString().split('T')[0]}) ${endHour}`;
+        displayStr = `${startDayStr} (${sched.date}) ${startHour} - ${endDayStr} (${endDate.toISOString().split('T')[0]}) ${endHour}`;
+      } else {
+        displayStr = `${startDayStr} (${sched.date}) ${startHour} - ${endHour}`;
       }
-      return `${startDayStr} (${sched.date}) ${startHour} - ${endHour}`;
+      
+      if (sched.originalStartTime || sched.originalEndTime || (sched.extensionDurationMinutes && sched.extensionDurationMinutes > 0)) {
+         const origStart = sched.originalStartTime ? sched.originalStartTime.slice(0, 5) : startHour;
+         const origEnd = sched.originalEndTime ? sched.originalEndTime.slice(0, 5) : endHour;
+         displayStr += ` (Gốc: ${origStart} - ${origEnd})`;
+      }
+      
+      return displayStr;
     };
 
     const now = new Date();
@@ -2025,11 +2136,12 @@ export default function StaffPortal() {
       }
     );
 
+    const incomingReqs = (requests || []).filter((r: any) => r.swapWithStaffId === activeStaff?.id);
+    const outgoingReqs = (requests || []).filter((r: any) => r.userId === activeStaff?.id || (r.staffId === activeStaff?.id && r.swapWithStaffId !== activeStaff?.id));
+
     return (
       <div className="space-y-4 pb-28 anim-fadeUp">
         <div className="card"><h3 className="text-base font-bold text-[#7c4831] uppercase">Đơn Yêu Cầu Nhân Sự</h3></div>
-
-
 
         <form onSubmit={handleReq} className="card space-y-3">
           <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider flex items-center gap-1.5">
@@ -2044,12 +2156,14 @@ export default function StaffPortal() {
               setTargetShiftId("");
               setSwapWithStaffId("");
               setSwapWithShiftId("");
+              setExtensionDurationMinutes("");
             }}
             className="input w-full text-sm cursor-pointer font-semibold"
             id="req-type"
           >
             <option value="leave">Xin vắng mặt ca trực</option>
             <option value="swap">Đăng ký đổi ca trực</option>
+            <option value="extension">Xin kéo ca trực</option>
           </select>
 
           {reqType === "leave" && (
@@ -2059,28 +2173,19 @@ export default function StaffPortal() {
               onChange={e => {
                 const shiftId = e.target.value;
                 setTargetShiftId(shiftId);
-                const sh = (officialSchedulesList || []).find((s: any) => s.id === shiftId);
-                if (sh) {
-                  setReqDate(sh.date);
+                const matchedShift = (officialSchedulesList || []).find((s: any) => s.id === shiftId);
+                if (matchedShift) {
+                  setReqDate(matchedShift.date);
+                } else {
+                  setReqDate("");
                 }
               }}
-              className="input w-full text-sm font-semibold cursor-pointer"
+              className="input w-full text-sm cursor-pointer font-semibold"
             >
-              <option value="">Chọn ca trực của bạn muốn xin nghỉ</option>
+              <option value="">Chọn ca muốn xin nghỉ...</option>
               {(() => {
-                const now = new Date();
-                const todayStr = now.toISOString().split('T')[0];
-                const currentTimeStr = now.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
-
                 return (officialSchedulesList || [])
-                  .filter((s: any) => {
-                    if (s.userId !== activeStaff?.id) return false;
-                    if (s.date > todayStr) return true;
-                    if (s.date === todayStr) {
-                      return s.endTime > currentTimeStr;
-                    }
-                    return false;
-                  })
+                  .filter((s: any) => s.userId === activeStaff?.id && !s.clockedIn && isShiftInFuture(s))
                   .map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.date} (Ca: {s.startTime} - {s.endTime})
@@ -2090,7 +2195,7 @@ export default function StaffPortal() {
             </select>
           )}
 
-          {reqType === "swap" && (
+          {(reqType === "swap" || reqType === "extension") && (
             <input
               type="date"
               required
@@ -2106,7 +2211,7 @@ export default function StaffPortal() {
           )}
 
           {/* Swap selects shown under date only if date is chosen */}
-          {reqType === "swap" && (
+          {(reqType === "swap" || reqType === "extension") && (
             <>
               {/* Own shifts collapsible list */}
               <div className="border border-[#7c4831]/10 rounded-2xl p-3 bg-[#FAF9F6]/50">
@@ -2159,7 +2264,7 @@ export default function StaffPortal() {
                 }}
                 className="input w-full text-sm font-semibold cursor-pointer"
               >
-                <option value="">Chọn đồng nghiệp muốn đổi ca</option>
+                <option value="">{reqType === "extension" ? "Chọn đồng nghiệp muốn kéo ca" : "Chọn đồng nghiệp muốn đổi ca"}</option>
                 {colleagues.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.fullName}</option>
                 ))}
@@ -2168,7 +2273,9 @@ export default function StaffPortal() {
               {/* Colleague date selection */}
               {swapWithStaffId && (
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-[#7c4831] block">Ngày trực của đồng nghiệp muốn đổi</label>
+                  <label className="text-[9px] font-black uppercase text-[#7c4831] block">
+                    {reqType === "extension" ? "Ngày trực của đồng nghiệp muốn kéo ca" : "Ngày trực của đồng nghiệp muốn đổi ca"}
+                  </label>
                   <input
                     type="date"
                     required
@@ -2189,13 +2296,13 @@ export default function StaffPortal() {
                     className="flex justify-between items-center cursor-pointer pb-2 border-b border-[#7c4831]/5"
                     onClick={() => setColleagueShiftsCollapsed(!colleagueShiftsCollapsed)}
                   >
-                    <span className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">Ca làm của đồng nghiệp ({colleagueEligibleShifts.length})</span>
+                    <span className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">Ca làm của {swapStaffName} ({colleagueEligibleShifts.length})</span>
                     <span className="text-[10px] text-[#7c4831]/60 font-bold">{colleagueShiftsCollapsed ? "▼ Hiện" : "▲ Ẩn"}</span>
                   </div>
                   {!colleagueShiftsCollapsed && (
                     <div className="space-y-2 mt-2 max-h-48 overflow-y-auto">
                       {colleagueEligibleShifts.length === 0 ? (
-                        <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp không có ca trực khả dụng (hoặc đã checkin) trong ngày này.</p>
+                        <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp này không có ca trực khả dụng (hoặc đã checkin) trong ngày này.</p>
                       ) : (
                         colleagueEligibleShifts.map((s: any) => (
                           <label
@@ -2224,6 +2331,19 @@ export default function StaffPortal() {
             </>
           )}
 
+          {reqType === "extension" && (
+            <input
+              type="number"
+              min="1"
+              max="480"
+              placeholder="Thời gian kéo ca (phút)..."
+              required
+              value={extensionDurationMinutes}
+              onChange={e => setExtensionDurationMinutes(e.target.value)}
+              className="input w-full text-sm font-semibold"
+            />
+          )}
+
           <textarea
             placeholder="Lý do chi tiết gửi Ban Quản Trị..."
             required
@@ -2238,19 +2358,92 @@ export default function StaffPortal() {
           </button>
         </form>
 
+        {/* Incoming requests (sent to active staff) */}
+        <div className="card space-y-3.5 border-2 border-[#7c4831]/20">
+          <div className="flex justify-between items-center">
+            <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider flex items-center gap-1.5">
+              📥 Đơn đồng nghiệp gửi tới bạn ({incomingReqs.length})
+            </h4>
+            {incomingReqs.some((r: any) => r.status === "pending") && (
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" title="Có đơn chờ phản hồi" />
+            )}
+          </div>
+          {incomingReqs.length === 0 ? (
+            <p className="text-xs text-[#4B3621]/60 font-semibold italic">Không có đơn yêu cầu nào gửi tới bạn.</p>
+          ) : incomingReqs.map((r: any) => (
+            <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-[#7c4831]/15 text-xs space-y-2 shadow-sm">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className={`pill ${r.type === "extension" ? "pill-amber" : "pill-blue"}`}>
+                    {r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                  </span>
+                  <span className="text-[10px] font-bold text-gray-500">Từ: <strong className="text-[#7c4831]">{r.staffName}</strong></span>
+                </div>
+                <span className={`pill ${r.status === "approved" ? "pill-green" : r.status === "rejected" ? "pill-red" : "pill-amber"} text-[8px]`}>
+                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : "Chờ bạn duyệt"}
+                </span>
+              </div>
+              <p className="text-[#4B3621] font-semibold">{r.date} — {r.details}</p>
+              
+              {/* Action buttons for target staff when status is pending */}
+              {r.status === "pending" && (
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#7c4831]/10">
+                  {r.type === "extension" ? (
+                    <>
+                      <button 
+                        onClick={() => handleExtensionAction(r.id, "reject")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+                      >
+                        Từ chối kéo ca
+                      </button>
+                      <button 
+                        onClick={() => handleExtensionAction(r.id, "accept")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-green-700 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
+                      >
+                        Đồng ý kéo ca
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => handleSwapAction(r.id, "reject")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+                      >
+                        Từ chối
+                      </button>
+                      <button 
+                        onClick={() => handleSwapAction(r.id, "accept")}
+                        className="px-3 py-1.5 text-[10px] font-bold text-green-700 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors shadow-sm"
+                      >
+                        Duyệt đơn đổi ca
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Outgoing requests */}
         <div className="card space-y-3.5">
-          <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">📋 Đơn đã gửi ({myReqs.length})</h4>
-          {myReqs.length === 0 ? (
+          <h4 className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider">📤 Đơn bạn đã gửi ({outgoingReqs.length})</h4>
+          {outgoingReqs.length === 0 ? (
             <p className="text-xs text-[#4B3621]/60 font-semibold italic">Chưa gửi đơn yêu cầu nào.</p>
-          ) : myReqs.map((r: any) => (
+          ) : outgoingReqs.map((r: any) => (
             <div key={r.id} className="p-3.5 rounded-2xl bg-[#FAF9F6] border border-[#7c4831]/5 text-xs space-y-1.5 shadow-sm">
               <div className="flex justify-between items-center">
-                <span className={`pill ${r.type === "leave" ? "pill-violet" : "pill-blue"}`}>{r.type === "leave" ? "Nghỉ phép" : "Đổi ca"}</span>
+                <span className={`pill ${r.type === "leave" ? "pill-violet" : r.type === "extension" ? "pill-amber" : "pill-blue"}`}>
+                  {r.type === "leave" ? "Nghỉ phép" : r.type === "extension" ? "Kéo ca" : "Đổi ca"}
+                </span>
                 <span className={`pill ${r.status === "approved" ? "pill-green" : r.status === "rejected" ? "pill-red" : "pill-amber"} text-[8px]`}>
-                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : "Chờ"}
+                  {r.status === "approved" ? "Đã duyệt" : r.status === "rejected" ? "Từ chối" : (r.type === "swap" ? `Chờ ${r.swapWithStaffName || "đồng nghiệp"} duyệt` : "Đang chờ")}
                 </span>
               </div>
               <p className="text-[#4B3621] font-semibold mt-1">{r.date} — {r.details}</p>
+              {r.swapWithStaffName && (
+                <p className="text-[10px] text-gray-500">Đồng nghiệp liên quan: <strong className="text-[#7c4831]">{r.swapWithStaffName}</strong></p>
+              )}
             </div>
           ))}
         </div>
@@ -2657,7 +2850,7 @@ export default function StaffPortal() {
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
                             <span className="text-[9px] font-mono text-gray-400">{item.Date || "Không rõ ngày"}</span>
-                            <span className={`pill ${item.Type === "bonus" ? "pill-green" : item.Type === "advance" ? "pill-amber" : "pill-red"} border text-[7px] font-black uppercase px-1 py-0 font-sans`}>
+                            <span className={`pill ${item.Type === "bonus" ? "pill-green" : item.Type === "advance" ? "pill-amber" : "pill-red"} border text-[7px] font-black uppercase px-1 py-0`}>
                               {item.Type === "bonus" ? "Thưởng" : item.Type === "advance" ? "Tạm ứng" : "Phạt"}
                             </span>
                           </div>
@@ -2693,7 +2886,7 @@ export default function StaffPortal() {
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px] font-mono font-bold text-[#7c4831]">{s.date}</span>
-                          <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold font-sans">
+                          <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold">
                             Ca {s.startTime} - {s.endTime}
                           </span>
                         </div>
@@ -2725,15 +2918,15 @@ export default function StaffPortal() {
         </div>
 
         {/* Activity Logs */}
-        <div className="card"><h3 className="text-base font-bold text-[#7c4831] uppercase font-sans">Lịch Sử Hoạt Động Cá Nhân</h3></div>
+        <div className="card"><h3 className="text-base font-bold text-[#7c4831] uppercase">Lịch Sử Hoạt Động Cá Nhân</h3></div>
         <div className="space-y-3">
           {myLogs.length === 0 ? (
-            <div className="card text-center py-6"><p className="text-xs text-[#4B3621]/60 font-semibold italic font-sans">Chưa ghi nhận hoạt động công ca nào.</p></div>
+            <div className="card text-center py-6"><p className="text-xs text-[#4B3621]/60 font-semibold italic">Chưa ghi nhận hoạt động công ca nào.</p></div>
           ) : myLogs.map((l: any) => (
             <div key={l.id} className="card p-4 border-l-4 border-l-[#7c4831]">
               <div className="flex justify-between text-[9px] font-bold mb-1.5">
                 <span className="text-[#7c4831]/70 font-mono">{l.time}</span>
-                <span className="pill bg-[#E0F2FE] text-[#075985] text-[8px] font-extrabold font-sans">{l.action}</span>
+                <span className="pill bg-[#E0F2FE] text-[#075985] text-[8px] font-extrabold">{l.action}</span>
               </div>
               <p className="text-xs font-semibold text-[#4B3621]">{l.description}</p>
             </div>
@@ -2759,11 +2952,11 @@ export default function StaffPortal() {
           )}
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã số nhân viên (ID)</label>
-            <input type="text" disabled value={activeStaff.id} className="input w-full text-sm opacity-60 cursor-not-allowed  font-bold" />
+            <input type="text" disabled value={activeStaff.id} className="input w-full text-sm opacity-60 cursor-not-allowed font-mono font-bold" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Số điện thoại</label>
-            <input type="text" disabled value={activeStaff.phone || activeStaff.phoneNumber || "Chưa cập nhật"} className="input w-full text-sm opacity-60 cursor-not-allowed  font-bold" />
+            <input type="text" disabled value={activeStaff.phone || activeStaff.phoneNumber || "Chưa cập nhật"} className="input w-full text-sm opacity-60 cursor-not-allowed font-mono font-bold" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Họ và tên *</label>
@@ -2775,7 +2968,7 @@ export default function StaffPortal() {
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Mức lương theo giờ</label>
-            <input type="text" disabled value={activeStaff.hourlyWage !== undefined && activeStaff.hourlyWage !== null ? `${Number(activeStaff.hourlyWage).toLocaleString("vi-VN")}đ/giờ` : "Đang cập nhật..."} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold " />
+            <input type="text" disabled value={activeStaff.hourlyWage !== undefined && activeStaff.hourlyWage !== null ? `${Number(activeStaff.hourlyWage).toLocaleString("vi-VN")}đ/giờ` : "Đang cập nhật..."} className="input w-full text-sm opacity-60 cursor-not-allowed font-semibold font-mono" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] text-[#7c4831] font-bold uppercase tracking-wider block">Chi nhánh đang trực</label>
@@ -2784,56 +2977,72 @@ export default function StaffPortal() {
           <button type="submit" className="btn btn-primary w-full py-3.5 text-sm font-bold" id="staff-save">Lưu hồ sơ</button>
         </form>
 
-        <div className="card space-y-4">
-          <h4 className="text-xs font-bold text-[#7c4831] uppercase">Thiết lập bảo mật thiết bị</h4>
-          <p className="text-[11px] text-gray-500 font-medium">Đăng ký vân tay/sinh trắc học trên trình duyệt này để phục vụ chấm công và đăng nhập nhanh.</p>
-          <button
-            type="button"
-            onClick={handleRegisterBiometricDirectly}
-            className="btn btn-primary w-full py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <svg className="w-4 h-4 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a5 5 0 00-10 0c0 .353.017.702.051 1.045l-.011-.05M12 11c0-3.517 1.009-6.799 2.753-9.571m3.44 2.04l-.054.09A13.916 13.916 0 0015 11a5 5 0 0010 0c0-.353-.017-.702-.051-1.045l.011.05M12 11V3" />
-            </svg>
-            <span>Kích hoạt Touch ID thiết bị này</span>
-          </button>
-        </div>
-
-        <div className="card space-y-4 text-left">
-          <h4 className="text-xs font-bold text-[#7c4831] uppercase">Đổi mã PIN cá nhân</h4>
-          <p className="text-[11px] text-gray-500 font-medium">Thay đổi mã PIN gồm 6 số để đăng nhập cổng nhân viên hoặc xác thực.</p>
+        {/* === THAY ĐỔI MÃ PIN === */}
+        <div className="card space-y-3.5 border border-[#7c4831]/15">
+          <div className="flex items-center gap-2 border-b border-[#7c4831]/10 pb-2.5">
+            <Lock size={16} className="text-[#7c4831]" />
+            <div>
+              <h4 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Thay đổi mã PIN cá nhân</h4>
+              <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">
+                Đổi mã PIN 6 chữ số dùng để đăng nhập ca trực ({activeStaff.phone || activeStaff.phoneNumber})
+              </p>
+            </div>
+          </div>
           <form onSubmit={handleChangePin} className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN cũ *</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Mã PIN cũ (6 số) *</label>
               <input
                 type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 maxLength={6}
                 required
                 placeholder="Nhập 6 số PIN cũ"
                 value={oldPin}
-                onChange={e => setOldPin(e.target.value)}
-                className="input w-full text-xs font-semibold"
+                onChange={e => setOldPin(e.target.value.replace(/\D/g, ''))}
+                className="input w-full text-sm font-mono font-semibold"
+                id="staff-old-pin"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[9px] text-[#7c4831] font-bold uppercase tracking-wider block">Mã PIN mới *</label>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-[#4B3621]/80 font-bold uppercase tracking-wider block">Mã PIN mới (6 số) *</label>
               <input
                 type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 maxLength={6}
                 required
                 placeholder="Nhập 6 số PIN mới"
                 value={newPin}
-                onChange={e => setNewPin(e.target.value)}
-                className="input w-full text-xs font-semibold"
+                onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                className="input w-full text-sm font-mono font-semibold"
+                id="staff-new-pin"
               />
             </div>
-            <button
-              type="submit"
-              className="btn btn-primary w-full py-2.5 text-xs font-bold mt-1"
-            >
+            <button type="submit" className="btn btn-primary w-full py-3 text-xs font-bold uppercase tracking-wider" id="staff-change-pin-btn">
               Cập nhật mã PIN
             </button>
           </form>
+        </div>
+
+        {/* === NOTE CỦA QUẢN LÝ === */}
+        <div className="card space-y-3 border border-[#7c4831]/15 bg-gradient-to-br from-[#FEF3C7]/60 to-[#FAF9F6]"
+          style={{ boxShadow: '0 2px 12px rgba(124,72,49,0.07)' }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📋</span>
+            <div>
+              <h4 className="text-sm font-extrabold text-[#7c4831] uppercase tracking-wide leading-none">Note của Quản Lý</h4>
+              <p className="text-[10px] text-[#7c4831]/60 font-semibold mt-0.5">Thông báo & nhắc nhở nội bộ từ Ban Quản Trị</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-[#7c4831]/10 p-4 min-h-[80px]">
+            {managerNote ? (
+              <p className="text-sm font-semibold text-[#4B3621] leading-relaxed whitespace-pre-wrap">{managerNote}</p>
+            ) : (
+              <p className="text-sm text-[#4B3621]/40 italic font-medium">Chưa có ghi chú nào từ quản lý.</p>
+            )}
+          </div>
         </div>
 
         <button onClick={handleLogout} className="btn btn-ghost w-full py-3.5 text-sm flex items-center justify-center gap-1.5 font-bold text-rose-700 hover:bg-rose-50" id="staff-logout-btn">
@@ -2881,7 +3090,7 @@ export default function StaffPortal() {
                 <ArrowLeft size={12} className="text-[#7c4831]" />
               </Link>
             )}
-            <span className="w-8 h-8 rounded-full bg-[#7c4831] flex items-center justify-center text-white text-xs font-bold ">
+            <span className="w-8 h-8 rounded-full bg-[#7c4831] flex items-center justify-center text-white text-xs font-bold font-mono">
               TM
             </span>
             <div>
@@ -2985,22 +3194,29 @@ export default function StaffPortal() {
                   notifications.map((n: any) => (
                     <div
                       key={n.id}
-                      onClick={() => !n.isRead && markNotificationAsRead?.(n.id)}
+                      onClick={() => handleNotificationClick(n)}
                       className={`p-3.5 rounded-2xl border text-xs transition-all relative ${n.isRead
-                        ? "bg-gray-50 border-gray-100 opacity-75"
+                        ? "bg-gray-50 border-gray-100 opacity-75 hover:bg-gray-100/70 cursor-pointer"
                         : "bg-[#7c4831]/5 border-[#7c4831]/20 font-bold cursor-pointer hover:bg-[#7c4831]/10"
                         }`}
                     >
                       {!n.isRead && (
-                        <span className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                       )}
-                      <h5 className="text-[#7c4831] font-bold text-[11px]">{n.title}</h5>
-                      <p className="text-gray-600 mt-1 leading-relaxed text-[10.5px]">{n.message}</p>
-                      <span className="text-[9px] text-gray-400 font-mono block mt-1">{n.createdAt}</span>
+                      <h5 className="text-[#7c4831] font-bold text-[11.5px]">{n.title}</h5>
+                      <p className="text-gray-600 mt-1 leading-relaxed text-[11px]">{n.message}</p>
+                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-[#7c4831]/5">
+                        <span className="text-[9px] text-gray-400 font-mono">{n.createdAt}</span>
+                        {(n.link === "requests" || (n.title || "").toLowerCase().includes("ca") || (n.title || "").toLowerCase().includes("đơn") || (n.title || "").toLowerCase().includes("yêu cầu") || (n.message || "").toLowerCase().includes("đổi ca") || (n.message || "").toLowerCase().includes("kéo ca")) && (
+                          <span className="text-[10px] text-[#7c4831] font-black flex items-center gap-0.5 hover:underline">
+                            Xem đơn yêu cầu →
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-gray-400 italic text-center py-6">Không có thông báo nào.</p>
+                  <p className="text-xs text-gray-400 italic text-center py-8">Không có thông báo nào.</p>
                 )}
               </div>
             </div>

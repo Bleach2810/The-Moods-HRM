@@ -46,13 +46,21 @@ export interface Shift {
 export interface RequestItem {
   id: string;
   staffId: string;
+  userId?: string;
   staffName: string;
-  type: "leave" | "swap";
+  type: "leave" | "swap" | "extension";
   details: string; // Lý do nghỉ hoặc Ca muốn đổi
   date: string; // YYYY-MM-DD
   status: "pending" | "approved" | "rejected";
   targetShiftId?: string; // Ca trực muốn nghỉ/đổi
   swapWithStaffName?: string; // Tên nhân viên muốn đổi ca (nếu có)
+  swapWithStaffId?: string;
+  swapWithShiftId?: string;
+  extensionDurationMinutes?: number;
+  originalStartTime?: string;
+  requestedStartTime?: string;
+  requestedEndTime?: string;
+  createdAt?: string;
 }
 
 export interface ActivityLog {
@@ -717,13 +725,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setRequests(data.map((r: any) => ({
             id: r.id,
             staffId: r.userId,
+            userId: r.userId,
             staffName: r.staffName,
             type: r.type,
             details: r.details,
             date: r.date,
             status: r.status,
             targetShiftId: r.targetShiftId,
-            swapWithStaffName: r.swapWithStaffName
+            swapWithStaffName: r.swapWithStaffName,
+            swapWithStaffId: r.swapWithStaffId,
+            swapWithShiftId: r.swapWithShiftId,
+            extensionDurationMinutes: r.extensionDurationMinutes,
+            originalStartTime: r.originalStartTime,
+            requestedStartTime: r.requestedStartTime,
+            requestedEndTime: r.requestedEndTime,
+            createdAt: r.createdAt
           })));
         }
       }

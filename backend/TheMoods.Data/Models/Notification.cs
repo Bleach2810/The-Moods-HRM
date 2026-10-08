@@ -9,6 +9,7 @@ namespace TheMoods.Data.Models
         public string Title { get; set; } = null!;
         public string Message { get; set; } = null!;
         public bool IsRead { get; set; } = false;
+        public string? Link { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
