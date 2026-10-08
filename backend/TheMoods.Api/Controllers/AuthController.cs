@@ -371,7 +371,7 @@ namespace TheMoods.Api.Controllers
         }
 
         // 7. Bật/Liên kết xác thực Vân tay
-        // Staff-per-Branch: Biometric độc lập theo từng User/Branch record
+        // Hỗ trợ lưu trữ nhiều thiết bị (Multi-device platform credentials)
         [HttpPost("staff/setup-biometric")]
         public async Task<IActionResult> SetupBiometric([FromBody] SetupBiometricDto dto)
         {
@@ -383,14 +383,49 @@ namespace TheMoods.Api.Controllers
                 return NotFound(new { message = "Nhân viên không tồn tại!" });
             }
 
-            user.BiometricKey = dto.BiometricKey ?? "bio-mock-key-" + Guid.NewGuid().ToString().Substring(0, 8);
+            var newKey = dto.BiometricKey?.Trim();
+            if (!string.IsNullOrWhiteSpace(newKey))
+            {
+                var keys = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrWhiteSpace(user.BiometricKey))
+                {
+                    try
+                    {
+                        if (user.BiometricKey.TrimStart().StartsWith("["))
+                        {
+                            keys = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(user.BiometricKey) 
+                                   ?? new System.Collections.Generic.List<string>();
+                        }
+                        else
+                        {
+                            keys.Add(user.BiometricKey);
+                        }
+                    }
+                    catch
+                    {
+                        keys.Add(user.BiometricKey);
+                    }
+                }
+
+                if (!keys.Contains(newKey))
+                {
+                    keys.Add(newKey);
+                }
+
+                user.BiometricKey = System.Text.Json.JsonSerializer.Serialize(keys);
+            }
+            else
+            {
+                user.BiometricKey = "bio-mock-key-" + Guid.NewGuid().ToString().Substring(0, 8);
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Liên kết vân tay thành công!" });
         }
 
         // 8. Xác thực Vân tay
-        // Staff-per-Branch: chỉ xác thực Biometric của Staff trong đúng Branch
+        // Hỗ trợ kiểm tra khớp bất kỳ thiết bị nào của Staff
         [HttpPost("staff/verify-biometric")]
         public async Task<IActionResult> VerifyBiometric([FromBody] VerifyBiometricDto dto)
         {
@@ -402,10 +437,37 @@ namespace TheMoods.Api.Controllers
                 return NotFound(new { message = "Nhân viên không tồn tại!" });
             }
 
-            if (!string.IsNullOrWhiteSpace(user.BiometricKey) && user.BiometricKey == dto.BiometricKey)
+            if (!string.IsNullOrWhiteSpace(user.BiometricKey))
             {
-                var profile = BuildStaffProfile(user, dto.LocationId);
-                return Ok(new { message = "Xác thực vân tay thành công!", success = true, user = profile });
+                bool isMatch = false;
+
+                // 1. So sánh trực tiếp (chuỗi đơn)
+                if (user.BiometricKey == dto.BiometricKey)
+                {
+                    isMatch = true;
+                }
+                else
+                {
+                    // 2. So sánh trong danh sách thiết bị đã lưu (JSON array)
+                    try
+                    {
+                        if (user.BiometricKey.TrimStart().StartsWith("["))
+                        {
+                            var keys = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(user.BiometricKey);
+                            if (keys != null && keys.Contains(dto.BiometricKey))
+                            {
+                                isMatch = true;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (isMatch)
+                {
+                    var profile = BuildStaffProfile(user, dto.LocationId);
+                    return Ok(new { message = "Xác thực vân tay thành công!", success = true, user = profile });
+                }
             }
 
             return BadRequest(new { message = "Xác thực vân tay thất bại hoặc không trùng khớp thiết bị!", success = false });

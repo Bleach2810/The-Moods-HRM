@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Coffee, ChevronRight, RefreshCw, AlertTriangle, Info } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { getRpId, isWebAuthnSupported, parseBiometricKeys, isInAppBrowser, IN_APP_BROWSER_WARNING } from "@/utils/biometrics";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -48,16 +49,11 @@ export default function LandingPage() {
 
   const resetPinCode = () => {
     pinCodeRef.current = "";
-    resetPinCode();
+    setPinCode("");
   };
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
-  // Auto trigger fingerprint scan on daily_biometric step enter
-  React.useEffect(() => {
-    if (step === "daily_biometric") {
-      handleFingerprintScanReal();
-    }
-  }, [step]);
+  // Auto redirect if staff is already logged in
 
   // Auto redirect if staff is already logged in
   React.useEffect(() => {
@@ -136,14 +132,22 @@ export default function LandingPage() {
           }
 
           if (data.hasPin) {
-            if (data.bioEnabled && data.biometricKey) {
-              localStorage.setItem(`moods_bio_${data.phoneNumber}`, "enabled");
-              localStorage.setItem(`moods_bio_cred_${data.phoneNumber}`, data.biometricKey);
-              localStorage.setItem(`moods_bio_${identifier.trim()}`, "enabled");
-              localStorage.setItem(`moods_bio_cred_${identifier.trim()}`, data.biometricKey);
+            // Lưu danh sách key từ server vào sessionStorage để hỗ trợ xác thực nhiều thiết bị
+            if (data.biometricKey) {
+              sessionStorage.setItem(`moods_server_bio_${data.phoneNumber}`, data.biometricKey);
+              sessionStorage.setItem(`moods_server_bio_${identifier.trim()}`, data.biometricKey);
             }
-            setStep("daily_biometric");
-            triggerBiometricCheck(identifier.trim());
+
+            // Kiểm tra xem thiết bị này hoặc tài khoản có sinh trắc học không
+            const localCred = localStorage.getItem(`moods_bio_cred_${data.phoneNumber}`) || localStorage.getItem(`moods_bio_cred_${identifier.trim()}`);
+            
+            // Nếu tài khoản đã bật sinh trắc học và không bị chặn bởi WebView Zalo/FB
+            if (data.bioEnabled && !isInAppBrowser()) {
+              setStep("daily_biometric");
+            } else {
+              // Đi thẳng vào mã PIN nhanh chóng, không gây popup lỗi khó hiểu
+              setStep("fallback_pin");
+            }
           } else {
             setStep("setup_pin");
           }
@@ -254,13 +258,9 @@ export default function LandingPage() {
     }
 
     if (typeof window === "undefined") return;
-    if (!window.isSecureContext) {
-      alert("Thiết lập sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost).");
-      window.location.href = destRoute;
-      return;
-    }
-    if (!navigator.credentials) {
-      alert("Thiết bị hoặc trình duyệt của bạn không hỗ trợ bảo mật sinh trắc học Touch ID!");
+    const check = isWebAuthnSupported();
+    if (!check.supported) {
+      alert(check.reason || "Thiết bị không hỗ trợ sinh trắc học!");
       window.location.href = destRoute;
       return;
     }
@@ -281,12 +281,15 @@ export default function LandingPage() {
           name: identifier.trim(),
           displayName: staffFullName || identifier.trim(),
         },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },   // ES256 (Chuẩn WebAuthn phổ biến nhất)
+          { type: "public-key", alg: -257 }  // RS256 (Windows Hello / TPM)
+        ],
         authenticatorSelection: {
           authenticatorAttachment: "platform",
-          userVerification: "required",
-          residentKey: "required",
-          requireResidentKey: true,
+          userVerification: "preferred",
+          residentKey: "preferred",
+          requireResidentKey: false,
         },
         timeout: 60000,
         attestation: "none"
@@ -316,11 +319,13 @@ export default function LandingPage() {
 
         localStorage.setItem(`moods_bio_cred_${identifier.trim()}`, bioKey);
         localStorage.setItem(`moods_bio_${identifier.trim()}`, "enabled");
-        alert("Đã liên kết xác thực vân tay thành công với thiết bị!");
+        alert("Đã liên kết xác thực vân tay / Face ID thành công với thiết bị!");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Thiết lập vân tay không thành công hoặc bạn đã hủy yêu cầu: " + (err.message || ""));
+      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
+        alert("Thiết lập sinh trắc học không thành công: " + (err.message || ""));
+      }
     } finally {
       window.location.href = destRoute;
     }
@@ -328,40 +333,51 @@ export default function LandingPage() {
 
   const handleFingerprintScanReal = async () => {
     if (typeof window === "undefined") return;
-    if (!window.isSecureContext) {
-      alert("Sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost). Vui lòng sử dụng mã PIN.");
-      setStep("fallback_pin");
-      return;
-    }
-    if (!navigator.credentials) {
-      alert("Trình duyệt không hỗ trợ xác thực sinh trắc học.");
+    const check = isWebAuthnSupported();
+    if (!check.supported) {
+      alert(check.reason || "Trình duyệt không hỗ trợ sinh trắc học.");
       setStep("fallback_pin");
       return;
     }
 
-    const savedCredStr = localStorage.getItem(`moods_bio_cred_${identifier.trim()}`);
-    if (!savedCredStr) {
-      alert("Thiết bị chưa được đăng ký vân tay trên tài khoản này. Vui lòng đăng nhập bằng PIN.");
+    // Thu thập danh sách credential ID từ localStorage thiết bị và từ server (nếu đã lưu từ trước)
+    const localCredStr = localStorage.getItem(`moods_bio_cred_${identifier.trim()}`);
+    const serverCredStr = sessionStorage.getItem(`moods_server_bio_${identifier.trim()}`);
+
+    const candidateIds: Uint8Array[] = [];
+    if (localCredStr) {
+      const parsedLocal = parseBiometricKeys(localCredStr);
+      candidateIds.push(...parsedLocal);
+    }
+    if (serverCredStr) {
+      const parsedServer = parseBiometricKeys(serverCredStr);
+      for (const sKey of parsedServer) {
+        const exists = candidateIds.some(c => c.length === sKey.length && c.every((v, idx) => v === sKey[idx]));
+        if (!exists) candidateIds.push(sKey);
+      }
+    }
+
+    if (candidateIds.length === 0) {
+      alert("Thiết bị này chưa được liên kết vân tay/Face ID cho tài khoản. Vui lòng đăng nhập bằng PIN.");
       setStep("fallback_pin");
       return;
     }
 
     try {
-      const credIdArr = JSON.parse(savedCredStr) as number[];
-      const rawId = new Uint8Array(credIdArr);
       const randomChallenge = new Uint8Array(32);
       window.crypto.getRandomValues(randomChallenge);
 
+      const allowCredentials: PublicKeyCredentialDescriptor[] = candidateIds.map(id => ({
+        id: id.buffer as ArrayBuffer,
+        type: "public-key"
+      }));
+
       const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
         challenge: randomChallenge,
-        allowCredentials: [{
-          id: rawId,
-          type: "public-key",
-          transports: ["internal"],
-        }],
+        allowCredentials: allowCredentials,
         timeout: 60000,
         rpId: getRpId(),
-        userVerification: "required",
+        userVerification: "preferred",
       };
 
       const assertion = await navigator.credentials.get({
@@ -369,6 +385,13 @@ export default function LandingPage() {
       }) as PublicKeyCredential;
 
       if (assertion) {
+        const rawIdArr = Array.from(new Uint8Array(assertion.rawId));
+        const matchedCredStr = JSON.stringify(rawIdArr);
+
+        // Lưu lại để các lần sau thiết bị nhớ chính xác key của nó
+        localStorage.setItem(`moods_bio_cred_${identifier.trim()}`, matchedCredStr);
+        localStorage.setItem(`moods_bio_${identifier.trim()}`, "enabled");
+
         const roleIdVal = staffRoleId || 3;
         const activeStaffData = buildActiveStaffData();
         const destRoute = roleIdVal === 1 ? "/super-admin" : roleIdVal === 2 ? "/admin" : "/staff";
@@ -378,14 +401,14 @@ export default function LandingPage() {
           const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/verify-biometric`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: savedCredStr, locationId: activeLocation?.id || "" }) // Staff-per-Branch
+            body: JSON.stringify({ phoneNumber: identifier.trim(), biometricKey: matchedCredStr, locationId: activeLocation?.id || "" }) // Staff-per-Branch
           });
 
           if (res.ok) {
             const data = await res.json();
             if (data.success) {
               const finalStaffData = buildActiveStaffData(data.user);
-              alert("Xác thực vân tay thành công!");
+              alert("Xác thực sinh trắc học thành công!");
               if (typeof window !== "undefined") {
                 localStorage.setItem("moods_active_staff", JSON.stringify(finalStaffData));
               }
@@ -398,14 +421,14 @@ export default function LandingPage() {
         }
 
         // Fallback local
-        alert("Xác thực vân tay thành công!");
+        alert("Xác thực sinh trắc học thành công!");
         if (typeof window !== "undefined") {
           localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
         }
         window.location.href = destRoute;
       }
     } catch (err: any) {
-      console.error(err);
+      console.error("Biometric error:", err);
       const isCancel = err.name === "NotAllowedError" || err.name === "AbortError";
 
       if (!isCancel) {
@@ -413,14 +436,17 @@ export default function LandingPage() {
         setFingerprintErrorCount(nextErrors);
 
         if (nextErrors >= 3) {
-          alert("Xác thực thất bại quá nhiều lần. Hãy đăng nhập bằng PIN.");
+          alert("Xác thực thất bại 3 lần. Vui lòng đăng nhập bằng mã PIN.");
           setStep("fallback_pin");
           setPinCode("");
           return;
         }
+        alert(`Lỗi quét sinh trắc học (${fingerprintErrorCount + 1}/3). Vui lòng thử lại hoặc dùng mã PIN.`);
+      } else {
+        // Người dùng ấn Hủy hoặc không có key khớp trên máy này
+        alert("Không tìm thấy thông tin sinh trắc học phù hợp trên thiết bị này hoặc bạn đã hủy yêu cầu. Vui lòng sử dụng mã PIN.");
+        setStep("fallback_pin");
       }
-
-      alert(isCancel ? "Yêu cầu xác thực vân tay đã bị hủy." : `Lỗi quét sinh trắc học. Lần thử lỗi: (${fingerprintErrorCount + 1}/3)`);
     }
   };
 
@@ -843,7 +869,7 @@ export default function LandingPage() {
 
               {/* STAFF FLOW: DAILY BIOMETRIC PROMPT */}
               {isStaffFlow && step === "daily_biometric" && (
-                <div className="space-y-6 text-center py-2">
+                <div className="space-y-5 text-center py-2">
                   <div className="w-16 h-16 rounded-full bg-[#FAF9F6] border border-gray-200 flex items-center justify-center mx-auto shadow-sm text-[#7c4831]">
                     <svg className="w-8 h-8 animate-pulse text-[#7c4831]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a5 5 0 00-10 0c0 .353.017.702.051 1.045l-.011-.05M12 11c0-3.517 1.009-6.799 2.753-9.571m3.44 2.04l-.054.09A13.916 13.916 0 0015 11a5 5 0 0010 0c0-.353-.017-.702-.051-1.045l.011.05M12 11V3" />
@@ -854,15 +880,32 @@ export default function LandingPage() {
                     <p className="text-[11px] text-gray-500 font-medium mt-1">Sử dụng vân tay hoặc khuôn mặt của thiết bị để tiếp tục.</p>
                   </div>
 
+                  {isInAppBrowser() && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-left text-xs text-amber-800 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                        <AlertTriangle size={14} /> Trình duyệt trong app (Zalo/Facebook)
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        Trình duyệt nhúng không hỗ trợ Touch ID/Face ID. Vui lòng bấm menu (⋯) góc trên để chọn &quot;Mở bằng trình duyệt&quot; (Safari/Chrome) hoặc đăng nhập bằng mã PIN bên dưới.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleFingerprintScanReal}
-                    className="btn btn-primary w-full py-3 text-xs font-bold uppercase tracking-wider"
+                    className="btn btn-primary w-full py-3 text-xs font-bold uppercase tracking-wider cursor-pointer"
                   >
                     Quét vân tay / Khuôn mặt
                   </button>
 
-                  <button onClick={() => { setStep("fallback_pin"); setPinCode(""); }} className="text-xs text-[#7c4831] hover:underline font-bold block w-full mt-2">Nhập mã PIN 6 số thay thế</button>
+                  <button 
+                    type="button"
+                    onClick={() => { setStep("fallback_pin"); setPinCode(""); }} 
+                    className="text-xs text-[#7c4831] hover:underline font-bold block w-full mt-2 cursor-pointer"
+                  >
+                    Nhập mã PIN 6 số thay thế
+                  </button>
                 </div>
               )}
 

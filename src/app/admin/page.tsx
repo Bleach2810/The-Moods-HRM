@@ -6,6 +6,7 @@ import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, Image
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import ModalPortal from "@/components/ModalPortal";
+import { isWebAuthnSupported } from "@/utils/biometrics";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -626,12 +627,9 @@ export default function AdminPortal() {
 
   const handleRegisterBiometricDirectly = async () => {
     if (typeof window === "undefined") return;
-    if (!window.isSecureContext) {
-      alert("Thiết lập sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost).");
-      return;
-    }
-    if (!navigator.credentials) {
-      alert("Thiết bị hoặc trình duyệt của bạn không hỗ trợ bảo mật sinh trắc học Touch ID!");
+    const check = isWebAuthnSupported();
+    if (!check.supported) {
+      alert(check.reason || "Thiết bị hoặc trình duyệt không hỗ trợ bảo mật sinh trắc học.");
       return;
     }
 
@@ -652,12 +650,15 @@ export default function AdminPortal() {
           name: phone,
           displayName: phone,
         },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },   // ES256
+          { type: "public-key", alg: -257 }  // RS256
+        ],
         authenticatorSelection: {
           authenticatorAttachment: "platform",
-          userVerification: "required",
-          residentKey: "required",
-          requireResidentKey: true,
+          userVerification: "preferred",
+          residentKey: "preferred",
+          requireResidentKey: false,
         },
         timeout: 60000,
         attestation: "none"
@@ -683,11 +684,13 @@ export default function AdminPortal() {
 
         localStorage.setItem(`moods_bio_cred_${phone}`, bioKey);
         localStorage.setItem(`moods_bio_${phone}`, "enabled");
-        alert("Kích hoạt sinh trắc học (vân tay) thành công cho thiết bị này!");
+        alert("Kích hoạt sinh trắc học (vân tay / Face ID) thành công cho thiết bị này!");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
+        alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+      }
     }
   };
 
