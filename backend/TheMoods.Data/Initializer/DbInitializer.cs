@@ -13,22 +13,6 @@ namespace TheMoods.Data.Initializer
             // Tự động chạy Migration nếu DB chưa được khởi tạo đầy đủ
             context.Database.Migrate();
 
-            // Check if seeded staff user has incorrect ID. If so, wipe and re-seed.
-            var legacyStaff = context.Users.FirstOrDefault(u => u.PhoneNumber == "0900000003");
-            if (legacyStaff != null && legacyStaff.Id != "st-3")
-            {
-                using var transaction = context.Database.BeginTransaction();
-                try
-                {
-                    context.Database.ExecuteSqlRaw("TRUNCATE TABLE \"Attendances\", \"OfficialSchedules\", \"StaffAvailabilities\", \"UserLocations\", \"Users\" CASCADE");
-                    transaction.Commit();
-                }
-                catch
-                {
-                    transaction.Rollback();
-                }
-            }
-
             // 1. Seed Roles
             if (!context.Roles.Any())
             {
