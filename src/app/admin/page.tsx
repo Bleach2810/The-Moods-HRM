@@ -1115,6 +1115,11 @@ export default function AdminPortal() {
     if (editingAutoKey) {
       newAdj.IsAutoOverride = true;
       newAdj.OverrideKey = editingAutoKey;
+      newAdj.AutoKey = editingAutoKey;
+      const parts = editingAutoKey.split("_");
+      if (parts.length >= 3) {
+        newAdj.AutoRef = `LATE_${parts[0]}_${parts[1]}_${parts[2]}`;
+      }
     }
 
     let updated = [...adjustmentsList];
@@ -1123,6 +1128,8 @@ export default function AdminPortal() {
       if (existing && existing.IsAutoOverride) {
         newAdj.IsAutoOverride = true;
         newAdj.OverrideKey = existing.OverrideKey;
+        newAdj.AutoKey = existing.AutoKey || existing.OverrideKey;
+        newAdj.AutoRef = existing.AutoRef;
       }
       updated[editingAdjIndex] = newAdj;
     } else {
@@ -1144,6 +1151,7 @@ export default function AdminPortal() {
         setEditingAutoKey(null);
         setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
         fetchHrmConfigs();
+        fetchPayrollData();
       }
     } catch (err) {
       console.error(err);
@@ -4568,13 +4576,17 @@ export default function AdminPortal() {
                                       <button
                                         onClick={async () => {
                                           if (!confirm("Hủy khoản thưởng/phạt tự động này?")) return;
+                                          const autoKey = item.AutoKey;
+                                          const autoRef = item.AutoKey ? `LATE_${item.EmployeeId}_${item.Date}_${item.AutoKey.split("_")[2]}` : `LATE_${item.EmployeeId}_${item.Date}`;
                                           const newOverride = {
                                             EmployeeId: item.EmployeeId,
                                             EmployeeName: item.EmployeeName,
                                             Date: item.Date,
                                             Type: item.Type,
                                             IsAutoOverride: true,
-                                            OverrideKey: item.AutoKey,
+                                            OverrideKey: autoKey,
+                                            AutoKey: autoKey,
+                                            AutoRef: autoRef,
                                             Amount: 0,
                                             Note: "Đã hủy (Hệ thống tự động)",
                                             Quantity: 0,
@@ -4590,7 +4602,10 @@ export default function AdminPortal() {
                                               headers: { "Content-Type": "application/json" },
                                               body: JSON.stringify([{ configKey: "Adjustments", configValue: JSON.stringify(updated), description: "Danh sách thưởng phạt riêng của nhân viên (JSON)" }])
                                             });
-                                            if (res.ok && typeof fetchHrmConfigs === "function") fetchHrmConfigs();
+                                            if (res.ok) {
+                                              if (typeof fetchHrmConfigs === "function") fetchHrmConfigs();
+                                              if (typeof fetchPayrollData === "function") fetchPayrollData();
+                                            }
                                           } catch (err) { console.error(err); }
                                         }}
                                         className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
@@ -6096,7 +6111,19 @@ export default function AdminPortal() {
             : [];
           const selectedEmpLateLogs = officialSchedulesList
             ? officialSchedulesList
-              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
+              .filter((s: any) => {
+                if (s.userId !== selectedPenaltyEmployee.userId || !s.checkInTime) return false;
+                if (s.date < payrollFromDate || s.date > payrollToDate) return false;
+                const autoKey = `${s.userId}_${s.date}_${s.startTime}_penalty`;
+                const autoRef = `LATE_${s.userId}_${s.date}_${s.startTime}`;
+                const hasOverride = adjustmentsList && adjustmentsList.some((a: any) => 
+                  (a.IsAutoOverride && (a.OverrideKey === autoKey || a.AutoKey === autoKey || a.AutoRef === autoRef)) ||
+                  (a.OverrideKey === autoKey) ||
+                  (a.AutoKey === autoKey) ||
+                  (a.AutoRef === autoRef)
+                );
+                return !hasOverride;
+              })
               .map((s: any) => {
                 const startParts = s.startTime.split(":");
                 const realParts = s.checkInTime.split(":");
@@ -6114,7 +6141,17 @@ export default function AdminPortal() {
             : [];
           const selectedEmpHolidayBonuses = officialSchedulesList
             ? officialSchedulesList
-              .filter((s: any) => s.userId === selectedPenaltyEmployee.userId && s.clockedOut && s.checkInTime && s.date >= payrollFromDate && s.date <= payrollToDate)
+              .filter((s: any) => {
+                if (s.userId !== selectedPenaltyEmployee.userId || !s.clockedOut || !s.checkInTime) return false;
+                if (s.date < payrollFromDate || s.date > payrollToDate) return false;
+                const autoKey = `${s.userId}_${s.date}_${s.startTime}_bonus`;
+                const hasOverride = adjustmentsList && adjustmentsList.some((a: any) => 
+                  (a.IsAutoOverride && (a.OverrideKey === autoKey || a.AutoKey === autoKey)) ||
+                  (a.OverrideKey === autoKey) ||
+                  (a.AutoKey === autoKey)
+                );
+                return !hasOverride;
+              })
               .map((s: any) => {
                 const matchedHoliday = detailedHolidaysList.find((h: any) => h.Date === s.date);
                 if (!matchedHoliday) return null;

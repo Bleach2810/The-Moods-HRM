@@ -1203,8 +1203,14 @@ namespace TheMoods.Api.Controllers
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             
+                            string autoKey = $"{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}_penalty";
                             string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
-                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+                            bool isOverridden = adjustmentsList.Any(a => 
+                                (a.AutoRef != null && a.AutoRef == autoRef) ||
+                                (a.OverrideKey != null && a.OverrideKey == autoKey) ||
+                                (a.AutoKey != null && a.AutoKey == autoKey) ||
+                                (a.IsAutoOverride == true && (a.OverrideKey == autoKey || a.AutoKey == autoKey || a.AutoRef == autoRef))
+                            );
 
                             if (!isOverridden)
                             {
@@ -1499,8 +1505,14 @@ namespace TheMoods.Api.Controllers
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             
+                            string autoKey = $"{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}_penalty";
                             string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
-                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+                            bool isOverridden = adjustmentsList.Any(a => 
+                                (a.AutoRef != null && a.AutoRef == autoRef) ||
+                                (a.OverrideKey != null && a.OverrideKey == autoKey) ||
+                                (a.AutoKey != null && a.AutoKey == autoKey) ||
+                                (a.IsAutoOverride == true && (a.OverrideKey == autoKey || a.AutoKey == autoKey || a.AutoRef == autoRef))
+                            );
 
                             if (!isOverridden)
                             {
@@ -2304,6 +2316,9 @@ namespace TheMoods.Api.Controllers
             public string Date { get; set; } = string.Empty; // "YYYY-MM-DD"
             public string Note { get; set; } = string.Empty;
             public string? AutoRef { get; set; }
+            public string? OverrideKey { get; set; }
+            public string? AutoKey { get; set; }
+            public bool? IsAutoOverride { get; set; }
         }
 
         public class HolidayDetail
@@ -2538,8 +2553,14 @@ namespace TheMoods.Api.Controllers
                             var lateMin = (att.CheckInTime - schedStart2).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             
+                            string autoKey = $"{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}_penalty";
                             string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
-                            bool isOverridden = adjustmentsList.Any(a => a.AutoRef == autoRef);
+                            bool isOverridden = adjustmentsList.Any(a => 
+                                (a.AutoRef != null && a.AutoRef == autoRef) ||
+                                (a.OverrideKey != null && a.OverrideKey == autoKey) ||
+                                (a.AutoKey != null && a.AutoKey == autoKey) ||
+                                (a.IsAutoOverride == true && (a.OverrideKey == autoKey || a.AutoKey == autoKey || a.AutoRef == autoRef))
+                            );
 
                             if (!isOverridden)
                             {

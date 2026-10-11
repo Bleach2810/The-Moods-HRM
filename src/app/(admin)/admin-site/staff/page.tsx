@@ -2500,7 +2500,15 @@ export default function StaffPortal() {
       .filter((s: any) => {
         if (payrollFromDate && s.date < payrollFromDate) return false;
         if (payrollToDate && s.date > payrollToDate) return false;
-        return true;
+        const autoKey = `${s.userId}_${s.date}_${s.startTime}_penalty`;
+        const autoRef = `LATE_${s.userId}_${s.date}_${s.startTime}`;
+        const hasOverride = (adjustmentsList || []).some((a: any) => 
+          (a.IsAutoOverride && (a.OverrideKey === autoKey || a.AutoKey === autoKey || a.AutoRef === autoRef)) ||
+          (a.OverrideKey === autoKey) ||
+          (a.AutoKey === autoKey) ||
+          (a.AutoRef === autoRef)
+        );
+        return !hasOverride;
       })
       .map((s: any) => {
         const startParts = s.startTime.split(":");
