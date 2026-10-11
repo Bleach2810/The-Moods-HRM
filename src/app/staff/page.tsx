@@ -514,6 +514,7 @@ export default function StaffPortal() {
   const [selectedStartHour, setSelectedStartHour] = useState("07:00");
   const [selectedEndHour, setSelectedEndHour] = useState("12:00");
   const [isOvernightReg, setIsOvernightReg] = useState(false);
+  const [securityAllowancePerHour, setSecurityAllowancePerHour] = useState("2000");
 
   // Scanner
   const [scanning, setScanning] = useState(true);
@@ -619,6 +620,8 @@ export default function StaffPortal() {
         if (multVal) setLatePenaltyMultiplier(multVal);
         const maxAmtVal = data.find((c: any) => c.configKey === "LatePenaltyMaxAmount")?.configValue;
         if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
+        const secVal = data.find((c: any) => c.configKey === "SecurityAllowancePerHour")?.configValue;
+        if (secVal) setSecurityAllowancePerHour(secVal);
 
         const adjVal = data.find((c: any) => c.configKey === "Adjustments")?.configValue;
         if (adjVal) {
@@ -1090,10 +1093,15 @@ export default function StaffPortal() {
                           : "border-gray-200 bg-white/70 hover:bg-white"
                       }`}
                     >
-                      <div className="flex items-center justify-between text-[10px] font-extrabold uppercase">
+                      <div className="flex items-center justify-between text-[10px] font-extrabold uppercase flex-wrap gap-1">
                         <span className={isSel ? "text-[#7c4831]" : "text-gray-700"}>
                           Ca {idx + 1}: {sh.startTime} – {sh.endTime}
                         </span>
+                        {sh.isSecurity && (
+                          <span className="text-[7.5px] font-black uppercase text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
+                            🛡️ Bảo vệ
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1">
                         {isDone ? (
@@ -2595,6 +2603,7 @@ export default function StaffPortal() {
 
     // 4. Tính toán ca làm việc và LƯƠNG LÀM THEO GIỜ trong khoảng ngày
     const hourlyWage = activeStaff?.hourlyWage || 25000;
+    const secAllowance = Number(securityAllowancePerHour || 2000);
     const myCompletedShifts = (officialSchedulesList || [])
       .filter((s: any) => activeStaff && (s.userId === activeStaff.id || (s.staffPhone && (s.staffPhone === activeStaff.phone || s.staffPhone === activeStaff.phoneNumber))))
       .filter((s: any) => {
@@ -2626,17 +2635,19 @@ export default function StaffPortal() {
           actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
         }
 
-        const shiftPay = actualHours * hourlyWage;
+        const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0);
+        const shiftPay = actualHours * effectiveWage;
         return {
           ...s,
           actualHours,
+          effectiveWage,
           shiftPay
         };
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
     const clientWorkedHours = myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0);
-    const clientBaseSalary = clientWorkedHours * hourlyWage;
+    const clientBaseSalary = myCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
 
     // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client
     const totalWorkedHours = backendStaffPayroll?.totalWorkedHours !== undefined ? backendStaffPayroll.totalWorkedHours : clientWorkedHours;
@@ -2887,11 +2898,16 @@ export default function StaffPortal() {
                   {myCompletedShifts.map((s: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center bg-[#FAF9F6] border border-[#7c4831]/5 p-2 rounded-xl text-[11px] font-semibold">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[9px] font-mono font-bold text-[#7c4831]">{s.date}</span>
                           <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold">
                             Ca {s.startTime} - {s.endTime}
                           </span>
+                          {s.isSecurity && (
+                            <span className="text-[8px] bg-blue-100 text-blue-900 border border-blue-300 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5">
+                              🛡️ Bảo vệ (+{secAllowance.toLocaleString("vi-VN")}đ/h)
+                            </span>
+                          )}
                         </div>
                         <p className="text-gray-500 text-[9.5px]">
                           Vào: {s.checkInTime ? s.checkInTime.slice(0, 5) : "--:--"} • Ra: {s.checkOutTime ? s.checkOutTime.slice(0, 5) : "--:--"}

@@ -173,6 +173,14 @@ namespace TheMoods.Api.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            if (!configs.Any(c => c.ConfigKey == "SecurityAllowancePerHour"))
+            {
+                var defSecurity = new PayrollConfig { LocationId = locationId, ConfigKey = "SecurityAllowancePerHour", ConfigValue = "2000", Description = "Phụ cấp làm bảo vệ trong ca trực (VNĐ/giờ)" };
+                _context.PayrollConfigs.Add(defSecurity);
+                configs.Add(defSecurity);
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(configs.Select(c => new { c.ConfigKey, c.ConfigValue, c.Description }));
         }
 
@@ -493,6 +501,7 @@ namespace TheMoods.Api.Controllers
                 Date = dateVal,
                 StartTime = startTime,
                 EndTime = endTime,
+                IsSecurity = dto.IsSecurity ?? false,
                 CreatedBy = dto.CreatedBy ?? "Admin"
             };
 
@@ -603,6 +612,7 @@ namespace TheMoods.Api.Controllers
                     clockedOut = s.Attendances.Any(a => a.CheckOutTime != null),
                     checkInTime = s.Attendances.Any() ? s.Attendances.First().CheckInTime.ToString("HH:mm:ss") : null,
                     checkOutTime = s.Attendances.Any(a => a.CheckOutTime != null) ? s.Attendances.First().CheckOutTime.Value.ToString("HH:mm:ss") : null,
+                    isSecurity = s.IsSecurity,
                     skills = s.User != null ? s.User.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => (object)new { id = us.Skill.Id, name = us.Skill.Name }).ToList() : new System.Collections.Generic.List<object>()
                 })
                 .ToListAsync();
@@ -674,6 +684,10 @@ namespace TheMoods.Api.Controllers
             sched.Date = DateTime.SpecifyKind(DateTime.Parse(dto.Date).Date, DateTimeKind.Utc);
             sched.StartTime = TimeSpan.Parse(dto.StartTime);
             sched.EndTime = TimeSpan.Parse(dto.EndTime);
+            if (dto.IsSecurity.HasValue)
+            {
+                sched.IsSecurity = dto.IsSecurity.Value;
+            }
 
             await _context.SaveChangesAsync();
 
@@ -723,6 +737,7 @@ namespace TheMoods.Api.Controllers
                     Date = dateVal,
                     StartTime = startTime,
                     EndTime = endTime,
+                    IsSecurity = dto.IsSecurity ?? false,
                     CreatedBy = dto.AdminName ?? "Admin"
                 };
                 _context.OfficialSchedules.Add(sched);
@@ -734,6 +749,10 @@ namespace TheMoods.Api.Controllers
                 sched.EndTime = endTime;
                 sched.LocationId = locId;
                 sched.Date = dateVal;
+                if (dto.IsSecurity.HasValue)
+                {
+                    sched.IsSecurity = dto.IsSecurity.Value;
+                }
                 await _context.SaveChangesAsync();
             }
 
@@ -1054,6 +1073,10 @@ namespace TheMoods.Api.Controllers
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
             if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
 
+            var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
+            decimal securityAllowancePerHour = 2000;
+            if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
+
             // Parse Holidays_Detailed
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
             var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
@@ -1159,15 +1182,18 @@ namespace TheMoods.Api.Controllers
                             if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                             else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
+                            // Cộng thêm phụ cấp bảo vệ nếu ca trực được gán là bảo vệ
+                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
+
                             if (holiday != null)
                             {
                                 double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * hourlyWage;
-                                bonus += (decimal)hours * hourlyWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                baseSalary += (decimal)hours * shiftWage;
+                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
                             }
                             else
                             {
-                                baseSalary += (decimal)hours * hourlyWage;
+                                baseSalary += (decimal)hours * shiftWage;
                             }
                         }
 
@@ -1281,7 +1307,9 @@ namespace TheMoods.Api.Controllers
                             checkOut = a.CheckOutTime?.ToString("yyyy-MM-dd HH:mm:ss"),
                             schedEnd = schedEnd.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOutLimit = checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss"),
-                            hours = Math.Round(hrs, 5)
+                            hours = Math.Round(hrs, 5),
+                            isSecurity = a.Schedule?.IsSecurity ?? false,
+                            securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0
                         });
                     }
                 }
@@ -1333,6 +1361,10 @@ namespace TheMoods.Api.Controllers
             if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
             if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
+
+            var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
+            decimal securityAllowancePerHour = 2000;
+            if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
 
             // Parse Holidays_Detailed
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -1448,15 +1480,17 @@ namespace TheMoods.Api.Controllers
                             if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                             else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
+                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
+
                             if (holiday != null)
                             {
                                 double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * hourlyWage;
-                                bonus += (decimal)hours * hourlyWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                baseSalary += (decimal)hours * shiftWage;
+                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
                             }
                             else
                             {
-                                baseSalary += (decimal)hours * hourlyWage;
+                                baseSalary += (decimal)hours * shiftWage;
                             }
                         }
 
@@ -2303,6 +2337,7 @@ namespace TheMoods.Api.Controllers
             public string Date { get; set; } = string.Empty;
             public string StartTime { get; set; } = string.Empty;
             public string EndTime { get; set; } = string.Empty;
+            public bool? IsSecurity { get; set; }
             public string? CreatedBy { get; set; }
         }
 
@@ -2318,6 +2353,7 @@ namespace TheMoods.Api.Controllers
             public string? CheckOutTime { get; set; } // HH:mm
             public bool RecordAttendance { get; set; } = true;
             public bool? ClearAttendance { get; set; }
+            public bool? IsSecurity { get; set; }
             public string? Note { get; set; }
             public string? AdminName { get; set; }
         }
@@ -2381,6 +2417,10 @@ namespace TheMoods.Api.Controllers
             if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
             if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
             if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
+
+            var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
+            decimal securityAllowancePerHour = 2000;
+            if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
 
             // Parse Holidays
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -2479,15 +2519,17 @@ namespace TheMoods.Api.Controllers
                             if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                             else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
+                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
+
                             if (holiday != null)
                             {
                                 double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * hourlyWage;
-                                bonus += (decimal)hours * hourlyWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                baseSalary += (decimal)hours * shiftWage;
+                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
                             }
                             else
                             {
-                                baseSalary += (decimal)hours * hourlyWage;
+                                baseSalary += (decimal)hours * shiftWage;
                             }
                         }
 

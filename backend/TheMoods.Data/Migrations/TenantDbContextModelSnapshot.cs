@@ -198,6 +198,9 @@ namespace TheMoods.Data.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Link")
+                        .HasColumnType("text");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text");
@@ -232,6 +235,9 @@ namespace TheMoods.Data.Migrations
 
                     b.Property<int>("ExtensionDurationMinutes")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsSecurity")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("LocationId")
                         .IsRequired()
