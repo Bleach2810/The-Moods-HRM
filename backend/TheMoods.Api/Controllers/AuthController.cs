@@ -488,17 +488,19 @@ namespace TheMoods.Api.Controllers
                 .Include(u => u.Role)
                 .Where(u => !u.IsDeleted);
 
+            User? user = null;
             if (!string.IsNullOrWhiteSpace(userId))
             {
-                query = query.Where(u => u.Id == userId);
-            }
-            else if (!string.IsNullOrWhiteSpace(phone))
-            {
-                var trimmedPhone = phone.Trim();
-                query = query.Where(u => u.PhoneNumber == trimmedPhone || u.FullName.ToLower() == trimmedPhone.ToLower());
+                user = await query.FirstOrDefaultAsync(u => u.Id == userId);
             }
 
-            var user = await query.FirstOrDefaultAsync();
+            // Fallback: nếu userId cũ không tồn tại trong DB, thử tìm theo số điện thoại
+            if (user == null && !string.IsNullOrWhiteSpace(phone))
+            {
+                var trimmedPhone = phone.Trim();
+                user = await query.FirstOrDefaultAsync(u => u.PhoneNumber == trimmedPhone || u.FullName.ToLower() == trimmedPhone.ToLower());
+            }
+
             if (user == null)
             {
                 return NotFound(new { message = "Không tìm thấy nhân viên!" });

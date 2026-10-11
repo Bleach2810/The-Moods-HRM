@@ -1201,7 +1201,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: activeStaff?.id || "st-3",
-          locationId: activeLocation?.id || "govap-branch",
+          locationId: activeStaff?.locationId || activeLocation?.id || "govap-branch",
           lat,
           lng
         })
@@ -1249,7 +1249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: activeStaff?.id || "st-3",
-          locationId: activeLocation?.id || "govap-branch"
+          locationId: activeStaff?.locationId || activeLocation?.id || "govap-branch"
         })
       });
       const data = await res.json();

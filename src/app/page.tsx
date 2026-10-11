@@ -412,6 +412,12 @@ export default function LandingPage() {
               if (typeof window !== "undefined") {
                 localStorage.setItem("moods_active_staff", JSON.stringify(finalStaffData));
               }
+              if (finalStaffData.locationId && locations?.length > 0) {
+                const loc = locations.find((l: any) => l.id === finalStaffData.locationId);
+                if (loc && selectBrandAndLocation) {
+                  selectBrandAndLocation(loc.brandId, loc.id);
+                }
+              }
               window.location.href = destRoute;
               return;
             }
@@ -526,6 +532,12 @@ export default function LandingPage() {
           alert("Mã PIN chính xác! Đang đăng nhập...");
           if (typeof window !== "undefined") {
             localStorage.setItem("moods_active_staff", JSON.stringify(finalStaffData));
+          }
+          if (finalStaffData.locationId && locations?.length > 0) {
+            const loc = locations.find((l: any) => l.id === finalStaffData.locationId);
+            if (loc && selectBrandAndLocation) {
+              selectBrandAndLocation(loc.brandId, loc.id);
+            }
           }
 
           const bioEnabled = localStorage.getItem(`moods_bio_${identifier.trim()}`) === "enabled";

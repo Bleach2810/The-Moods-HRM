@@ -113,7 +113,7 @@ const getLayoutedEvents = (events: any[]) => {
 };
 
 export default function StaffPortal() {
-  const { activeBrand, activeLocation, activeStaff: contextActiveStaff, loginStaff, logoutStaff, timekeeping, clockInStaff, clockOutStaff, shifts, registerShift, requests, submitRequest, logs, addPointsToCustomer, customers, notifications, markNotificationAsRead, subscribeUserToPush, getDeviceSubscriptions, testPushNotification, getCurrentPushEndpoint, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
+  const { activeBrand, activeLocation, activeStaff: contextActiveStaff, selectBrandAndLocation, locations, loginStaff, logoutStaff, timekeeping, clockInStaff, clockOutStaff, shifts, registerShift, requests, submitRequest, logs, addPointsToCustomer, customers, notifications, markNotificationAsRead, subscribeUserToPush, getDeviceSubscriptions, testPushNotification, getCurrentPushEndpoint, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
 
   const [managerNote, setManagerNote] = React.useState("");
   React.useEffect(() => {
@@ -139,7 +139,8 @@ export default function StaffPortal() {
     if (!sId) return;
     try {
       const locId = activeStaff?.locationId || activeLocation?.id || "";
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/profile?userId=${encodeURIComponent(sId)}&locationId=${encodeURIComponent(locId)}`);
+      const phoneParam = encodeURIComponent(activeStaff?.phoneNumber || activeStaff?.phone || "");
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/profile?userId=${encodeURIComponent(sId)}&phone=${phoneParam}&locationId=${encodeURIComponent(locId)}`);
       if (res.ok) {
         const fresh = await res.json();
         if (fresh && fresh.id) {
@@ -203,6 +204,26 @@ export default function StaffPortal() {
   }, [contextActiveStaff, router]);
 
   const activeStaff = localStaff || contextActiveStaff;
+
+  // Tự động đồng bộ chi nhánh của nhân viên khi đăng nhập
+  React.useEffect(() => {
+    if (activeStaff?.locationId && activeLocation && activeLocation.id !== activeStaff.locationId && locations?.length > 0) {
+      const matchedLoc = locations.find((l: any) => l.id === activeStaff.locationId);
+      if (matchedLoc && selectBrandAndLocation) {
+        selectBrandAndLocation(matchedLoc.brandId, matchedLoc.id);
+      }
+    }
+  }, [activeStaff?.locationId, activeLocation?.id, locations]);
+
+  // So khớp ca làm việc thông minh: ưu tiên userId, fallback số điện thoại nếu lệch phiên ID
+  const isMyShift = React.useCallback((s: any) => {
+    if (!s || !activeStaff) return false;
+    if (s.userId && activeStaff.id && s.userId === activeStaff.id) return true;
+    const myPhone = (activeStaff.phoneNumber || activeStaff.phone || "").replace(/\D/g, "");
+    const shiftPhone = (s.staffPhone || "").replace(/\D/g, "");
+    if (myPhone && shiftPhone && myPhone === shiftPhone) return true;
+    return false;
+  }, [activeStaff]);
 
   React.useEffect(() => {
     if (tab === "profile" && activeStaff?.id) {
@@ -598,7 +619,8 @@ export default function StaffPortal() {
 
   const fetchHrmConfigs = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`);
+      const locId = activeStaff?.locationId || activeLocation?.id || "govap-branch";
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
         const lockVal = data.find((c: any) => c.configKey === "ShiftRegistrationLocked")?.configValue;
@@ -649,7 +671,8 @@ export default function StaffPortal() {
 
   const fetchAvails = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/attendance/availability?locationId=${activeLocation?.id || "govap-branch"}`);
+      const locId = activeStaff?.locationId || activeLocation?.id || "govap-branch";
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/availability?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
         setAvailList(data);
@@ -661,7 +684,8 @@ export default function StaffPortal() {
 
   const fetchOfficialSchedules = async () => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules?locationId=${activeLocation?.id || "govap-branch"}`);
+      const locId = activeStaff?.locationId || activeLocation?.id || "govap-branch";
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
         setOfficialSchedulesList(data);
@@ -674,7 +698,7 @@ export default function StaffPortal() {
   const fetchColleagues = async () => {
     try {
       // Staff-per-Branch: chỉ lấy đồng nghiệp cùng Branch qua API
-      const locId = activeLocation?.id || "govap-branch";
+      const locId = activeStaff?.locationId || activeLocation?.id || "govap-branch";
       const res = await fetch(`${getApiBaseUrl()}/api/auth/staff?locationId=${locId}`);
       if (res.ok) {
         const data = await res.json();
@@ -978,7 +1002,7 @@ export default function StaffPortal() {
     const todayDateStr = `${yyyy}-${mm}-${dd}`;
 
     const shiftsToday = (officialSchedulesList || []).filter(
-      (s: any) => s.userId === activeStaff?.id && s.date === todayDateStr
+      (s: any) => isMyShift(s) && s.date === todayDateStr
     );
 
     const currentHourFloat = now.getHours() + now.getMinutes() / 60;
@@ -1241,7 +1265,7 @@ export default function StaffPortal() {
 
           // Các bạn làm cùng ca: ca trùng hoặc giao thoa thời gian
           const colleaguesSameShift = allShiftsToday.filter((s: any) => {
-            if (s.userId === activeStaff?.id) return false;
+            if (isMyShift(s)) return false;
             if (!myCurrentShift) return true;
             let sStart = parseTimeToFloat(s.startTime);
             let sEnd = parseTimeToFloat(s.endTime);
@@ -1250,7 +1274,7 @@ export default function StaffPortal() {
           });
 
           const otherColleaguesToday = allShiftsToday.filter((s: any) => {
-            if (s.userId === activeStaff?.id) return false;
+            if (isMyShift(s)) return false;
             return !colleaguesSameShift.some((c: any) => c.id === s.id);
           });
 
@@ -1641,7 +1665,7 @@ export default function StaffPortal() {
                                   </div>
                                 ) : (
                                   cellScheds.map((sched: any) => {
-                                    const isMe = sched.userId === activeStaff?.id;
+                                    const isMe = isMyShift(sched);
                                     const skill = sched.skills && sched.skills.length > 0 ? sched.skills[0].name : "Nhân viên";
                                     const crossesMidnight = parseTimeToFloat(sched.endTime) < parseTimeToFloat(sched.startTime);
                                     const isLeaveApproved = (requests || []).some((r: any) => r.type === "leave" && r.targetShiftId === sched.id && r.status === "approved");
@@ -1778,7 +1802,7 @@ export default function StaffPortal() {
                             }
                             
                             // Check if they already have an official schedule chốt
-                            const myOfficial = (officialSchedulesList || []).find((sc: any) => sc.userId === activeStaff?.id && sc.date === day.dateStr);
+                            const myOfficial = (officialSchedulesList || []).find((sc: any) => isMyShift(sc) && sc.date === day.dateStr);
                             if (myOfficial) {
                               alert("Lịch ngày này đã được quản lý chốt chính thức, không thể thay đổi ca rảnh!");
                               return;
@@ -2127,11 +2151,11 @@ export default function StaffPortal() {
     };
 
     const myOfficialShifts = (officialSchedulesList || []).filter(
-      (s: any) => s.userId === activeStaff?.id
+      (s: any) => isMyShift(s)
     );
 
     const myEligibleShifts = (officialSchedulesList || []).filter(
-      (s: any) => s.userId === activeStaff?.id && s.date === reqDate && !s.clockedIn && isShiftInFuture(s)
+      (s: any) => isMyShift(s) && s.date === reqDate && !s.clockedIn && isShiftInFuture(s)
     );
 
     const colleagueEligibleShifts = (officialSchedulesList || []).filter(
@@ -2193,7 +2217,7 @@ export default function StaffPortal() {
               <option value="">Chọn ca muốn xin nghỉ...</option>
               {(() => {
                 return (officialSchedulesList || [])
-                  .filter((s: any) => s.userId === activeStaff?.id && !s.clockedIn && isShiftInFuture(s))
+                  .filter((s: any) => isMyShift(s) && !s.clockedIn && isShiftInFuture(s))
                   .map((s: any) => (
                     <option key={s.id} value={s.id}>
                       {s.date} (Ca: {s.startTime} - {s.endTime})
@@ -2496,7 +2520,7 @@ export default function StaffPortal() {
 
     // 2. Tính toán các ca đi trễ tự động từ lịch sử check-in trong khoảng ngày
     const myAutoLatePenalties = (officialSchedulesList || [])
-      .filter((s: any) => activeStaff && s.userId === activeStaff.id && s.checkInTime)
+      .filter((s: any) => activeStaff && isMyShift(s) && s.checkInTime)
       .filter((s: any) => {
         if (payrollFromDate && s.date < payrollFromDate) return false;
         if (payrollToDate && s.date > payrollToDate) return false;
@@ -2534,7 +2558,7 @@ export default function StaffPortal() {
 
     // 3. Tính toán các ca đi làm ngày lễ tự động (Thưởng lễ hệ số & flat bonus) trong khoảng ngày
     const myAutoHolidayBonuses = (officialSchedulesList || [])
-      .filter((s: any) => activeStaff && s.userId === activeStaff.id && s.clockedOut)
+      .filter((s: any) => activeStaff && isMyShift(s) && s.clockedOut)
       .filter((s: any) => {
         if (payrollFromDate && s.date < payrollFromDate) return false;
         if (payrollToDate && s.date > payrollToDate) return false;
@@ -3119,7 +3143,9 @@ export default function StaffPortal() {
             </span>
             <div>
               <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#7c4831] block leading-none">{activeBrand ? activeBrand.name.split(" - ")[0] : "Staff"}</span>
-              <span className="text-[7.5px] font-bold text-[#7c4831]/60 uppercase tracking-widest leading-none mt-1 block">Staff Portal</span>
+              <span className="text-[7.5px] font-bold text-[#7c4831]/60 uppercase tracking-widest leading-none mt-1 block">
+                📍 {activeStaff?.locationName || activeLocation?.name || "The Moods Gò Vấp"}
+              </span>
             </div>
           </div>
           {activeStaff && (

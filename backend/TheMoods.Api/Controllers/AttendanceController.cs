@@ -871,10 +871,16 @@ namespace TheMoods.Api.Controllers
             var localToday = DateTime.UtcNow.AddHours(7).Date; // Giờ VN hôm nay
             var localYesterday = localToday.AddDays(-1);
 
-            // Tìm các ca trực hôm qua và hôm nay của nhân viên chưa được chấm công
+            var user = await _context.Users.FindAsync(dto.UserId);
+            var userPhone = user?.PhoneNumber;
+
+            // Tìm các ca trực hôm qua và hôm nay của nhân viên chưa được chấm công (hỗ trợ cả tìm theo SĐT nếu UserId bị lệch)
             var schedules = await _context.OfficialSchedules
                 .Include(s => s.Attendances)
-                .Where(s => s.UserId == dto.UserId && (s.Date == localToday || s.Date == localYesterday) && s.LocationId == dto.LocationId)
+                .Include(s => s.User)
+                .Where(s => (s.UserId == dto.UserId || (!string.IsNullOrEmpty(userPhone) && s.User != null && s.User.PhoneNumber == userPhone))
+                    && (s.Date == localToday || s.Date == localYesterday)
+                    && (s.LocationId == dto.LocationId || string.IsNullOrEmpty(dto.LocationId)))
                 .ToListAsync();
 
             // Lọc ra các ca chưa được check-in
@@ -924,8 +930,8 @@ namespace TheMoods.Api.Controllers
             var att = new Attendance
             {
                 ScheduleId = targetSchedule.Id,
-                UserId = dto.UserId,
-                LocationId = dto.LocationId,
+                UserId = targetSchedule.UserId, // Gán theo UserId của lịch ca để đồng bộ chuẩn xác
+                LocationId = targetSchedule.LocationId,
                 CheckInTime = nowTime,
                 CheckOutTime = null,
                 Lat = dto.Lat,
@@ -940,7 +946,7 @@ namespace TheMoods.Api.Controllers
             {
                 try
                 {
-                    var user = await _context.Users.FindAsync(dto.UserId);
+                    user ??= await _context.Users.FindAsync(dto.UserId);
                     var branchAdmins = await _context.UserLocations
                         .Include(ul => ul.User)
                         .Where(ul => ul.LocationId == dto.LocationId && (ul.User!.RoleId == 1 || ul.User!.RoleId == 2))
@@ -980,9 +986,15 @@ namespace TheMoods.Api.Controllers
         public async Task<IActionResult> ClockOut([FromBody] ClockOutDto dto)
         {
             var today = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
+            var user = await _context.Users.FindAsync(dto.UserId);
+            var userPhone = user?.PhoneNumber;
+
             var att = await _context.Attendances
                 .Include(a => a.Schedule)
-                .Where(a => a.UserId == dto.UserId && a.LocationId == dto.LocationId && a.CheckOutTime == null)
+                .Include(a => a.User)
+                .Where(a => (a.UserId == dto.UserId || (!string.IsNullOrEmpty(userPhone) && ((a.User != null && a.User.PhoneNumber == userPhone) || (a.Schedule != null && a.Schedule.User != null && a.Schedule.User.PhoneNumber == userPhone))))
+                    && (a.LocationId == dto.LocationId || string.IsNullOrEmpty(dto.LocationId))
+                    && a.CheckOutTime == null)
                 .OrderByDescending(a => a.CheckInTime)
                 .FirstOrDefaultAsync();
 
