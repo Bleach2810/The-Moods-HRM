@@ -1004,10 +1004,12 @@ namespace TheMoods.Api.Controllers
             }
 
              var nowTime = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Utc); // Giờ VN
+             DateTime scheduleStart;
              DateTime scheduleEnd;
              if (att.Schedule != null)
              {
                  var baseDate = att.Schedule.Date.Date;
+                 scheduleStart = DateTime.SpecifyKind(baseDate.Add(att.Schedule.StartTime), DateTimeKind.Utc);
                  scheduleEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), DateTimeKind.Utc);
                  if (att.Schedule.EndTime < att.Schedule.StartTime)
                  {
@@ -1016,6 +1018,7 @@ namespace TheMoods.Api.Controllers
              }
              else
              {
+                 scheduleStart = att.CheckInTime;
                  scheduleEnd = nowTime;
              }
 
@@ -1038,10 +1041,12 @@ namespace TheMoods.Api.Controllers
             att.CheckOutTime = nowTime; // Lưu thời gian bấm nút thực tế
             await _context.SaveChangesAsync();
 
-            double hoursWorked = (actualEndTime - att.CheckInTime).TotalHours;
+            // Chỉ tính giờ làm trong ca được xếp: check-in sớm không tính trước giờ ca bắt đầu
+            DateTime actualStartTime = att.CheckInTime < scheduleStart ? scheduleStart : att.CheckInTime;
+            double hoursWorked = (actualEndTime - actualStartTime).TotalHours;
             if (hoursWorked < 0) hoursWorked = 0;
-            // Làm tròn lên theo giờ nguyên (ví dụ: 4h30 -> 5h để chẵn tiền)
-            double roundedHours = Math.Ceiling(hoursWorked);
+            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
+            double roundedHours = Math.Round(hoursWorked, MidpointRounding.AwayFromZero);
 
             return Ok(new
             {
@@ -1175,15 +1180,15 @@ namespace TheMoods.Api.Controllers
 
                         if (att.CheckOutTime != null)
                         {
-                            // Giờ làm tối đa tính theo ca trực chính thức (No OT)
+                            // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
+                            var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
                             var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var rawHours = (checkOutLimit - att.CheckInTime).TotalHours;
+                            var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            if (rawHours <= 0) continue;
-
-                            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 tính là 5h để chẵn tiền
-                            var hours = Math.Ceiling(rawHours);
+                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
+                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            if (hours <= 0) continue;
 
                             totalHours += hours;
 
@@ -1313,19 +1318,25 @@ namespace TheMoods.Api.Controllers
                     if (a.Schedule != null)
                     {
                         var baseDate = a.Schedule.Date.Date;
+                        var schedStart = baseDate.Add(a.Schedule.StartTime);
                         var schedEnd = baseDate.Add(a.Schedule.EndTime);
                         if (a.Schedule.EndTime < a.Schedule.StartTime) schedEnd = schedEnd.AddDays(1);
+                        var checkInLimit = a.CheckInTime < schedStart ? schedStart : a.CheckInTime;
                         var checkOutLimit = a.CheckOutTime != null ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : DateTime.MinValue;
-                        var hrs = a.CheckOutTime != null ? (checkOutLimit - a.CheckInTime).TotalHours : 0;
-                        if (hrs < 0) hrs = 0;
+                        var rawHrs = a.CheckOutTime != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
+                        if (rawHrs < 0) rawHrs = 0;
+                        var hrs = Math.Round(rawHrs, MidpointRounding.AwayFromZero);
 
                         detailsList.Add(new {
                             attId = a.Id,
                             checkIn = a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOut = a.CheckOutTime?.ToString("yyyy-MM-dd HH:mm:ss"),
+                            schedStart = schedStart.ToString("yyyy-MM-dd HH:mm:ss"),
                             schedEnd = schedEnd.ToString("yyyy-MM-dd HH:mm:ss"),
+                            checkInLimit = checkInLimit.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOutLimit = checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss"),
-                            hours = Math.Round(hrs, 5),
+                            hours = hrs,
+                            rawHours = Math.Round(rawHrs, 2),
                             isSecurity = a.Schedule?.IsSecurity ?? false,
                             securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0
                         });
@@ -1482,12 +1493,14 @@ namespace TheMoods.Api.Controllers
 
                         if (att.CheckOutTime != null)
                         {
+                            var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
                             var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var hours = (checkOutLimit - att.CheckInTime).TotalHours;
-                            if (hours < 0) hours = 0;
+                            var rawHours = (checkOutLimit - checkInLimit).TotalHours;
+                            if (rawHours < 0) rawHours = 0;
 
-                            // Bỏ qua ca làm dưới 30 phút (0.5 giờ) — không tính lương
-                            if (hours < 0.5) continue;
+                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ 5.5h -> 6h, 5.4h -> 5h)
+                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            if (hours <= 0) continue;
 
                             totalHours += hours;
 
@@ -2528,15 +2541,15 @@ namespace TheMoods.Api.Controllers
 
                         if (att.CheckOutTime != null)
                         {
-                            // Giờ làm tối đa tính theo ca trực chính thức (No OT)
+                            // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
+                            var checkInLimit = att.CheckInTime < schedStart2 ? schedStart2 : att.CheckInTime;
                             var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var rawHours = (checkOutLimit - att.CheckInTime).TotalHours;
+                            var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            if (rawHours <= 0) continue;
-
-                            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 tính là 5h để chẵn tiền
-                            var hours = Math.Ceiling(rawHours);
+                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
+                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            if (hours <= 0) continue;
 
                             totalHours += hours;
 

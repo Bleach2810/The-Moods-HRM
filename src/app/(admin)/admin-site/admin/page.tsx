@@ -2571,8 +2571,8 @@ export default function AdminPortal() {
             if (eh < sh) eh += 24;
             const m = (eh * 60 + em) - (sh * 60 + sm);
             if (m <= 0) return 0;
-            // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 -> 5h để chẵn tiền
-            return Math.ceil(m / 60);
+            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ 5.5h -> 6h, 5.4h -> 5h)
+            return Math.round(m / 60);
           };
 
           const isSchedule = manualLogMode === "schedule";
@@ -2953,8 +2953,8 @@ export default function AdminPortal() {
           };
 
           const schedMins = calcMins(cellStartTime, cellEndTime);
-          // Tự động làm tròn lên theo giờ nguyên: ví dụ 4h30 -> 5h để chẵn tiền
-          const schedHours = Math.max(0, Math.ceil(schedMins / 60));
+          // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ 5.5h -> 6h, 5.4h -> 5h)
+          const schedHours = Math.max(0, Math.round(schedMins / 60));
           const schedPay = Math.round(schedHours * cellWage);
 
           return (
@@ -3964,18 +3964,20 @@ export default function AdminPortal() {
             if (s.checkInTime && s.checkOutTime) {
               const [ciH, ciM] = s.checkInTime.split(":").map(Number);
               let [coH, coM] = s.checkOutTime.split(":").map(Number);
+              const schedStartMins = sh * 60 + sm;
               const schedEndMins = eh * 60 + em;
               const checkInMins = ciH * 60 + ciM;
               let checkOutMins = coH * 60 + coM;
               if (checkOutMins < checkInMins) {
                 checkOutMins += 1440;
               }
+              const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-              const rawH = (limitOutMins - checkInMins) / 60;
-              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+              const rawH = (limitOutMins - effectiveInMins) / 60;
+              actualHours = rawH > 0 ? Math.round(rawH) : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH) : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -6165,18 +6167,20 @@ export default function AdminPortal() {
                 if (s.checkInTime && s.checkOutTime) {
                   const [ciH, ciM] = s.checkInTime.split(":").map(Number);
                   let [coH, coM] = s.checkOutTime.split(":").map(Number);
+                  const schedStartMins = sh * 60 + sm;
                   const schedEndMins = eh * 60 + em;
                   const checkInMins = ciH * 60 + ciM;
                   let checkOutMins = coH * 60 + coM;
                   if (checkOutMins < checkInMins) {
                     checkOutMins += 1440;
                   }
+                  const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
                   const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-                  const rawH = (limitOutMins - checkInMins) / 60;
-                  actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+                  const rawH = (limitOutMins - effectiveInMins) / 60;
+                  actualHours = rawH > 0 ? Math.round(rawH) : 0;
                 } else {
                   const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-                  actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+                  actualHours = rawH > 0 ? Math.round(rawH) : 0;
                 }
 
                 const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));

@@ -2582,18 +2582,20 @@ export default function StaffPortal() {
             if (s.checkInTime && s.checkOutTime) {
               const [ciH, ciM] = s.checkInTime.split(":").map(Number);
               let [coH, coM] = s.checkOutTime.split(":").map(Number);
+              const schedStartMins = sh * 60 + sm;
               const schedEndMins = eh * 60 + em;
               const checkInMins = ciH * 60 + ciM;
               let checkOutMins = coH * 60 + coM;
               if (checkOutMins < checkInMins) {
                 checkOutMins += 1440;
               }
+              const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-              const rawH = (limitOutMins - checkInMins) / 60;
-              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+              const rawH = (limitOutMins - effectiveInMins) / 60;
+              actualHours = rawH > 0 ? Math.round(rawH) : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH) : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -2653,18 +2655,20 @@ export default function StaffPortal() {
         if (s.checkInTime && s.checkOutTime) {
           const [ciH, ciM] = s.checkInTime.split(":").map(Number);
           let [coH, coM] = s.checkOutTime.split(":").map(Number);
+          const schedStartMins = sh * 60 + sm;
           const schedEndMins = eh * 60 + em;
           const checkInMins = ciH * 60 + ciM;
           let checkOutMins = coH * 60 + coM;
           if (checkOutMins < checkInMins) {
             checkOutMins += 1440;
           }
+          const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
           const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
-          const rawH = (limitOutMins - checkInMins) / 60;
-          actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+          const rawH = (limitOutMins - effectiveInMins) / 60;
+          actualHours = rawH > 0 ? Math.round(rawH) : 0;
         } else {
           const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-          actualHours = rawH > 0 ? Math.ceil(rawH) : 0;
+          actualHours = rawH > 0 ? Math.round(rawH) : 0;
         }
 
         const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0);
