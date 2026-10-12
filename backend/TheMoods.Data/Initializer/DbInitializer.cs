@@ -11,7 +11,35 @@ namespace TheMoods.Data.Initializer
         public static void Initialize(TenantDbContext context)
         {
             // Tự động chạy Migration nếu DB chưa được khởi tạo đầy đủ
-            context.Database.Migrate();
+            try { context.Database.Migrate(); } catch { }
+
+            // Đảm bảo bảng ShiftExtensions tồn tại
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    CREATE TABLE IF NOT EXISTS ""ShiftExtensions"" (
+                        ""Id"" text NOT NULL PRIMARY KEY,
+                        ""LocationId"" text NOT NULL,
+                        ""Date"" timestamp with time zone NOT NULL,
+                        ""RequesterId"" text NOT NULL,
+                        ""CovererId"" text NOT NULL,
+                        ""RequesterShiftId"" text NULL,
+                        ""CovererShiftId"" text NULL,
+                        ""DurationMinutes"" integer NOT NULL,
+                        ""Hours"" double precision NOT NULL,
+                        ""HourlyWage"" numeric NOT NULL,
+                        ""Amount"" numeric NOT NULL,
+                        ""Note"" text NOT NULL DEFAULT '',
+                        ""Status"" text NOT NULL DEFAULT 'approved',
+                        ""RequestId"" text NULL,
+                        ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ShiftExtensions table ensure error: " + ex.Message);
+            }
 
             // 1. Seed Roles
             if (!context.Roles.Any())

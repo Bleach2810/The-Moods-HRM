@@ -2520,8 +2520,34 @@ export default function StaffPortal() {
                   </div>
                   {!colleagueShiftsCollapsed && (
                     <div className="space-y-2 mt-2 max-h-48 overflow-y-auto">
+                      {reqType === "extension" && (
+                        <label
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                            !swapWithShiftId
+                              ? "bg-[#7c4831]/5 border-[#7c4831]"
+                              : "bg-white border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="colleagueShift"
+                              value=""
+                              checked={!swapWithShiftId}
+                              onChange={() => setSwapWithShiftId("")}
+                              className="accent-[#7c4831]"
+                            />
+                            <span className="text-[#7c4831] font-bold">✨ Không gắn ca (Đồng nghiệp có mặt tại quán / Ngoại ca)</span>
+                          </div>
+                          <span className="px-2 py-0.5 text-[8.5px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                            Linh hoạt
+                          </span>
+                        </label>
+                      )}
                       {colleagueEligibleShifts.length === 0 ? (
-                        <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp này không có ca trực phù hợp trong ngày này.</p>
+                        reqType === "extension" ? null : (
+                          <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp này không có ca trực phù hợp trong ngày này.</p>
+                        )
                       ) : (
                         colleagueEligibleShifts.map((s: any) => (
                           <label
@@ -2583,14 +2609,14 @@ export default function StaffPortal() {
                   <div className="flex flex-wrap gap-1.5 pb-1">
                     <button
                       type="button"
-                      onClick={() => setExtensionDurationMinutes(String(halfShiftMins))}
+                      onClick={() => setExtensionDurationMinutes("30")}
                       className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
-                        extensionDurationMinutes === String(halfShiftMins)
+                        extensionDurationMinutes === "30"
                           ? "bg-[#7c4831] text-white border-[#7c4831]"
                           : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
                       }`}
                     >
-                      ⏱ Nửa ca ({halfShiftMins} phút - {(halfShiftMins / 60).toFixed(1)}h)
+                      30 phút (0.5h)
                     </button>
                     <button
                       type="button"
@@ -2601,7 +2627,18 @@ export default function StaffPortal() {
                           : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
                       }`}
                     >
-                      1 giờ (60p)
+                      1 giờ (1.0h)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtensionDurationMinutes("90")}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                        extensionDurationMinutes === "90"
+                          ? "bg-[#7c4831] text-white border-[#7c4831]"
+                          : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
+                      }`}
+                    >
+                      1.5 giờ (1.5h)
                     </button>
                     <button
                       type="button"
@@ -2612,7 +2649,18 @@ export default function StaffPortal() {
                           : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
                       }`}
                     >
-                      2 giờ (120p)
+                      2 giờ (2.0h)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtensionDurationMinutes(String(halfShiftMins))}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                        extensionDurationMinutes === String(halfShiftMins)
+                          ? "bg-[#7c4831] text-white border-[#7c4831]"
+                          : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
+                      }`}
+                    >
+                      ⏱ Nửa ca ({halfShiftMins}p - {(halfShiftMins / 60).toFixed(1)}h)
                     </button>
                   </div>
                 );
@@ -2639,13 +2687,13 @@ export default function StaffPortal() {
                   <div className="flex justify-between font-bold text-[#7c4831]">
                     <span>Thời gian kéo ca:</span>
                     <span>
-                      {extensionDurationMinutes} phút (~{(Number(extensionDurationMinutes) / 60).toFixed(2)} giờ)
+                      {extensionDurationMinutes} phút (~{(Math.round((Number(extensionDurationMinutes) / 60) * 10) / 10).toFixed(1)} giờ)
                     </span>
                   </div>
                   <div className="flex justify-between text-gray-700">
                     <span>Lương tạm tính (Số giờ × Lương ca):</span>
                     <span className="font-mono font-bold text-emerald-700">
-                      {Math.round((Number(extensionDurationMinutes) / 60) * (activeStaff?.hourlyWage || 25000)).toLocaleString("vi-VN")}đ
+                      {Math.round((Math.round((Number(extensionDurationMinutes) / 60) * 10) / 10) * (activeStaff?.hourlyWage || 25000)).toLocaleString("vi-VN")}đ
                     </span>
                   </div>
                 </div>
@@ -2956,8 +3004,25 @@ export default function StaffPortal() {
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    const clientWorkedHours = Math.round(myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 10) / 10;
-    const clientBaseSalary = myCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
+    // Bổ sung các ca kéo ca (làm thêm) từ backend nếu có
+    const backendExtensions = (backendStaffPayroll?.details || [])
+      .filter((d: any) => d.isExtension)
+      .map((d: any) => ({
+        id: d.attId,
+        date: d.date || (d.checkIn ? d.checkIn.split(" ")[0] : ""),
+        startTime: "Kéo ca",
+        endTime: d.checkOut || "Làm thêm",
+        actualHours: d.hours,
+        shiftPay: d.extensionAmount || Math.round(d.hours * hourlyWage),
+        isExtension: true,
+        note: d.note,
+        requesterName: d.requesterName
+      }));
+
+    const allCompletedShifts = [...myCompletedShifts, ...backendExtensions].sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
+
+    const clientWorkedHours = Math.round(allCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 10) / 10;
+    const clientBaseSalary = allCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
 
     // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client
     const totalWorkedHours = backendStaffPayroll?.totalWorkedHours !== undefined ? backendStaffPayroll.totalWorkedHours : clientWorkedHours;
@@ -3203,16 +3268,22 @@ export default function StaffPortal() {
 
             {/* Chi tiết Ca làm việc */}
             {payrollDetailTab === "shifts" && (
-              myCompletedShifts.length > 0 ? (
+              allCompletedShifts.length > 0 ? (
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {myCompletedShifts.map((s: any, idx: number) => (
+                  {allCompletedShifts.map((s: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center bg-[#FAF9F6] border border-[#7c4831]/5 p-2 rounded-xl text-[11px] font-semibold">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[9px] font-mono font-bold text-[#7c4831]">{s.date}</span>
-                          <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold">
-                            Ca {s.startTime} - {s.endTime}
-                          </span>
+                          {s.isExtension ? (
+                            <span className="text-[8px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-black">
+                              ⚡ Kéo ca ({s.endTime})
+                            </span>
+                          ) : (
+                            <span className="text-[8px] bg-[#7c4831]/10 text-[#7c4831] px-1.5 py-0.5 rounded font-bold">
+                              Ca {s.startTime} - {s.endTime}
+                            </span>
+                          )}
                           {s.isSecurity && (
                             <span className="text-[8px] bg-blue-100 text-blue-900 border border-blue-300 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5">
                               🛡️ Bảo vệ (+{secAllowance.toLocaleString("vi-VN")}đ/h)
@@ -3220,7 +3291,11 @@ export default function StaffPortal() {
                           )}
                         </div>
                         <p className="text-gray-500 text-[9.5px]">
-                          Vào: {s.checkInTime ? s.checkInTime.slice(0, 5) : "--:--"} • Ra: {s.checkOutTime ? s.checkOutTime.slice(0, 5) : "--:--"}
+                          {s.isExtension ? (
+                            <span>Kéo ca hỗ trợ {s.requesterName || "đồng nghiệp"}{s.note ? `: ${s.note}` : ""}</span>
+                          ) : (
+                            <span>Vào: {s.checkInTime ? s.checkInTime.slice(0, 5) : "--:--"} • Ra: {s.checkOutTime ? s.checkOutTime.slice(0, 5) : "--:--"}</span>
+                          )}
                           <span className="font-bold text-[#7c4831] ml-1">({s.actualHours}h tính lương)</span>
                         </p>
                       </div>

@@ -26,6 +26,7 @@ namespace TheMoods.Data.Contexts
         public DbSet<StaffRequest> StaffRequests { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<DeviceSubscription> DeviceSubscriptions { get; set; } = null!;
+        public DbSet<ShiftExtension> ShiftExtensions { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -176,6 +177,19 @@ namespace TheMoods.Data.Contexts
                 .WithMany(l => l.StaffRequests)
                 .HasForeignKey(sr => sr.LocationId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // 12. ShiftExtension relationships
+            modelBuilder.Entity<ShiftExtension>()
+                .HasOne(se => se.Requester)
+                .WithMany()
+                .HasForeignKey(se => se.RequesterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ShiftExtension>()
+                .HasOne(se => se.Coverer)
+                .WithMany()
+                .HasForeignKey(se => se.CovererId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }

@@ -1151,6 +1151,13 @@ namespace TheMoods.Api.Controllers
 
             var payrolls = new List<object>();
 
+
+            // Lấy toàn bộ các ca kéo ca (làm thêm) đã duyệt trong kỳ của chi nhánh
+            var allExtensions = await _context.ShiftExtensions
+                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= start && se.Date <= end)
+                .Include(se => se.Requester)
+                .ToListAsync();
+
             foreach (var user in users)
             {
                 var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
@@ -1309,10 +1316,41 @@ namespace TheMoods.Api.Controllers
                     }
                 }
 
+                // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
+                var userExtensions = allExtensions.Where(se => se.CovererId == user.Id).ToList();
+                foreach (var ext in userExtensions)
+                {
+                    totalHours += ext.Hours;
+                    baseSalary += ext.Amount;
+                }
+
                 // Tổng cộng lương
                 decimal finalAmount = baseSalary + bonus - penalty - advance;
 
                 var detailsList = new List<object>();
+
+                foreach (var ext in userExtensions)
+                {
+                    detailsList.Add(new {
+                        attId = "ext-" + ext.Id,
+                        isExtension = true,
+                        date = ext.Date.ToString("yyyy-MM-dd"),
+                        checkIn = ext.Date.ToString("yyyy-MM-dd") + " (Kéo ca)",
+                        checkOut = $"{ext.DurationMinutes} phút",
+                        schedStart = "--:--",
+                        schedEnd = "--:--",
+                        checkInLimit = "",
+                        checkOutLimit = "",
+                        hours = ext.Hours,
+                        rawHours = ext.Hours,
+                        isSecurity = false,
+                        securityAllowancePerHour = (decimal)0,
+                        note = ext.Note,
+                        requesterName = ext.Requester?.FullName,
+                        extensionAmount = ext.Amount
+                    });
+                }
+
                 foreach (var a in userAtts)
                 {
                     if (a.Schedule != null)
@@ -1464,6 +1502,10 @@ namespace TheMoods.Api.Controllers
             headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
             headerRange.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
 
+            var allExcelExtensions = await _context.ShiftExtensions
+                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= start && se.Date <= end)
+                .ToListAsync();
+
             int rowIdx = 2;
             foreach (var user in users)
             {
@@ -1592,6 +1634,14 @@ namespace TheMoods.Api.Controllers
                             if (decimal.TryParse(valStr, out decimal val)) penalty += val;
                         }
                     }
+                }
+
+                // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
+                var userExcelExts = allExcelExtensions.Where(se => se.CovererId == user.Id).ToList();
+                foreach (var ext in userExcelExts)
+                {
+                    totalHours += ext.Hours;
+                    baseSalary += ext.Amount;
                 }
 
                 decimal finalAmount = baseSalary + bonus - penalty - advance;
@@ -1970,6 +2020,63 @@ namespace TheMoods.Api.Controllers
                 }
             }
 
+            else if (request.Type == "extension" && !string.IsNullOrEmpty(request.SwapWithStaffId))
+            {
+                var existingExt = await _context.ShiftExtensions.FirstOrDefaultAsync(se => se.RequestId == request.Id);
+                if (existingExt == null)
+                {
+                    int duration = request.ExtensionDurationMinutes ?? 60;
+                    double hours = Math.Round(duration / 60.0, 1, MidpointRounding.AwayFromZero);
+                    var covererLoc = await _context.UserLocations.FirstOrDefaultAsync(ul => ul.UserId == request.SwapWithStaffId && ul.LocationId == request.LocationId);
+                    decimal hourlyWage = covererLoc?.HourlyWage ?? 25000;
+                    decimal amount = (decimal)hours * hourlyWage;
+
+                    DateTime extDate;
+                    if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
+
+                    var shiftExt = new ShiftExtension
+                    {
+                        LocationId = request.LocationId,
+                        Date = extDate,
+                        RequesterId = request.UserId,
+                        CovererId = request.SwapWithStaffId,
+                        RequesterShiftId = request.TargetShiftId,
+                        CovererShiftId = request.SwapWithShiftId,
+                        DurationMinutes = duration,
+                        Hours = hours,
+                        HourlyWage = hourlyWage,
+                        Amount = amount,
+                        Note = request.Details ?? string.Empty,
+                        Status = "approved",
+                        RequestId = request.Id
+                    };
+                    _context.ShiftExtensions.Add(shiftExt);
+
+                    if (!string.IsNullOrEmpty(request.TargetShiftId))
+                    {
+                        var reqShift = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
+                        if (reqShift != null)
+                        {
+                            if (reqShift.OriginalStartTime == null) reqShift.OriginalStartTime = reqShift.StartTime;
+                            var reqMins = (int)reqShift.StartTime.TotalMinutes + duration;
+                            reqShift.StartTime = TimeSpan.FromMinutes(reqMins % 1440);
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(request.SwapWithShiftId))
+                    {
+                        var covShift = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
+                        if (covShift != null)
+                        {
+                            if (covShift.OriginalEndTime == null) covShift.OriginalEndTime = covShift.EndTime;
+                            covShift.ExtensionDurationMinutes += duration;
+                            var covMins = (int)covShift.EndTime.TotalMinutes + duration;
+                            covShift.EndTime = TimeSpan.FromMinutes(covMins % 1440);
+                        }
+                    }
+                }
+            }
+
             await _context.SaveChangesAsync();
             return Ok(new { message = "Phê duyệt đơn thành công!" });
         }
@@ -2200,18 +2307,9 @@ namespace TheMoods.Api.Controllers
                 return BadRequest(new { message = "Yêu cầu này đã được xử lý!" });
             }
 
-            // Check if target shift exists (Staff A's shift that is being extended)
-            var targetShift = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
-            if (targetShift == null)
+            if (string.IsNullOrEmpty(request.SwapWithStaffId))
             {
-                return NotFound(new { message = "Ca trực của người nhận không tồn tại!" });
-            }
-
-            // Check if requester shift exists (Staff B's shift that is being delayed)
-            var requesterShift = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
-            if (requesterShift == null)
-            {
-                return NotFound(new { message = "Ca trực của người yêu cầu không tồn tại!" });
+                return BadRequest(new { message = "Không tìm thấy thông tin người kéo ca!" });
             }
 
             // Check branch isolation
@@ -2226,31 +2324,64 @@ namespace TheMoods.Api.Controllers
             // Update Status
             request.Status = "approved";
 
-            // Update target shift (Staff A - extends end time)
-            if (targetShift.OriginalStartTime == null) targetShift.OriginalStartTime = targetShift.StartTime;
-            if (targetShift.OriginalEndTime == null) targetShift.OriginalEndTime = targetShift.EndTime;
-            
-            // Update requester shift (Staff B - delays start time)
-            if (requesterShift.OriginalStartTime == null) requesterShift.OriginalStartTime = requesterShift.StartTime;
-            if (requesterShift.OriginalEndTime == null) requesterShift.OriginalEndTime = requesterShift.EndTime;
+            int duration = request.ExtensionDurationMinutes ?? 60;
+            double hours = Math.Round(duration / 60.0, 1, MidpointRounding.AwayFromZero);
 
-            if (request.ExtensionDurationMinutes.HasValue)
+            // Optional target shift of coverer (if coverer had a shift)
+            OfficialSchedule? targetShift = null;
+            if (!string.IsNullOrEmpty(request.SwapWithShiftId))
             {
-                targetShift.ExtensionDurationMinutes += request.ExtensionDurationMinutes.Value;
-                var targetMins = (int)targetShift.EndTime.TotalMinutes + request.ExtensionDurationMinutes.Value;
-                targetShift.EndTime = TimeSpan.FromMinutes(targetMins % 1440);
-                var reqMins = (int)requesterShift.StartTime.TotalMinutes + request.ExtensionDurationMinutes.Value;
-                requesterShift.StartTime = TimeSpan.FromMinutes(reqMins % 1440);
+                targetShift = await _context.OfficialSchedules.FindAsync(request.SwapWithShiftId);
+                if (targetShift != null)
+                {
+                    if (targetShift.OriginalStartTime == null) targetShift.OriginalStartTime = targetShift.StartTime;
+                    if (targetShift.OriginalEndTime == null) targetShift.OriginalEndTime = targetShift.EndTime;
+                    targetShift.ExtensionDurationMinutes += duration;
+                    var targetMins = (int)targetShift.EndTime.TotalMinutes + duration;
+                    targetShift.EndTime = TimeSpan.FromMinutes(targetMins % 1440);
+                }
             }
 
-            if (request.RequestedEndTime.HasValue)
+            // Optional requester shift (Staff B - delays start time)
+            OfficialSchedule? requesterShift = null;
+            if (!string.IsNullOrEmpty(request.TargetShiftId))
             {
-                targetShift.EndTime = request.RequestedEndTime.Value;
+                requesterShift = await _context.OfficialSchedules.FindAsync(request.TargetShiftId);
+                if (requesterShift != null)
+                {
+                    if (requesterShift.OriginalStartTime == null) requesterShift.OriginalStartTime = requesterShift.StartTime;
+                    if (requesterShift.OriginalEndTime == null) requesterShift.OriginalEndTime = requesterShift.EndTime;
+                    var reqMins = (int)requesterShift.StartTime.TotalMinutes + duration;
+                    requesterShift.StartTime = TimeSpan.FromMinutes(reqMins % 1440);
+                }
             }
-            if (request.RequestedStartTime.HasValue)
+
+            // Get coverer's hourly wage
+            var covererLoc = await _context.UserLocations.FirstOrDefaultAsync(ul => ul.UserId == request.SwapWithStaffId && ul.LocationId == request.LocationId);
+            decimal hourlyWage = covererLoc?.HourlyWage ?? 25000;
+            decimal amount = (decimal)hours * hourlyWage;
+
+            DateTime extDate;
+            if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
+
+            // Create record in ShiftExtensions table!
+            var shiftExt = new ShiftExtension
             {
-                requesterShift.StartTime = request.RequestedStartTime.Value;
-            }
+                LocationId = request.LocationId,
+                Date = extDate,
+                RequesterId = request.UserId,
+                CovererId = request.SwapWithStaffId,
+                RequesterShiftId = requesterShift?.Id,
+                CovererShiftId = targetShift?.Id,
+                DurationMinutes = duration,
+                Hours = hours,
+                HourlyWage = hourlyWage,
+                Amount = amount,
+                Note = request.Details ?? string.Empty,
+                Status = "approved",
+                RequestId = request.Id
+            };
+            _context.ShiftExtensions.Add(shiftExt);
 
             try
             {
@@ -2258,7 +2389,7 @@ namespace TheMoods.Api.Controllers
                 {
                     UserId = request.UserId,
                     Title = "Yêu cầu kéo ca đã được chấp nhận",
-                    Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca ngày {request.Date}.",
+                    Message = $"Nhân viên {request.SwapWithStaffName} đã đồng ý kéo ca ngày {request.Date} ({duration} phút).",
                     Link = "requests"
                 };
                 _context.Notifications.Add(initiatorNotif);
@@ -2328,6 +2459,47 @@ namespace TheMoods.Api.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Đã từ chối kéo ca!" });
+        }
+
+        // 12b. Lấy danh sách các ca kéo ca (làm thêm) của chi nhánh
+        [HttpGet("shift-extensions")]
+        public async Task<IActionResult> GetShiftExtensions([FromQuery] string locationId, [FromQuery] string? fromDate, [FromQuery] string? toDate)
+        {
+            if (string.IsNullOrEmpty(locationId)) return BadRequest(new { message = "locationId is required" });
+
+            var query = _context.ShiftExtensions
+                .Include(se => se.Requester)
+                .Include(se => se.Coverer)
+                .Where(se => se.LocationId == locationId);
+
+            if (!string.IsNullOrEmpty(fromDate) && DateTime.TryParse(fromDate, out var fDate))
+            {
+                var fDateUtc = DateTime.SpecifyKind(fDate.Date, DateTimeKind.Utc);
+                query = query.Where(se => se.Date >= fDateUtc);
+            }
+            if (!string.IsNullOrEmpty(toDate) && DateTime.TryParse(toDate, out var tDate))
+            {
+                var tDateUtc = DateTime.SpecifyKind(tDate.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                query = query.Where(se => se.Date <= tDateUtc);
+            }
+
+            var list = await query.OrderByDescending(se => se.Date).ToListAsync();
+            return Ok(list.Select(se => new
+            {
+                id = se.Id,
+                date = se.Date.ToString("yyyy-MM-dd"),
+                requesterId = se.RequesterId,
+                requesterName = se.Requester?.FullName,
+                covererId = se.CovererId,
+                covererName = se.Coverer?.FullName,
+                durationMinutes = se.DurationMinutes,
+                hours = se.Hours,
+                hourlyWage = se.HourlyWage,
+                amount = se.Amount,
+                note = se.Note,
+                status = se.Status,
+                createdAt = se.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+            }));
         }
 
         // DTOs
@@ -2630,6 +2802,16 @@ namespace TheMoods.Api.Controllers
                         else
                         { if (decimal.TryParse(valStr, out decimal val)) penalty += val; }
                     }
+                }
+
+                // Cộng thêm giờ kéo ca từ ShiftExtensions
+                var userCalcExts = await _context.ShiftExtensions
+                    .Where(se => se.CovererId == user.Id && se.Status == "approved" && se.Date >= startCalc && se.Date <= end)
+                    .ToListAsync();
+                foreach (var ext in userCalcExts)
+                {
+                    totalHours += ext.Hours;
+                    baseSalary += ext.Amount;
                 }
 
                 decimal finalAmount = baseSalary + bonus - penalty - advance;

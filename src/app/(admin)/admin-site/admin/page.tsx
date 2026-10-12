@@ -3614,7 +3614,7 @@ export default function AdminPortal() {
                     </div>
                     <p className="text-[#7c4831]/70 font-semibold mt-0.5">{r.date} — {r.details}</p>
                     {r.swapWithStaffName && (
-                      <p className="text-[10px] text-gray-500">Đổi với: <strong className="text-[#7c4831]">{r.swapWithStaffName}</strong></p>
+                      <p className="text-[10px] text-gray-500">{r.type === "extension" ? "Người kéo ca: " : "Đổi với: "}<strong className="text-[#7c4831]">{r.swapWithStaffName}</strong></p>
                     )}
                   </div>
                 </div>
