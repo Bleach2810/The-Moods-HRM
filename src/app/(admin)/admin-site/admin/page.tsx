@@ -3999,10 +3999,10 @@ export default function AdminPortal() {
               const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
               const rawH = (limitOutMins - effectiveInMins) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -6202,10 +6202,10 @@ export default function AdminPortal() {
                   const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
                   const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
                   const rawH = (limitOutMins - effectiveInMins) / 60;
-                  actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+                  actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
                 } else {
                   const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-                  actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+                  actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
                 }
 
                 const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));

@@ -1045,8 +1045,8 @@ namespace TheMoods.Api.Controllers
             DateTime actualStartTime = att.CheckInTime < scheduleStart ? scheduleStart : att.CheckInTime;
             double hoursWorked = (actualEndTime - actualStartTime).TotalHours;
             if (hoursWorked < 0) hoursWorked = 0;
-            // Giờ làm thực tế (hỗ trợ số giờ lẻ/nửa ca: số giờ * lương ca)
-            double roundedHours = Math.Round(hoursWorked, 2);
+            // Giờ làm thực tế (làm tròn số học 1 chữ số thập phân: ví dụ 1.1h, 1.2h... cứ 6 phút = 0.1h)
+            double roundedHours = Math.Round(hoursWorked, 1, MidpointRounding.AwayFromZero);
 
             return Ok(new
             {
@@ -1186,8 +1186,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
-                            var hours = Math.Round(rawHours, 2);
+                            // Giờ làm thực tế (làm tròn 1 chữ số thập phân: ví dụ 1.1h, 1.2h)
+                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -1325,7 +1325,7 @@ namespace TheMoods.Api.Controllers
                         var checkOutLimit = a.CheckOutTime != null ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : DateTime.MinValue;
                         var rawHrs = a.CheckOutTime != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
                         if (rawHrs < 0) rawHrs = 0;
-                        var hrs = Math.Round(rawHrs, 2);
+                        var hrs = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero);
 
                         detailsList.Add(new {
                             attId = a.Id,
@@ -1336,7 +1336,7 @@ namespace TheMoods.Api.Controllers
                             checkInLimit = checkInLimit.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOutLimit = checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss"),
                             hours = hrs,
-                            rawHours = Math.Round(rawHrs, 2),
+                            rawHours = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero),
                             isSecurity = a.Schedule?.IsSecurity ?? false,
                             securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0
                         });
@@ -1349,7 +1349,7 @@ namespace TheMoods.Api.Controllers
                     fullName = user.FullName,
                     phoneNumber = user.PhoneNumber,
                     hourlyWage,
-                    totalWorkedHours = Math.Round(totalHours, 0),
+                    totalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
                     baseSalary = Math.Round(baseSalary),
                     totalBonus = Math.Round(bonus),
                     totalPenalty = Math.Round(penalty),
@@ -1498,8 +1498,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
-                            var hours = Math.Round(rawHours, 2);
+                            // Giờ làm thực tế (làm tròn 1 chữ số thập phân: ví dụ 1.1h, 1.2h)
+                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -1599,7 +1599,7 @@ namespace TheMoods.Api.Controllers
                 ws.Cell(rowIdx, 1).Value = user.FullName;
                 ws.Cell(rowIdx, 2).Value = user.PhoneNumber;
                 ws.Cell(rowIdx, 3).Value = hourlyWage;
-                ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 0);
+                ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero);
                 ws.Cell(rowIdx, 5).Value = Math.Round(baseSalary);
                 ws.Cell(rowIdx, 6).Value = Math.Round(bonus);
                 ws.Cell(rowIdx, 7).Value = Math.Round(penalty);
@@ -2549,8 +2549,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
-                            var hours = Math.Round(rawHours, 2);
+                            // Giờ làm thực tế (làm tròn 1 chữ số thập phân: ví dụ 1.1h, 1.2h)
+                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -2640,7 +2640,7 @@ namespace TheMoods.Api.Controllers
                     LocationId = dto.LocationId,
                     FromDate = start,
                     ToDate = end,
-                    TotalWorkedHours = Math.Round(totalHours, 2),
+                    TotalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
                     HourlyWage = hourlyWage,
                     BaseSalary = Math.Round(baseSalary),
                     TotalBonus = Math.Round(bonus),

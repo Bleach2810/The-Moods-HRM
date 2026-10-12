@@ -2869,10 +2869,10 @@ export default function StaffPortal() {
               const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
               const rawH = (limitOutMins - effectiveInMins) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -2942,10 +2942,10 @@ export default function StaffPortal() {
           const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
           const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
           const rawH = (limitOutMins - effectiveInMins) / 60;
-          actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+          actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
         } else {
           const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-          actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
+          actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
         }
 
         const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0);
@@ -2959,7 +2959,7 @@ export default function StaffPortal() {
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    const clientWorkedHours = Math.round(myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 100) / 100;
+    const clientWorkedHours = Math.round(myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 10) / 10;
     const clientBaseSalary = myCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
 
     // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client
