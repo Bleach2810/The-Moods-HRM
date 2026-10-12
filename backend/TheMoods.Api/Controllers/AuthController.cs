@@ -146,20 +146,53 @@ namespace TheMoods.Api.Controllers
             User? user = null;
             if (val == "super" || val == "saas")
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 1);
+                user = await _context.Users
+                    .Include(u => u.UserLocations)
+                        .ThenInclude(ul => ul.Location)
+                    .FirstOrDefaultAsync(u => u.RoleId == 1 && !u.IsDeleted);
             }
             else if (val == "admin")
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.RoleId == 2);
+                // Nếu người dùng chọn locationId, tìm admin đúng thuộc locationId đó
+                if (!string.IsNullOrWhiteSpace(dto.LocationId))
+                {
+                    user = await _context.Users
+                        .Include(u => u.UserLocations)
+                            .ThenInclude(ul => ul.Location)
+                        .FirstOrDefaultAsync(u => u.RoleId == 2 && !u.IsDeleted && u.UserLocations.Any(ul => ul.LocationId == dto.LocationId && ul.IsActive));
+                }
+                if (user == null)
+                {
+                    user = await _context.Users
+                        .Include(u => u.UserLocations)
+                            .ThenInclude(ul => ul.Location)
+                        .FirstOrDefaultAsync(u => u.RoleId == 2 && !u.IsDeleted);
+                }
             }
             else
             {
-                user = await _context.Users.FirstOrDefaultAsync(u => u.PhoneNumber == dto.Identifier || u.FullName.ToLower() == val);
+                user = await _context.Users
+                    .Include(u => u.UserLocations)
+                        .ThenInclude(ul => ul.Location)
+                    .FirstOrDefaultAsync(u => (u.PhoneNumber == dto.Identifier || u.FullName.ToLower() == val) && (u.RoleId == 1 || u.RoleId == 2) && !u.IsDeleted);
             }
 
             if (user == null || (user.RoleId != 1 && user.RoleId != 2))
             {
                 return BadRequest(new { message = "Tài khoản quản trị không tồn tại hoặc sai thông tin đăng nhập!" });
+            }
+
+            var activeUserLoc = user.UserLocations?.FirstOrDefault(ul => ul.IsActive);
+            var adminLocationId = activeUserLoc?.LocationId ?? "";
+            var adminLocationName = activeUserLoc?.Location?.Name ?? "";
+
+            // Kiểm tra phân quyền chi nhánh đối với Admin (RoleId == 2)
+            if (user.RoleId == 2)
+            {
+                if (!string.IsNullOrWhiteSpace(dto.LocationId) && !string.IsNullOrWhiteSpace(adminLocationId) && dto.LocationId != adminLocationId)
+                {
+                    return BadRequest(new { message = $"Tài khoản quản trị này chỉ có quyền truy cập chi nhánh '{adminLocationName}', không có quyền truy cập chi nhánh đã chọn!" });
+                }
             }
 
             return Ok(new
@@ -171,7 +204,9 @@ namespace TheMoods.Api.Controllers
                     user.PhoneNumber,
                     user.FullName,
                     RoleName = user.RoleId == 1 ? "Super Admin" : "Admin",
-                    RoleId = user.RoleId
+                    RoleId = user.RoleId,
+                    LocationId = adminLocationId,
+                    LocationName = adminLocationName
                 }
             });
         }
@@ -937,6 +972,7 @@ namespace TheMoods.Api.Controllers
     public class AdminLoginDto
     {
         public string Identifier { get; set; } = string.Empty;
+        public string? LocationId { get; set; }
     }
 
     // Staff-per-Branch: thêm LocationId để xác định Branch context

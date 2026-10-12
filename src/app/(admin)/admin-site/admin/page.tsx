@@ -94,7 +94,7 @@ const getLayoutedEvents = (events: any[]) => {
 };
 
 export default function AdminPortal() {
-  const { activeBrand, activeLocation, activeStaff, customers, promotions, shifts, requests, feedbacks, menuImage, menuImages, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, updateMenuImages, sendFeedbackReply, logs, addPointsToCustomer, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
+  const { activeBrand, activeLocation, activeStaff, selectBrandAndLocation, locations, customers, promotions, shifts, requests, feedbacks, menuImage, menuImages, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, updateMenuImages, sendFeedbackReply, logs, addPointsToCustomer, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
 
   const [page, setPage] = useState("dashboard");
   const [sideOpen, setSideOpen] = useState(false);
@@ -129,10 +129,35 @@ export default function AdminPortal() {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualLogMode, setManualLogMode] = useState<"schedule" | "attendance">("schedule");
 
+  // Khóa phân quyền: Admin (RoleId == 2) được tạo trong chi nhánh nào chỉ được xem đúng chi nhánh đấy
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
 
+    let userRoleId: number | null = null;
+    let userLocId: string | null = null;
 
+    try {
+      const storedStaff = JSON.parse(localStorage.getItem("moods_active_staff") || "{}");
+      const storedAuth = JSON.parse(localStorage.getItem("moods_auth_user") || "{}");
+      userRoleId = storedStaff.roleId || storedAuth.RoleId || storedAuth.roleId || null;
+      userLocId = storedStaff.locationId || storedAuth.LocationId || storedAuth.locationId || null;
+    } catch {}
 
+    if (activeStaff) {
+      if (activeStaff.roleId) userRoleId = activeStaff.roleId;
+      if (activeStaff.locationId) userLocId = activeStaff.locationId;
+    }
 
+    // Nếu là Admin (roleId == 2) và có chi nhánh được phân công
+    if (userRoleId === 2 && userLocId && locations && locations.length > 0) {
+      if (!activeLocation || activeLocation.id !== userLocId) {
+        const matchedLoc = locations.find((l: any) => l.id === userLocId);
+        if (matchedLoc && selectBrandAndLocation) {
+          selectBrandAndLocation(matchedLoc.brandId, matchedLoc.id);
+        }
+      }
+    }
+  }, [activeStaff?.locationId, activeStaff?.roleId, activeLocation?.id, locations, selectBrandAndLocation]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {

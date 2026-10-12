@@ -163,32 +163,41 @@ export default function LandingPage() {
       const res = await fetch(`${getApiBaseUrl()}/api/auth/admin/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: identifier.trim() })
+        body: JSON.stringify({ identifier: identifier.trim(), locationId: activeLocation?.id || "" })
       });
 
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
+        const roleIdVal = data.user?.RoleId || data.user?.roleId || 2;
+        const userRole = roleIdVal === 1 ? "Super Admin" : "Admin";
+        const adminLocId = data.user?.LocationId || data.user?.locationId || (roleIdVal === 1 ? (activeLocation?.id || "govap-branch") : "");
+        const adminLocName = data.user?.LocationName || data.user?.locationName || "";
+
         // Lưu thông tin admin vào localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem("moods_auth_user", JSON.stringify(data.user));
           
-          const roleIdVal = data.user?.RoleId || data.user?.roleId || 2;
-          const userRole = roleIdVal === 1 ? "Super Admin" : "Admin";
           const activeStaffData = {
             id: data.user?.Id || data.user?.id || (roleIdVal === 1 ? "st-1" : "st-2"),
             name: data.user?.FullName || data.user?.fullName || userRole,
             phone: data.user?.PhoneNumber || data.user?.phoneNumber || "",
             role: userRole,
             roleId: roleIdVal,
-            hourlyWage: roleIdVal === 1 ? 100000 : 50000
+            hourlyWage: roleIdVal === 1 ? 100000 : 50000,
+            locationId: adminLocId,
+            locationName: adminLocName
           };
           localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
         }
 
-        if (brands?.length > 0 && locations?.length > 0) {
-          const selectedLoc = activeLocation || locations.find((l: any) => l.id === "govap-branch") || locations[0];
-          const selectedBrand = brands.find((b: any) => b.id === selectedLoc.brandId || b.code === selectedLoc.brandId) || brands[0];
-          selectBrandAndLocation(selectedBrand.id, selectedLoc.id);
+        // Khóa admin vào đúng chi nhánh được tạo
+        const targetLocId = roleIdVal === 2 && adminLocId ? adminLocId : (activeLocation?.id || "govap-branch");
+        if (targetLocId && locations?.length > 0) {
+          const selectedLoc = locations.find((l: any) => l.id === targetLocId) || locations[0];
+          const selectedBrand = brands?.find((b: any) => b.id === selectedLoc.brandId || b.code === selectedLoc.brandId) || brands?.[0];
+          if (selectedBrand && selectedLoc && selectBrandAndLocation) {
+            selectBrandAndLocation(selectedBrand.id, selectedLoc.id);
+          }
         }
 
         const roleName = data.user?.RoleName || "";
@@ -200,6 +209,12 @@ export default function LandingPage() {
         setIsLoading(false);
         window.location.href = route;
         return;
+      } else {
+        if (data.message && data.message.includes("chi nhánh")) {
+          setIsLoading(false);
+          alert(data.message);
+          return;
+        }
       }
     } catch (err) {
       console.error("Admin login API error:", err);
