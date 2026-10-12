@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { Bell, ScanLine, Clock, Calendar, ArrowLeftRight, Activity, ArrowLeft, Coffee, Lock, MapPin, CheckCircle, XCircle, AlertTriangle, LogOut, Plus, FileText, Send, User, Award } from "lucide-react";
+import { Bell, ScanLine, Clock, Calendar, ArrowLeftRight, Activity, ArrowLeft, Coffee, Lock, MapPin, CheckCircle, XCircle, AlertTriangle, LogOut, Plus, FileText, Send, User, Award, Navigation, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import WheelPicker from "@/components/WheelPicker";
@@ -543,6 +543,9 @@ export default function StaffPortal() {
   // Attendance
   const [gpsDist, setGpsDist] = useState(30);
   const [isNearCounter, setIsNearCounter] = useState(true);
+  const [gpsDenied, setGpsDenied] = useState(false);
+  const [isRequestingGps, setIsRequestingGps] = useState(false);
+  const [showGpsHelpModal, setShowGpsHelpModal] = useState(false);
 
   // Schedule
   const [shiftDate, setShiftDate] = useState("");
@@ -731,6 +734,25 @@ export default function StaffPortal() {
     }
   }, [activeStaff, tab, activeLocation?.id, reqDate, swapColleagueDate, payrollFromDate, payrollToDate]);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined" && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(status => {
+        if (status.state === 'denied') {
+          setGpsDenied(true);
+        } else if (status.state === 'granted') {
+          setGpsDenied(false);
+        }
+        status.onchange = () => {
+          if (status.state === 'denied') {
+            setGpsDenied(true);
+          } else if (status.state === 'granted') {
+            setGpsDenied(false);
+          }
+        };
+      }).catch(() => {});
+    }
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!staffId) return;
@@ -748,14 +770,83 @@ export default function StaffPortal() {
     setTimeout(() => { setScanResult(null); setScanPhone(""); setBillAmt(""); setScanning(true); }, 3000);
   };
 
+  const triggerRequestGps = (autoClockIn: boolean = false) => {
+    if (!navigator.geolocation) {
+      showToast("Trình duyệt của bạn không hỗ trợ định vị GPS!", "warning");
+      return;
+    }
+
+    setIsRequestingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        setIsRequestingGps(false);
+        setGpsDenied(false);
+        setShowGpsHelpModal(false);
+        showToast("Đã cấp quyền GPS thành công!", "success");
+
+        if (autoClockIn) {
+          const { latitude, longitude } = position.coords;
+          const result = await clockInStaff(latitude, longitude);
+          if (result.success && result.lateMinutes > 0) {
+            showToast(`Chấm công thành công. Trễ ca ${result.lateMinutes} phút!`, "warning");
+          } else if (result.success) {
+            showToast("Chấm công vào ca thành công!", "success");
+          } else {
+            showToast("Chấm công thất bại: " + (result.message || ""), "warning");
+          }
+          await fetchOfficialSchedules();
+        }
+      },
+      (error) => {
+        setIsRequestingGps(false);
+        setGpsDenied(true);
+        console.error("GPS Error:", error);
+        if (error.code === 1) {
+          showToast("Thiết bị đang chặn quyền GPS. Vui lòng mở quyền theo hướng dẫn!", "warning");
+          setShowGpsHelpModal(true);
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              setGpsDenied(false);
+              setShowGpsHelpModal(false);
+              showToast("Đã định vị thành công!", "success");
+              if (autoClockIn) {
+                const { latitude, longitude } = pos.coords;
+                const result = await clockInStaff(latitude, longitude);
+                if (result.success && result.lateMinutes > 0) {
+                  showToast(`Chấm công thành công. Trễ ca ${result.lateMinutes} phút!`, "warning");
+                } else if (result.success) {
+                  showToast("Chấm công vào ca thành công!", "success");
+                } else {
+                  showToast("Chấm công thất bại: " + (result.message || ""), "warning");
+                }
+                await fetchOfficialSchedules();
+              }
+            },
+            (fallbackErr) => {
+              console.error("Fallback GPS error:", fallbackErr);
+              showToast("Không thể lấy định vị GPS. Vui lòng kiểm tra cài đặt vị trí!", "warning");
+              setShowGpsHelpModal(true);
+            },
+            { enableHighAccuracy: false, timeout: 10000 }
+          );
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleClockIn = () => {
     if (!navigator.geolocation) {
       showToast("Trình duyệt của bạn không hỗ trợ định vị GPS!", "warning");
       return;
     }
 
+    setIsRequestingGps(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        setIsRequestingGps(false);
+        setGpsDenied(false);
         const { latitude, longitude } = position.coords;
         const result = await clockInStaff(latitude, longitude);
         if (result.success && result.lateMinutes > 0) {
@@ -768,10 +859,36 @@ export default function StaffPortal() {
         await fetchOfficialSchedules();
       },
       (error) => {
-        console.error(error);
-        showToast("Không thể lấy định vị GPS. Vui lòng cấp quyền truy cập vị trí trên thiết bị!", "warning");
+        setIsRequestingGps(false);
+        setGpsDenied(true);
+        console.error("Clock-in GPS Error:", error);
+        if (error.code === 1) {
+          showToast("Trình duyệt từ chối GPS. Bấm 'Kích hoạt lại yêu cầu GPS' bên dưới!", "warning");
+          setShowGpsHelpModal(true);
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              setGpsDenied(false);
+              const { latitude, longitude } = pos.coords;
+              const result = await clockInStaff(latitude, longitude);
+              if (result.success && result.lateMinutes > 0) {
+                showToast(`Chấm công thành công. Trễ ca ${result.lateMinutes} phút!`, "warning");
+              } else if (result.success) {
+                showToast("Chấm công vào ca thành công!", "success");
+              } else {
+                showToast("Chấm công thất bại: " + (result.message || ""), "warning");
+              }
+              await fetchOfficialSchedules();
+            },
+            (fallbackErr) => {
+              console.error("Fallback error:", fallbackErr);
+              showToast("Không thể lấy định vị GPS. Vui lòng cấp quyền truy cập vị trí trên thiết bị!", "warning");
+            },
+            { enableHighAccuracy: false, timeout: 10000 }
+          );
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -1234,13 +1351,52 @@ export default function StaffPortal() {
                 <p className="text-[10px] text-gray-500 font-semibold">Ca này đã qua giờ kết thúc và được hệ thống tự ngưng ca.</p>
               </div>
             ) : !isThisShiftClockedIn ? (
-              <button
-                onClick={handleClockIn}
-                className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 bg-[#7c4831] text-white hover:bg-[#643621] cursor-pointer"
-                id="clock-in"
-              >
-                <Clock size={14} /> VÀO CA ({currentShift.startTime} – {currentShift.endTime})
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleClockIn}
+                  disabled={isRequestingGps}
+                  className="btn w-full py-3.5 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98 bg-[#7c4831] text-white hover:bg-[#643621] cursor-pointer"
+                  id="clock-in"
+                >
+                  <Clock size={14} className={isRequestingGps ? "animate-spin" : ""} />
+                  {isRequestingGps ? "ĐANG ĐỊNH VỊ GPS..." : `VÀO CA (${currentShift.startTime} – ${currentShift.endTime})`}
+                </button>
+
+                {/* NÚT KÍCH HOẠT LẠI YÊU CẦU DUYỆT GPS */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => triggerRequestGps(true)}
+                    disabled={isRequestingGps}
+                    className="flex-1 py-2 px-3 text-[11px] font-bold rounded-xl border border-[#7c4831]/25 bg-[#FAF9F6] text-[#7c4831] hover:bg-[#7c4831]/10 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-98"
+                    id="trigger-gps-perm-btn"
+                    title="Bấm để trình duyệt hiển thị lại hộp thoại xin quyền GPS"
+                  >
+                    <Navigation size={12} className={isRequestingGps ? "animate-spin text-amber-600" : "text-[#7c4831]"} />
+                    {isRequestingGps ? "Đang yêu cầu GPS..." : "Kích hoạt lại yêu cầu duyệt GPS"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGpsHelpModal(true)}
+                    className="py-2 px-2.5 text-[11px] font-bold rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    title="Xem hướng dẫn bật quyền GPS trên điện thoại"
+                  >
+                    <HelpCircle size={13} />
+                  </button>
+                </div>
+
+                {gpsDenied && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1 anim-fadeUp">
+                    <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                      <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                      Trình duyệt đang chặn định vị GPS!
+                    </p>
+                    <p className="text-[10px] text-amber-800 leading-normal">
+                      Nếu bấm <strong>Kích hoạt lại yêu cầu GPS</strong> mà máy không hiện thông báo hỏi lại, bạn hãy bấm biểu tượng <strong>🔒</strong> trên thanh địa chỉ ➔ Bật <strong>Vị trí</strong>.
+                    </p>
+                  </div>
+                )}
+              </div>
             ) : (
               <button
                 onClick={handleClockOut}
@@ -3393,6 +3549,86 @@ export default function StaffPortal() {
                 ) : (
                   <p className="text-xs text-gray-400 italic text-center py-8">Không có thông báo nào.</p>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* GPS PERMISSION HELP MODAL */}
+        {showGpsHelpModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 anim-fadeIn">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-sm w-full shadow-2xl relative space-y-4 anim-scaleUp max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                    <MapPin size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-[#7c4831]">
+                      Cấp Quyền Định Vị GPS
+                    </h3>
+                    <p className="text-[10px] text-gray-500 font-semibold">Để xác thực vị trí vào ca</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowGpsHelpModal(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 font-bold transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-xs text-amber-900 space-y-1">
+                <p className="font-bold">⚠️ Trình duyệt đang chặn định vị</p>
+                <p className="text-[11px] text-amber-800">
+                  Khi bạn bấm nút "Kích hoạt lại yêu cầu GPS", nếu trình duyệt không tự hiện thông báo cấp quyền, bạn làm theo hướng dẫn dưới đây:
+                </p>
+              </div>
+
+              <div className="space-y-3 text-xs text-gray-700">
+                {/* iOS Safari Guide */}
+                <div className="p-3 bg-gray-50 rounded-2xl border border-gray-200/70 space-y-1.5">
+                  <p className="font-bold text-[#7c4831] flex items-center gap-1.5">
+                    📱 Dành cho iPhone (Safari / Chrome):
+                  </p>
+                  <ol className="list-decimal list-inside text-[11px] space-y-1 text-gray-600 font-medium">
+                    <li>Nhấn vào biểu tượng <strong>aA</strong> hoặc <strong>🔒</strong> ở góc trái thanh địa chỉ web.</li>
+                    <li>Chọn <strong>Cài đặt trang web</strong> (Website Settings).</li>
+                    <li>Mục <strong>Vị trí</strong> ➔ Chọn <strong>Cho phép</strong> (Allow).</li>
+                    <li>Quay lại và tải lại trang web.</li>
+                  </ol>
+                </div>
+
+                {/* Android Chrome Guide */}
+                <div className="p-3 bg-gray-50 rounded-2xl border border-gray-200/70 space-y-1.5">
+                  <p className="font-bold text-[#7c4831] flex items-center gap-1.5">
+                    🤖 Dành cho Android (Chrome / Samsung):
+                  </p>
+                  <ol className="list-decimal list-inside text-[11px] space-y-1 text-gray-600 font-medium">
+                    <li>Nhấn vào biểu tượng <strong>🔒</strong> (ổ khóa) ở góc trái thanh địa chỉ web.</li>
+                    <li>Chọn <strong>Quyền</strong> (Permissions) ➔ Bật <strong>Vị trí</strong>.</li>
+                    <li>Đảm bảo đã bật <strong>GPS / Vị trí</strong> trên thanh cài đặt nhanh của máy.</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => triggerRequestGps(true)}
+                  disabled={isRequestingGps}
+                  className="btn w-full py-3 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 bg-[#7c4831] text-white hover:bg-[#643621] shadow-sm cursor-pointer"
+                >
+                  <Navigation size={14} className={isRequestingGps ? "animate-spin" : ""} />
+                  {isRequestingGps ? "Đang gửi yêu cầu GPS..." : "Thử kích hoạt lại GPS ngay"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowGpsHelpModal(false)}
+                  className="w-full py-2 text-xs font-bold text-gray-500 hover:text-gray-700 text-center cursor-pointer"
+                >
+                  Đóng hướng dẫn
+                </button>
               </div>
             </div>
           </div>
