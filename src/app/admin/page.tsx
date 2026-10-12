@@ -2599,8 +2599,8 @@ export default function AdminPortal() {
             if (eh < sh) eh += 24;
             const m = (eh * 60 + em) - (sh * 60 + sm);
             if (m <= 0) return 0;
-            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ 5.5h -> 6h, 5.4h -> 5h)
-            return Math.round(m / 60);
+            // Tính theo số giờ thực tế (hỗ trợ số giờ lẻ/nửa ca)
+            return Math.round((m / 60) * 100) / 100;
           };
 
           const isSchedule = manualLogMode === "schedule";
@@ -4002,10 +4002,10 @@ export default function AdminPortal() {
               const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
               const rawH = (limitOutMins - effectiveInMins) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -6207,10 +6207,10 @@ export default function AdminPortal() {
                   const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
                   const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
                   const rawH = (limitOutMins - effectiveInMins) / 60;
-                  actualHours = rawH > 0 ? Math.round(rawH) : 0;
+                  actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
                 } else {
                   const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-                  actualHours = rawH > 0 ? Math.round(rawH) : 0;
+                  actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
                 }
 
                 const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));

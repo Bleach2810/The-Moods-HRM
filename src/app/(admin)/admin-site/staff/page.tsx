@@ -2155,12 +2155,26 @@ export default function StaffPortal() {
     );
 
     const myEligibleShifts = (officialSchedulesList || []).filter(
-      (s: any) => isMyShift(s) && s.date === reqDate && !s.clockedIn && isShiftInFuture(s)
+      (s: any) => {
+        if (!isMyShift(s) || s.date !== reqDate) return false;
+        if (reqType === "extension") {
+          // Kéo ca: ca bản thân phải có trong ngày, chưa checkout (có thể đang làm / đã checkin hoặc ca sắp làm)
+          return !s.clockedOut && !s.checkOutTime && (s.clockedIn || isShiftInFuture(s));
+        }
+        return !s.clockedIn && isShiftInFuture(s);
+      }
     );
 
     const colleagueEligibleShifts = (officialSchedulesList || []).filter(
       (s: any) => {
-        if (s.userId !== swapWithStaffId || s.date !== swapColleagueDate || s.clockedIn || !isShiftInFuture(s)) {
+        if (s.userId !== swapWithStaffId || s.date !== swapColleagueDate) {
+          return false;
+        }
+        if (reqType === "extension") {
+          // Kéo ca: người kéo ca là người đang làm (đã checkin) hoặc có ca làm, chưa checkout
+          return !s.clockedOut && !s.checkOutTime && (s.clockedIn || isShiftInFuture(s));
+        }
+        if (s.clockedIn || !isShiftInFuture(s)) {
           return false;
         }
         const overlapsWithMe = myOfficialShifts.some(myShift => isOverlap(s, myShift));
@@ -2234,6 +2248,9 @@ export default function StaffPortal() {
               value={reqDate}
               onChange={e => {
                 setReqDate(e.target.value);
+                if (reqType === "extension") {
+                  setSwapColleagueDate(e.target.value);
+                }
                 setTargetShiftId("");
                 setSwapWithShiftId("");
               }}
@@ -2257,25 +2274,32 @@ export default function StaffPortal() {
                 {!ownShiftsCollapsed && (
                   <div className="space-y-2 mt-2 max-h-48 overflow-y-auto">
                     {myEligibleShifts.length === 0 ? (
-                      <p className="text-[10px] text-gray-500 italic mt-1">Không có ca trực khả dụng (hoặc đã checkin) trong ngày này.</p>
+                      <p className="text-[10px] text-gray-500 italic mt-1">Không có ca trực phù hợp trong ngày này.</p>
                     ) : (
                       myEligibleShifts.map((s: any) => (
                         <label
                           key={s.id}
-                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${targetShiftId === s.id
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${targetShiftId === s.id
                             ? "bg-[#7c4831]/5 border-[#7c4831]"
                             : "bg-white border-gray-200 hover:bg-gray-50"
                             }`}
                         >
-                          <input
-                            type="radio"
-                            name="ownShift"
-                            value={s.id}
-                            checked={targetShiftId === s.id}
-                            onChange={() => setTargetShiftId(s.id)}
-                            className="accent-[#7c4831]"
-                          />
-                          <span>{formatShiftDisplay(s)}</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="ownShift"
+                              value={s.id}
+                              checked={targetShiftId === s.id}
+                              onChange={() => setTargetShiftId(s.id)}
+                              className="accent-[#7c4831]"
+                            />
+                            <span>{formatShiftDisplay(s)}</span>
+                          </div>
+                          {s.clockedIn && !s.clockedOut && (
+                            <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                              Đang làm (Đã check-in)
+                            </span>
+                          )}
                         </label>
                       ))
                     )}
@@ -2297,9 +2321,16 @@ export default function StaffPortal() {
                 className="input w-full text-sm font-semibold cursor-pointer"
               >
                 <option value="">{reqType === "extension" ? "Chọn đồng nghiệp muốn kéo ca" : "Chọn đồng nghiệp muốn đổi ca"}</option>
-                {colleagues.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.fullName}</option>
-                ))}
+                {colleagues.map((c: any) => {
+                  const isWorking = (officialSchedulesList || []).some(
+                    (s: any) => s.userId === c.id && s.date === (swapColleagueDate || reqDate || todayStr) && s.clockedIn && !s.clockedOut
+                  );
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.fullName} {isWorking ? "🟢 (Đang làm việc - Đã check-in)" : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               {/* Colleague date selection */}
@@ -2334,25 +2365,32 @@ export default function StaffPortal() {
                   {!colleagueShiftsCollapsed && (
                     <div className="space-y-2 mt-2 max-h-48 overflow-y-auto">
                       {colleagueEligibleShifts.length === 0 ? (
-                        <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp này không có ca trực khả dụng (hoặc đã checkin) trong ngày này.</p>
+                        <p className="text-[10px] text-gray-500 italic mt-1">Đồng nghiệp này không có ca trực phù hợp trong ngày này.</p>
                       ) : (
                         colleagueEligibleShifts.map((s: any) => (
                           <label
                             key={s.id}
-                            className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${swapWithShiftId === s.id
+                            className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${swapWithShiftId === s.id
                               ? "bg-[#7c4831]/5 border-[#7c4831]"
                               : "bg-white border-gray-200 hover:bg-gray-50"
                               }`}
                           >
-                            <input
-                              type="radio"
-                              name="colleagueShift"
-                              value={s.id}
-                              checked={swapWithShiftId === s.id}
-                              onChange={() => setSwapWithShiftId(s.id)}
-                              className="accent-[#7c4831]"
-                            />
-                            <span>{formatShiftDisplay(s)}</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="colleagueShift"
+                                value={s.id}
+                                checked={swapWithShiftId === s.id}
+                                onChange={() => setSwapWithShiftId(s.id)}
+                                className="accent-[#7c4831]"
+                              />
+                              <span>{formatShiftDisplay(s)}</span>
+                            </div>
+                            {s.clockedIn && !s.clockedOut && (
+                              <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                                Đang làm việc (Đã check-in)
+                              </span>
+                            )}
                           </label>
                         ))
                       )}
@@ -2364,16 +2402,99 @@ export default function StaffPortal() {
           )}
 
           {reqType === "extension" && (
-            <input
-              type="number"
-              min="1"
-              max="480"
-              placeholder="Thời gian kéo ca (phút)..."
-              required
-              value={extensionDurationMinutes}
-              onChange={e => setExtensionDurationMinutes(e.target.value)}
-              className="input w-full text-sm font-semibold"
-            />
+            <div className="space-y-2 border border-[#7c4831]/10 rounded-2xl p-3 bg-[#FAF9F6]/50">
+              <label className="text-[10px] font-bold text-[#7c4831] uppercase tracking-wider block">
+                Thời gian kéo ca
+              </label>
+              
+              {/* Quick preset buttons */}
+              {(() => {
+                const myShift = (officialSchedulesList || []).find((s: any) => s.id === targetShiftId);
+                const collShift = (officialSchedulesList || []).find((s: any) => s.id === swapWithShiftId);
+                const refShift = myShift || collShift;
+                let halfShiftMins = 150; // default 2.5h (150p)
+                if (refShift) {
+                  const [sh, sm] = (refShift.startTime || "00:00").split(":").map(Number);
+                  let [eh, em] = (refShift.endTime || "00:00").split(":").map(Number);
+                  if (eh < sh) eh += 24;
+                  const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+                  if (totalMins > 0) {
+                    halfShiftMins = Math.round(totalMins / 2);
+                  }
+                }
+
+                return (
+                  <div className="flex flex-wrap gap-1.5 pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setExtensionDurationMinutes(String(halfShiftMins))}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                        extensionDurationMinutes === String(halfShiftMins)
+                          ? "bg-[#7c4831] text-white border-[#7c4831]"
+                          : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
+                      }`}
+                    >
+                      ⏱ Nửa ca ({halfShiftMins} phút - {(halfShiftMins / 60).toFixed(1)}h)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtensionDurationMinutes("60")}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                        extensionDurationMinutes === "60"
+                          ? "bg-[#7c4831] text-white border-[#7c4831]"
+                          : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
+                      }`}
+                    >
+                      1 giờ (60p)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtensionDurationMinutes("120")}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition-all ${
+                        extensionDurationMinutes === "120"
+                          ? "bg-[#7c4831] text-white border-[#7c4831]"
+                          : "bg-white text-[#7c4831] border-[#7c4831]/20 hover:bg-[#7c4831]/10"
+                      }`}
+                    >
+                      2 giờ (120p)
+                    </button>
+                  </div>
+                );
+              })()}
+
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="480"
+                  placeholder="Nhập số phút kéo ca (ví dụ: 150)..."
+                  required
+                  value={extensionDurationMinutes}
+                  onChange={e => setExtensionDurationMinutes(e.target.value)}
+                  className="input w-full text-sm font-semibold pr-16"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
+                  phút
+                </span>
+              </div>
+
+              {extensionDurationMinutes && Number(extensionDurationMinutes) > 0 && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/80 text-xs space-y-1">
+                  <div className="flex justify-between font-bold text-[#7c4831]">
+                    <span>Thời gian kéo ca:</span>
+                    <span>
+                      {extensionDurationMinutes} phút (~{(Number(extensionDurationMinutes) / 60).toFixed(2)} giờ)
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-gray-700">
+                    <span>Lương tạm tính (Số giờ × Lương ca):</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {Math.round((Number(extensionDurationMinutes) / 60) * (activeStaff?.hourlyWage || 25000)).toLocaleString("vi-VN")}đ
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <textarea
@@ -2589,10 +2710,10 @@ export default function StaffPortal() {
               const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
               const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
               const rawH = (limitOutMins - effectiveInMins) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
             } else {
               const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-              actualHours = rawH > 0 ? Math.round(rawH) : 0;
+              actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
             }
 
             const extraMultSalary = Math.round(actualHours * hourlyWage * (mult - 1));
@@ -2662,14 +2783,14 @@ export default function StaffPortal() {
           const effectiveInMins = checkInMins < schedStartMins ? schedStartMins : checkInMins;
           const limitOutMins = checkOutMins > schedEndMins ? schedEndMins : checkOutMins;
           const rawH = (limitOutMins - effectiveInMins) / 60;
-          actualHours = rawH > 0 ? Math.round(rawH) : 0;
+          actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
         } else {
           const rawH = (eh * 60 + em - (sh * 60 + sm)) / 60;
-          actualHours = rawH > 0 ? Math.round(rawH) : 0;
+          actualHours = rawH > 0 ? Math.round(rawH * 100) / 100 : 0;
         }
 
         const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0);
-        const shiftPay = actualHours * effectiveWage;
+        const shiftPay = Math.round(actualHours * effectiveWage);
         return {
           ...s,
           actualHours,
@@ -2679,7 +2800,7 @@ export default function StaffPortal() {
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    const clientWorkedHours = myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0);
+    const clientWorkedHours = Math.round(myCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 100) / 100;
     const clientBaseSalary = myCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
 
     // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client

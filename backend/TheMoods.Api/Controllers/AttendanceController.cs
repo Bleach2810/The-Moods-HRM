@@ -1045,8 +1045,8 @@ namespace TheMoods.Api.Controllers
             DateTime actualStartTime = att.CheckInTime < scheduleStart ? scheduleStart : att.CheckInTime;
             double hoursWorked = (actualEndTime - actualStartTime).TotalHours;
             if (hoursWorked < 0) hoursWorked = 0;
-            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
-            double roundedHours = Math.Round(hoursWorked, MidpointRounding.AwayFromZero);
+            // Giờ làm thực tế (hỗ trợ số giờ lẻ/nửa ca: số giờ * lương ca)
+            double roundedHours = Math.Round(hoursWorked, 2);
 
             return Ok(new
             {
@@ -1186,8 +1186,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
-                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
+                            var hours = Math.Round(rawHours, 2);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -1325,7 +1325,7 @@ namespace TheMoods.Api.Controllers
                         var checkOutLimit = a.CheckOutTime != null ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : DateTime.MinValue;
                         var rawHrs = a.CheckOutTime != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
                         if (rawHrs < 0) rawHrs = 0;
-                        var hrs = Math.Round(rawHrs, MidpointRounding.AwayFromZero);
+                        var hrs = Math.Round(rawHrs, 2);
 
                         detailsList.Add(new {
                             attId = a.Id,
@@ -1498,8 +1498,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ 5.5h -> 6h, 5.4h -> 5h)
-                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
+                            var hours = Math.Round(rawHours, 2);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -2237,8 +2237,10 @@ namespace TheMoods.Api.Controllers
             if (request.ExtensionDurationMinutes.HasValue)
             {
                 targetShift.ExtensionDurationMinutes += request.ExtensionDurationMinutes.Value;
-                targetShift.EndTime = targetShift.EndTime.Add(TimeSpan.FromMinutes(request.ExtensionDurationMinutes.Value));
-                requesterShift.StartTime = requesterShift.StartTime.Add(TimeSpan.FromMinutes(request.ExtensionDurationMinutes.Value));
+                var targetMins = (int)targetShift.EndTime.TotalMinutes + request.ExtensionDurationMinutes.Value;
+                targetShift.EndTime = TimeSpan.FromMinutes(targetMins % 1440);
+                var reqMins = (int)requesterShift.StartTime.TotalMinutes + request.ExtensionDurationMinutes.Value;
+                requesterShift.StartTime = TimeSpan.FromMinutes(reqMins % 1440);
             }
 
             if (request.RequestedEndTime.HasValue)
@@ -2547,8 +2549,8 @@ namespace TheMoods.Api.Controllers
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 
-                            // Tối thiểu làm được 30p mới làm tròn lên 1h (ví dụ: 5.5h -> 6h, 5.4h -> 5h)
-                            var hours = Math.Round(rawHours, MidpointRounding.AwayFromZero);
+                            // Giờ làm thực tế (hỗ trợ nửa ca/giờ lẻ: số giờ * lương ca)
+                            var hours = Math.Round(rawHours, 2);
                             if (hours <= 0) continue;
 
                             totalHours += hours;
@@ -2638,7 +2640,7 @@ namespace TheMoods.Api.Controllers
                     LocationId = dto.LocationId,
                     FromDate = start,
                     ToDate = end,
-                    TotalWorkedHours = Math.Round(totalHours, 0),
+                    TotalWorkedHours = Math.Round(totalHours, 2),
                     HourlyWage = hourlyWage,
                     BaseSalary = Math.Round(baseSalary),
                     TotalBonus = Math.Round(bonus),
