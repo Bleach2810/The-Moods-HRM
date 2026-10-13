@@ -1153,8 +1153,10 @@ namespace TheMoods.Api.Controllers
 
 
             // Lấy toàn bộ các ca kéo ca (làm thêm) đã duyệt trong kỳ của chi nhánh
+            var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+            var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
             var allExtensions = await _context.ShiftExtensions
-                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= start && se.Date <= end)
+                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
                 .Include(se => se.Requester)
                 .ToListAsync();
 
@@ -1502,8 +1504,10 @@ namespace TheMoods.Api.Controllers
             headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
             headerRange.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
 
+            var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+            var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
             var allExcelExtensions = await _context.ShiftExtensions
-                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= start && se.Date <= end)
+                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
                 .ToListAsync();
 
             int rowIdx = 2;
@@ -2033,6 +2037,7 @@ namespace TheMoods.Api.Controllers
 
                     DateTime extDate;
                     if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
+                    extDate = DateTime.SpecifyKind(extDate.Date, DateTimeKind.Utc);
 
                     var shiftExt = new ShiftExtension
                     {
@@ -2363,6 +2368,7 @@ namespace TheMoods.Api.Controllers
 
             DateTime extDate;
             if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
+            extDate = DateTime.SpecifyKind(extDate.Date, DateTimeKind.Utc);
 
             // Create record in ShiftExtensions table!
             var shiftExt = new ShiftExtension
@@ -2805,8 +2811,10 @@ namespace TheMoods.Api.Controllers
                 }
 
                 // Cộng thêm giờ kéo ca từ ShiftExtensions
+                var startCalcUtc = DateTime.SpecifyKind(startCalc, DateTimeKind.Utc);
+                var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
                 var userCalcExts = await _context.ShiftExtensions
-                    .Where(se => se.CovererId == user.Id && se.Status == "approved" && se.Date >= startCalc && se.Date <= end)
+                    .Where(se => se.CovererId == user.Id && se.Status == "approved" && se.Date >= startCalcUtc && se.Date <= endUtc)
                     .ToListAsync();
                 foreach (var ext in userCalcExts)
                 {

@@ -2,6 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using TheMoods.Data.Contexts;
 using TheMoods.Data.Initializer;
 
+// Enable Npgsql legacy timestamp behavior to handle DateTime with Kind=Unspecified seamlessly
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add TenantDbContext with a default PostgreSQL connection for design-time/migrations
