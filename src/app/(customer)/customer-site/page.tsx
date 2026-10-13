@@ -341,6 +341,10 @@ export default function CustomerPortal() {
     pinCodeRef.current = "";
     setPinCode("");
   };
+
+  React.useEffect(() => {
+    pinCodeRef.current = pinCode;
+  }, [pinCode]);
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
   const handlePhoneSubmit = (e: React.FormEvent) => {
@@ -606,7 +610,7 @@ export default function CustomerPortal() {
   };
 
   const handleKeypadPress = async (num: string) => {
-    if (pinCodeRef.current.length >= 6) return;
+    if (isLoading || pinCodeRef.current.length >= 6) return;
     const newPin = pinCodeRef.current + num;
     pinCodeRef.current = newPin;
     setPinCode(newPin);
@@ -623,6 +627,7 @@ export default function CustomerPortal() {
         await loginCustomer(phone.trim());
         window.location.href = "/";
       } else {
+        resetPinCode();
         alert("Mã PIN không chính xác! Vui lòng thử lại.");
         resetPinCode();
       }

@@ -51,6 +51,11 @@ export default function LandingPage() {
     pinCodeRef.current = "";
     setPinCode("");
   };
+
+  React.useEffect(() => {
+    pinCodeRef.current = pinCode;
+  }, [pinCode]);
+
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
   // Auto redirect if staff is already logged in
@@ -449,19 +454,20 @@ export default function LandingPage() {
         if (nextErrors >= 3) {
           alert("Xác thực thất bại 3 lần. Vui lòng đăng nhập bằng mã PIN.");
           setStep("fallback_pin");
-          setPinCode("");
+          resetPinCode();
           return;
         }
         alert(`Lỗi quét sinh trắc học (${fingerprintErrorCount + 1}/3). Vui lòng thử lại hoặc dùng mã PIN.`);
       } else {
         alert("Không tìm thấy thông tin sinh trắc học phù hợp trên thiết bị này hoặc bạn đã hủy yêu cầu. Vui lòng sử dụng mã PIN.");
         setStep("fallback_pin");
+        resetPinCode();
       }
     }
   };
 
   const handleKeypadPress = (num: string) => {
-    if (pinCodeRef.current.length >= 6) return;
+    if (isLoading || pinCodeRef.current.length >= 6) return;
     const newPin = pinCodeRef.current + num;
     pinCodeRef.current = newPin;
     setPinCode(newPin);
@@ -477,7 +483,7 @@ export default function LandingPage() {
   };
 
   const handleKeypadDelete = () => {
-    if (pinCodeRef.current.length === 0) return;
+    if (isLoading || pinCodeRef.current.length === 0) return;
     const newPin = pinCodeRef.current.slice(0, -1);
     pinCodeRef.current = newPin;
     setPinCode(newPin);
@@ -512,7 +518,7 @@ export default function LandingPage() {
 
   const handleFallbackPinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await handleFallbackPinSubmitDirect(pinCode);
+    await handleFallbackPinSubmitDirect(pinCodeRef.current || pinCode);
   };
 
   const handleFallbackPinSubmitDirect = async (pinVal: string) => {
@@ -547,7 +553,7 @@ export default function LandingPage() {
           const bioEnabled = localStorage.getItem(`moods_bio_${identifier.trim()}`) === "enabled";
           if (!bioEnabled) {
             setStep("setup_biometric");
-            setPinCode("");
+            resetPinCode();
           } else {
             window.location.href = destRoute;
           }
@@ -555,8 +561,9 @@ export default function LandingPage() {
         }
       }
 
+      resetPinCode();
       alert("Mã PIN không chính xác! Vui lòng kiểm tra lại.");
-      setPinCode("");
+      resetPinCode();
       return;
     } catch (err) {
       console.error("Verify PIN API error:", err);
@@ -573,14 +580,15 @@ export default function LandingPage() {
         const bioEnabled = localStorage.getItem(`moods_bio_${identifier.trim()}`) === "enabled";
         if (!bioEnabled) {
           setStep("setup_biometric");
-          setPinCode("");
+          resetPinCode();
         } else {
           window.location.href = destRoute;
         }
         return;
       }
+      resetPinCode();
       alert("Mã PIN không chính xác hoặc hệ thống không thể xác thực!");
-      setPinCode("");
+      resetPinCode();
     }
   };
 
@@ -917,7 +925,7 @@ export default function LandingPage() {
 
                   <button 
                     type="button"
-                    onClick={() => { setStep("fallback_pin"); setPinCode(""); }} 
+                    onClick={() => { setStep("fallback_pin"); resetPinCode(); }} 
                     className="text-xs text-[#7c4831] hover:underline font-bold block w-full mt-2 cursor-pointer"
                   >
                     Nhập mã PIN 6 số thay thế
@@ -984,7 +992,7 @@ export default function LandingPage() {
           <div className="bg-white w-full max-w-md rounded-t-[32px] p-6 pb-8 space-y-5 anim-sheet border-t border-[#7c4831]/10 shadow-2xl relative flex flex-col">
 
             {/* Top handle bar */}
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-1 cursor-pointer" onClick={() => { setStep("phone"); setIsStaffFlow(false); setPinCode(""); }} />
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-1 cursor-pointer" onClick={() => { setStep("phone"); setIsStaffFlow(false); resetPinCode(); }} />
 
             <div className="flex justify-between items-center pb-2 relative">
               <div className="w-6" />
@@ -993,7 +1001,7 @@ export default function LandingPage() {
               </h3>
               <button
                 type="button"
-                onClick={() => { setStep("phone"); setIsStaffFlow(false); setPinCode(""); }}
+                onClick={() => { setStep("phone"); setIsStaffFlow(false); resetPinCode(); }}
                 className="w-8 h-8 rounded-full bg-gray-50 border border-gray-150 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all font-bold"
               >
                 ✕
