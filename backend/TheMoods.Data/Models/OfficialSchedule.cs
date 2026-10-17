@@ -15,6 +15,7 @@ namespace TheMoods.Data.Models
         public TimeSpan? OriginalEndTime { get; set; }
         public int ExtensionDurationMinutes { get; set; } = 0;
         public bool IsSecurity { get; set; } = false;
+        public bool IsNightShift { get; set; } = false;
         public string CreatedBy { get; set; } = string.Empty; // ID của Admin tạo lịch
 
         // Navigation properties

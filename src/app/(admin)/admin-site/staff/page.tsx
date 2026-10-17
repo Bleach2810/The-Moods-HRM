@@ -533,6 +533,7 @@ export default function StaffPortal() {
   const [selectedEndHour, setSelectedEndHour] = useState("12:00");
   const [isOvernightReg, setIsOvernightReg] = useState(false);
   const [securityAllowancePerHour, setSecurityAllowancePerHour] = useState("2000");
+  const [nightAllowancePerHour, setNightAllowancePerHour] = useState("5000");
 
   // Scanner
   const [scanning, setScanning] = useState(true);
@@ -644,6 +645,8 @@ export default function StaffPortal() {
         if (maxAmtVal) setLatePenaltyMaxAmount(maxAmtVal);
         const secVal = data.find((c: any) => c.configKey === "SecurityAllowancePerHour")?.configValue;
         if (secVal) setSecurityAllowancePerHour(secVal);
+        const nightVal = data.find((c: any) => c.configKey === "NightAllowancePerHour")?.configValue;
+        if (nightVal) setNightAllowancePerHour(nightVal);
 
         const adjVal = data.find((c: any) => c.configKey === "Adjustments")?.configValue;
         if (adjVal) {
@@ -1238,6 +1241,11 @@ export default function StaffPortal() {
                         {sh.isSecurity && (
                           <span className="text-[7.5px] font-black uppercase text-blue-900 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200">
                             🛡️ Bảo vệ
+                          </span>
+                        )}
+                        {sh.isNightShift && (
+                          <span className="text-[7.5px] font-black uppercase text-purple-900 bg-purple-100 px-1.5 py-0.5 rounded border border-purple-200">
+                            🌙 Ca khuya
                           </span>
                         )}
                       </div>
@@ -2960,6 +2968,7 @@ export default function StaffPortal() {
     // 4. Tính toán ca làm việc và LƯƠNG LÀM THEO GIỜ trong khoảng ngày
     const hourlyWage = activeStaff?.hourlyWage || 25000;
     const secAllowance = Number(securityAllowancePerHour || 2000);
+    const nightAllowance = Number(nightAllowancePerHour || 5000);
     const myCompletedShifts = (officialSchedulesList || [])
       .filter((s: any) => activeStaff && (s.userId === activeStaff.id || (s.staffPhone && (s.staffPhone === activeStaff.phone || s.staffPhone === activeStaff.phoneNumber))))
       .filter((s: any) => {
@@ -2993,7 +3002,7 @@ export default function StaffPortal() {
           actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
         }
 
-        const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0);
+        const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0) + (s.isNightShift ? nightAllowance : 0);
         const shiftPay = Math.round(actualHours * effectiveWage);
         return {
           ...s,
@@ -3287,6 +3296,11 @@ export default function StaffPortal() {
                           {s.isSecurity && (
                             <span className="text-[8px] bg-blue-100 text-blue-900 border border-blue-300 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5">
                               🛡️ Bảo vệ (+{secAllowance.toLocaleString("vi-VN")}đ/h)
+                            </span>
+                          )}
+                          {s.isNightShift && (
+                            <span className="text-[8px] bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded font-black flex items-center gap-0.5">
+                              🌙 Ca khuya (+{nightAllowance.toLocaleString("vi-VN")}đ/h)
                             </span>
                           )}
                         </div>

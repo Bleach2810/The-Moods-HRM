@@ -107,7 +107,9 @@ export default function AdminPortal() {
   const [editingCell, setEditingCell] = useState<{ userId: string; userName: string; date: string; dateLabel: string } | null>(null);
   const [cellIsOff, setCellIsOff] = useState(false);
   const [cellIsSecurity, setCellIsSecurity] = useState(false);
+  const [cellIsNightShift, setCellIsNightShift] = useState(false);
   const [manualIsSecurity, setManualIsSecurity] = useState(false);
+  const [manualIsNightShift, setManualIsNightShift] = useState(false);
   const [cellStartTime, setCellStartTime] = useState("08:00");
   const [cellEndTime, setCellEndTime] = useState("16:00");
   const [cellHasExistingAtt, setCellHasExistingAtt] = useState(false);
@@ -440,6 +442,7 @@ export default function AdminPortal() {
   const [latePenaltyMaxAmount, setLatePenaltyMaxAmount] = useState("500000");
   const [holidayMultiplier, setHolidayMultiplier] = useState("2.0");
   const [securityAllowancePerHour, setSecurityAllowancePerHour] = useState("2000");
+  const [nightAllowancePerHour, setNightAllowancePerHour] = useState("5000");
 
   // GPS Configuration States
   const [gpsLatitude, setGpsLatitude] = useState("10.8315");
@@ -821,6 +824,9 @@ export default function AdminPortal() {
         const secVal = data.find((c: any) => c.configKey === "SecurityAllowancePerHour")?.configValue;
         if (secVal) setSecurityAllowancePerHour(secVal);
 
+        const nightVal = data.find((c: any) => c.configKey === "NightAllowancePerHour")?.configValue;
+        if (nightVal) setNightAllowancePerHour(nightVal);
+
         const latVal = data.find((c: any) => c.configKey === "GpsLatitude")?.configValue;
         if (latVal) setGpsLatitude(latVal);
 
@@ -920,6 +926,7 @@ export default function AdminPortal() {
           { configKey: "LatePenaltyMaxAmount", configValue: latePenaltyMaxAmount },
           { configKey: "HolidayMultiplier", configValue: holidayMultiplier },
           { configKey: "SecurityAllowancePerHour", configValue: securityAllowancePerHour },
+          { configKey: "NightAllowancePerHour", configValue: nightAllowancePerHour },
           { configKey: "GpsLatitude", configValue: gpsLatitude },
           { configKey: "GpsLongitude", configValue: gpsLongitude },
           { configKey: "GpsRadius", configValue: gpsRadius }
@@ -1638,7 +1645,7 @@ export default function AdminPortal() {
       };
     });
 
-    const handleQuickAssign = async (userId: string, date: string, startTime: string, endTime: string, isSecurity: boolean = false) => {
+    const handleQuickAssign = async (userId: string, date: string, startTime: string, endTime: string, isSecurity: boolean = false, isNightShift: boolean = false) => {
       try {
         const body = {
           userId,
@@ -1646,6 +1653,7 @@ export default function AdminPortal() {
           startTime,
           endTime,
           isSecurity,
+          isNightShift,
           locationId: activeLocation?.id || "govap-branch"
         };
         const res = await fetch(`${getApiBaseUrl()}/api/attendance/schedules`, {
@@ -1797,6 +1805,7 @@ export default function AdminPortal() {
             startTime: cellStartTime,
             endTime: cellEndTime,
             isSecurity: cellIsSecurity,
+            isNightShift: cellIsNightShift,
             recordAttendance: cellRecordAttendance,
             checkInTime: cellRecordAttendance ? (cellCustomTimes ? cellCheckInTime : cellStartTime) : null,
             checkOutTime: cellRecordAttendance ? (cellCustomTimes ? cellCheckOutTime : cellEndTime) : null,
@@ -1854,6 +1863,7 @@ export default function AdminPortal() {
             startTime: manualStartTime,
             endTime: manualEndTime,
             isSecurity: manualIsSecurity,
+            isNightShift: manualIsNightShift,
             checkInTime: !isSchedule && manualRecordAttendance ? manualCheckInTime : null,
             checkOutTime: !isSchedule && manualRecordAttendance ? manualCheckOutTime : null,
             recordAttendance: !isSchedule && manualRecordAttendance,
@@ -2114,6 +2124,7 @@ export default function AdminPortal() {
                                         setManualRecordAttendance(false);
                                         setManualCustomTimes(false);
                                         setManualIsSecurity(false);
+                                        setManualIsNightShift(false);
                                         setManualNote("");
                                         setManualLogMode("schedule");
                                         setShowManualLogModal(true);
@@ -2165,6 +2176,7 @@ export default function AdminPortal() {
                                               setCellStartTime(sched.startTime);
                                               setCellEndTime(sched.endTime);
                                               setCellIsSecurity(!!sched.isSecurity);
+                                              setCellIsNightShift(!!sched.isNightShift);
                                               setCellHasExistingAtt(hasClockedIn);
                                               setCellRecordAttendance(hasClockedIn);
                                               setCellCheckInTime(sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime);
@@ -2186,6 +2198,12 @@ export default function AdminPortal() {
                                             {sched.isSecurity && (
                                               <div className="text-[7.5px] font-black uppercase text-blue-900 bg-blue-100/90 px-1.5 py-0.5 rounded-md border border-blue-300 w-fit flex items-center gap-1 shadow-2xs">
                                                 🛡️ Bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)
+                                              </div>
+                                            )}
+
+                                            {sched.isNightShift && (
+                                              <div className="text-[7.5px] font-black uppercase text-purple-900 bg-purple-100/90 px-1.5 py-0.5 rounded-md border border-purple-300 w-fit flex items-center gap-1 shadow-2xs">
+                                                🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)
                                               </div>
                                             )}
 
@@ -2227,6 +2245,7 @@ export default function AdminPortal() {
                                           setManualRecordAttendance(false);
                                           setManualCustomTimes(false);
                                           setManualIsSecurity(false);
+                                          setManualIsNightShift(false);
                                           setManualNote("");
                                           setManualLogMode("schedule");
                                           setShowManualLogModal(true);
@@ -2540,6 +2559,14 @@ export default function AdminPortal() {
                                 />
                                 <span>🛡️ Trực bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)</span>
                               </label>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-extrabold text-purple-900">
+                                <input
+                                  type="checkbox"
+                                  id={`assign-night-${prefixId}`}
+                                  className="rounded text-purple-600 focus:ring-purple-500"
+                                />
+                                <span>🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)</span>
+                              </label>
                             </div>
 
                             <button
@@ -2549,10 +2576,12 @@ export default function AdminPortal() {
                                 const startInput = document.getElementById(`assign-start-${prefixId}`) as HTMLInputElement;
                                 const endInput = document.getElementById(`assign-end-${prefixId}`) as HTMLInputElement;
                                 const secCheck = document.getElementById(`assign-security-${prefixId}`) as HTMLInputElement;
+                                const nightCheck = document.getElementById(`assign-night-${prefixId}`) as HTMLInputElement;
                                 if (staffSelect && staffSelect.value) {
-                                  handleQuickAssign(staffSelect.value, selectedDayDetail, startInput.value, endInput.value, secCheck ? secCheck.checked : false);
+                                  handleQuickAssign(staffSelect.value, selectedDayDetail, startInput.value, endInput.value, secCheck ? secCheck.checked : false, nightCheck ? nightCheck.checked : false);
                                   staffSelect.value = "";
                                   if (secCheck) secCheck.checked = false;
+                                  if (nightCheck) nightCheck.checked = false;
                                 } else {
                                   alert("Vui lòng chọn nhân sự!");
                                 }
@@ -2806,6 +2835,27 @@ export default function AdminPortal() {
                             className="sr-only peer"
                           />
                           <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+
+                      {/* Phân công làm Ca khuya */}
+                      <div className="p-3 bg-purple-50/50 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
+                            🌙 Phân công làm Ca khuya
+                          </span>
+                          <span className="text-[9.5px] text-purple-800/80 font-semibold block mt-0.5">
+                            Cộng thêm +{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/giờ vào lương ca làm việc
+                          </span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={manualIsNightShift}
+                            onChange={e => setManualIsNightShift(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-purple-600"></div>
                         </label>
                       </div>
 
@@ -3120,6 +3170,27 @@ export default function AdminPortal() {
                               className="sr-only peer"
                             />
                             <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </label>
+                        </div>
+
+                        {/* Phân công làm Ca khuya */}
+                        <div className="p-3 bg-purple-50/50 border border-purple-200/80 rounded-2xl flex items-center justify-between gap-3">
+                          <div>
+                            <span className="text-[11px] font-extrabold text-purple-950 flex items-center gap-1.5">
+                              🌙 Phân công làm Ca khuya
+                            </span>
+                            <span className="text-[9.5px] text-purple-800/80 font-semibold block mt-0.5">
+                              Cộng thêm +{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/giờ vào lương ca làm việc
+                            </span>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={cellIsNightShift}
+                              onChange={e => setCellIsNightShift(e.target.checked)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-purple-600"></div>
                           </label>
                         </div>
 
@@ -4708,6 +4779,7 @@ export default function AdminPortal() {
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Hệ số phạt tăng:</span><span className="text-sm text-[#4B3621]">x{latePenaltyMultiplier} (mỗi {latePenaltyIntervalMinutes}m)</span></div>
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Giới hạn tối đa:</span><span className="text-sm text-[#4B3621]">{(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")}đ</span></div>
                 <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Phụ cấp bảo vệ:</span><span className="text-sm font-extrabold text-blue-900">+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/giờ</span></div>
+                <div className="flex justify-between items-center"><span className="text-[#4B3621]/60 uppercase tracking-wider">Phụ cấp ca khuya:</span><span className="text-sm font-extrabold text-purple-900">+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/giờ</span></div>
               </div>
             </div>
 
@@ -4783,6 +4855,17 @@ export default function AdminPortal() {
                       required
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Phụ cấp ca khuya (VNĐ/giờ):</label>
+                    <input
+                      type="number"
+                      value={nightAllowancePerHour}
+                      onChange={e => setNightAllowancePerHour(e.target.value)}
+                      placeholder="Ví dụ: 5000"
+                      className="input w-full text-xs font-semibold"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div className="p-3.5 bg-[#FAF9F6] border border-gray-150 rounded-2xl text-[11px] font-medium text-gray-500 leading-relaxed space-y-1">
@@ -4791,6 +4874,7 @@ export default function AdminPortal() {
                   <div>Cứ mỗi <strong>{latePenaltyIntervalMinutes} phút</strong> tăng thêm thì số tiền phạt sẽ nhân lên <strong>{latePenaltyMultiplier} lần</strong> (hệ số lũy tiến hình học).</div>
                   <div>Phạt đi trễ cho một ca làm việc sẽ <strong>không vượt quá {(Number(latePenaltyMaxAmount) || 500000).toLocaleString("vi-VN")} VNĐ</strong>.</div>
                   <div>🛡️ <strong>Phụ cấp bảo vệ:</strong> Nhân viên được chọn làm bảo vệ trong ca trực sẽ được cộng thêm <strong>{(Number(securityAllowancePerHour) || 0).toLocaleString("vi-VN")} VNĐ/giờ</strong> vào lương ca làm việc.</div>
+                  <div>🌙 <strong>Phụ cấp ca khuya:</strong> Nhân viên được chọn làm ca khuya sẽ được cộng thêm <strong>{(Number(nightAllowancePerHour) || 0).toLocaleString("vi-VN")} VNĐ/giờ</strong> vào lương ca làm việc.</div>
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-6 text-xs font-bold cursor-pointer">

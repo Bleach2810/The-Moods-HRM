@@ -41,6 +41,18 @@ namespace TheMoods.Data.Initializer
                 Console.WriteLine("ShiftExtensions table ensure error: " + ex.Message);
             }
 
+            // Đảm bảo cột IsNightShift tồn tại trong OfficialSchedules
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    ALTER TABLE ""OfficialSchedules"" ADD COLUMN IF NOT EXISTS ""IsNightShift"" boolean NOT NULL DEFAULT FALSE;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("IsNightShift column ensure error: " + ex.Message);
+            }
+
             // 1. Seed Roles
             if (!context.Roles.Any())
             {

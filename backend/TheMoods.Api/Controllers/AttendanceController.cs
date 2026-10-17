@@ -181,6 +181,14 @@ namespace TheMoods.Api.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            if (!configs.Any(c => c.ConfigKey == "NightAllowancePerHour"))
+            {
+                var defNight = new PayrollConfig { LocationId = locationId, ConfigKey = "NightAllowancePerHour", ConfigValue = "5000", Description = "Phụ cấp ca khuya (VNĐ/giờ)" };
+                _context.PayrollConfigs.Add(defNight);
+                configs.Add(defNight);
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(configs.Select(c => new { c.ConfigKey, c.ConfigValue, c.Description }));
         }
 
@@ -502,6 +510,7 @@ namespace TheMoods.Api.Controllers
                 StartTime = startTime,
                 EndTime = endTime,
                 IsSecurity = dto.IsSecurity ?? false,
+                IsNightShift = dto.IsNightShift ?? false,
                 CreatedBy = dto.CreatedBy ?? "Admin"
             };
 
@@ -613,6 +622,7 @@ namespace TheMoods.Api.Controllers
                     checkInTime = s.Attendances.Any() ? s.Attendances.First().CheckInTime.ToString("HH:mm:ss") : null,
                     checkOutTime = s.Attendances.Any(a => a.CheckOutTime != null) ? s.Attendances.First().CheckOutTime.Value.ToString("HH:mm:ss") : null,
                     isSecurity = s.IsSecurity,
+                    isNightShift = s.IsNightShift,
                     skills = s.User != null ? s.User.UserSkills.Where(us => us.Skill != null && !us.Skill.IsDeleted).Select(us => (object)new { id = us.Skill.Id, name = us.Skill.Name }).ToList() : new System.Collections.Generic.List<object>()
                 })
                 .ToListAsync();
@@ -688,6 +698,10 @@ namespace TheMoods.Api.Controllers
             {
                 sched.IsSecurity = dto.IsSecurity.Value;
             }
+            if (dto.IsNightShift.HasValue)
+            {
+                sched.IsNightShift = dto.IsNightShift.Value;
+            }
 
             await _context.SaveChangesAsync();
 
@@ -738,6 +752,7 @@ namespace TheMoods.Api.Controllers
                     StartTime = startTime,
                     EndTime = endTime,
                     IsSecurity = dto.IsSecurity ?? false,
+                    IsNightShift = dto.IsNightShift ?? false,
                     CreatedBy = dto.AdminName ?? "Admin"
                 };
                 _context.OfficialSchedules.Add(sched);
@@ -752,6 +767,10 @@ namespace TheMoods.Api.Controllers
                 if (dto.IsSecurity.HasValue)
                 {
                     sched.IsSecurity = dto.IsSecurity.Value;
+                }
+                if (dto.IsNightShift.HasValue)
+                {
+                    sched.IsNightShift = dto.IsNightShift.Value;
                 }
                 await _context.SaveChangesAsync();
             }
@@ -1107,6 +1126,10 @@ namespace TheMoods.Api.Controllers
                 decimal securityAllowancePerHour = 2000;
                 if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
 
+                var nightAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "NightAllowancePerHour")?.ConfigValue;
+                decimal nightAllowancePerHour = 5000;
+                if (decimal.TryParse(nightAllowanceConfig, out decimal parsedNight)) nightAllowancePerHour = parsedNight;
+
                 // Parse Holidays_Detailed
                 var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
                 var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
@@ -1257,8 +1280,10 @@ namespace TheMoods.Api.Controllers
                                 if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                                 else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                                // Phụ cấp bảo vệ nếu ca trực được gán là bảo vệ
-                                decimal shiftWage = hourlyWage + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0);
+                                // Phụ cấp bảo vệ và phụ cấp ca khuya nếu ca trực được gán
+                                decimal shiftWage = hourlyWage 
+                                    + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0)
+                                    + ((hasSchedule && att.Schedule!.IsNightShift) ? nightAllowancePerHour : 0);
 
                                 if (holiday != null)
                                 {
@@ -1396,6 +1421,8 @@ namespace TheMoods.Api.Controllers
                             rawHours = ext.Hours,
                             isSecurity = false,
                             securityAllowancePerHour = (decimal)0,
+                            isNightShift = false,
+                            nightAllowancePerHour = (decimal)0,
                             note = ext.Note,
                             requesterName = ext.Requester?.FullName,
                             extensionAmount = ext.Amount
@@ -1437,7 +1464,9 @@ namespace TheMoods.Api.Controllers
                             hours = hrs,
                             rawHours = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero),
                             isSecurity = a.Schedule?.IsSecurity ?? false,
-                            securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0
+                            securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0,
+                            isNightShift = a.Schedule?.IsNightShift ?? false,
+                            nightAllowancePerHour = (a.Schedule?.IsNightShift ?? false) ? nightAllowancePerHour : 0
                         });
                     }
 
@@ -1512,6 +1541,10 @@ namespace TheMoods.Api.Controllers
                 var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
                 decimal securityAllowancePerHour = 2000;
                 if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
+
+                var nightAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "NightAllowancePerHour")?.ConfigValue;
+                decimal nightAllowancePerHour = 5000;
+                if (decimal.TryParse(nightAllowanceConfig, out decimal parsedNight)) nightAllowancePerHour = parsedNight;
 
                 // Parse Holidays_Detailed
                 var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -1669,7 +1702,9 @@ namespace TheMoods.Api.Controllers
                                 if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                                 else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                                decimal shiftWage = hourlyWage + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0);
+                                decimal shiftWage = hourlyWage 
+                                    + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0)
+                                    + ((hasSchedule && att.Schedule!.IsNightShift) ? nightAllowancePerHour : 0);
 
                                 if (holiday != null)
                                 {
@@ -2682,6 +2717,7 @@ namespace TheMoods.Api.Controllers
             public string StartTime { get; set; } = string.Empty;
             public string EndTime { get; set; } = string.Empty;
             public bool? IsSecurity { get; set; }
+            public bool? IsNightShift { get; set; }
             public string? CreatedBy { get; set; }
         }
 
@@ -2698,6 +2734,7 @@ namespace TheMoods.Api.Controllers
             public bool RecordAttendance { get; set; } = true;
             public bool? ClearAttendance { get; set; }
             public bool? IsSecurity { get; set; }
+            public bool? IsNightShift { get; set; }
             public string? Note { get; set; }
             public string? AdminName { get; set; }
         }
@@ -2765,6 +2802,10 @@ namespace TheMoods.Api.Controllers
             var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
             decimal securityAllowancePerHour = 2000;
             if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
+
+            var nightAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "NightAllowancePerHour")?.ConfigValue;
+            decimal nightAllowancePerHour = 5000;
+            if (decimal.TryParse(nightAllowanceConfig, out decimal parsedNight)) nightAllowancePerHour = parsedNight;
 
             // Parse Holidays
             var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
@@ -2863,7 +2904,9 @@ namespace TheMoods.Api.Controllers
                             if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                             else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
+                            decimal shiftWage = hourlyWage 
+                                + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0)
+                                + ((att.Schedule != null && att.Schedule.IsNightShift) ? nightAllowancePerHour : 0);
 
                             if (holiday != null)
                             {
