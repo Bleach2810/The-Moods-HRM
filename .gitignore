@@ -107,6 +107,7 @@ ehthumbs.db
 desktop.ini
 
 # ==========================================
-# Backend
+# Backend & Local Deployment Scripts
 # ==========================================
 backend/publish/
+redeploy.ps1
