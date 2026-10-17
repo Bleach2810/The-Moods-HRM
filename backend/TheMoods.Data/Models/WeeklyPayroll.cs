@@ -12,6 +12,7 @@ namespace TheMoods.Data.Models
         public double TotalWorkedHours { get; set; }
         public decimal HourlyWage { get; set; }
         public decimal BaseSalary { get; set; }
+        public decimal TotalShiftAllowance { get; set; } = 0;
         public decimal TotalBonus { get; set; }
         public decimal TotalPenalty { get; set; }
         public decimal TotalAdvance { get; set; }

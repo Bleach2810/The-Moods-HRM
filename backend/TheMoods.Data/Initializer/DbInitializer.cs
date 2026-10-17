@@ -53,6 +53,18 @@ namespace TheMoods.Data.Initializer
                 Console.WriteLine("IsNightShift column ensure error: " + ex.Message);
             }
 
+            // Đảm bảo cột TotalShiftAllowance tồn tại trong WeeklyPayrolls
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    ALTER TABLE ""WeeklyPayrolls"" ADD COLUMN IF NOT EXISTS ""TotalShiftAllowance"" numeric NOT NULL DEFAULT 0;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("TotalShiftAllowance column ensure error: " + ex.Message);
+            }
+
             // 1. Seed Roles
             if (!context.Roles.Any())
             {

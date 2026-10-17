@@ -189,6 +189,20 @@ namespace TheMoods.Api.Controllers
                 await _context.SaveChangesAsync();
             }
 
+            if (!configs.Any(c => c.ConfigKey == "StaffWagePeriods"))
+            {
+                var defWagePeriods = new PayrollConfig
+                {
+                    LocationId = locationId,
+                    ConfigKey = "StaffWagePeriods",
+                    ConfigValue = "[]",
+                    Description = "Lịch sử mức lương theo từng thời kỳ của nhân viên (JSON)"
+                };
+                _context.PayrollConfigs.Add(defWagePeriods);
+                configs.Add(defWagePeriods);
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(configs.Select(c => new { c.ConfigKey, c.ConfigValue, c.Description }));
         }
 
@@ -1168,6 +1182,18 @@ namespace TheMoods.Api.Controllers
                     }
                 }
 
+                // Parse StaffWagePeriods (Lịch sử mức lương theo thời kỳ)
+                var wagePeriodsStr = configs.FirstOrDefault(c => c.ConfigKey == "StaffWagePeriods")?.ConfigValue;
+                var staffWagePeriods = new List<StaffWagePeriod>();
+                if (!string.IsNullOrEmpty(wagePeriodsStr))
+                {
+                    try
+                    {
+                        staffWagePeriods = JsonSerializer.Deserialize<List<StaffWagePeriod>>(wagePeriodsStr, _jsonCaseInsensitive) ?? new List<StaffWagePeriod>();
+                    }
+                    catch { }
+                }
+
                 var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
                 decimal defaultShiftBonus = 0;
                 decimal.TryParse(activeBonusStr, out defaultShiftBonus);
@@ -1208,7 +1234,7 @@ namespace TheMoods.Api.Controllers
                 foreach (var user in users)
                 {
                     var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
-                    decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
+                    decimal defaultHourlyWage = userLoc?.HourlyWage ?? 25000;
 
                     // Lọc danh sách chấm công trong khoảng thời gian (cả đã checkout và đang làm việc để phạt đi trễ trừ liền)
                     var userAtts = user.Attendances
@@ -1218,6 +1244,11 @@ namespace TheMoods.Api.Controllers
 
                     double totalHours = 0;
                     decimal baseSalary = 0;
+                    decimal totalSecurityAllowance = 0;
+                    decimal totalNightAllowance = 0;
+                    decimal totalShiftAllowance = 0;
+                    double securityHours = 0;
+                    double nightHours = 0;
                     decimal penalty = 0;
                     decimal bonus = 0;
 
@@ -1273,6 +1304,23 @@ namespace TheMoods.Api.Controllers
                             {
                                 totalHours += hours;
 
+                                // Lấy mức lương theo thời kỳ cho ngày ca này
+                                DateTime shiftDate = hasSchedule ? att.Schedule!.Date.Date : att.CheckInTime.Date;
+                                decimal shiftBaseWage = GetStaffHourlyWageForDate(user.Id, shiftDate, staffWagePeriods, defaultHourlyWage);
+
+                                // Tách bạch lương cơ bản và phụ cấp ca (Bảo vệ, Ca khuya)
+                                decimal shiftBasePay = (decimal)hours * shiftBaseWage;
+                                decimal shiftSecPay = (hasSchedule && att.Schedule!.IsSecurity) ? ((decimal)hours * securityAllowancePerHour) : 0;
+                                decimal shiftNightPay = (hasSchedule && att.Schedule!.IsNightShift) ? ((decimal)hours * nightAllowancePerHour) : 0;
+                                decimal shiftAllowance = shiftSecPay + shiftNightPay;
+
+                                baseSalary += shiftBasePay;
+                                totalSecurityAllowance += shiftSecPay;
+                                totalNightAllowance += shiftNightPay;
+                                totalShiftAllowance += shiftAllowance;
+                                if (hasSchedule && att.Schedule!.IsSecurity) securityHours += hours;
+                                if (hasSchedule && att.Schedule!.IsNightShift) nightHours += hours;
+
                                 // Lương theo hệ số lễ hoặc thường
                                 var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
                                 var schedDateStr = hasSchedule ? att.Schedule!.Date.ToString("yyyy-MM-dd") : attDateStr;
@@ -1280,20 +1328,10 @@ namespace TheMoods.Api.Controllers
                                 if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                                 else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                                // Phụ cấp bảo vệ và phụ cấp ca khuya nếu ca trực được gán
-                                decimal shiftWage = hourlyWage 
-                                    + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0)
-                                    + ((hasSchedule && att.Schedule!.IsNightShift) ? nightAllowancePerHour : 0);
-
                                 if (holiday != null)
                                 {
                                     double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                    baseSalary += (decimal)hours * shiftWage;
-                                    bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
-                                }
-                                else
-                                {
-                                    baseSalary += (decimal)hours * shiftWage;
+                                    bonus += shiftBasePay * (decimal)(mult - 1.0) + holiday.FlatBonus;
                                 }
                             }
                         }
@@ -1400,8 +1438,8 @@ namespace TheMoods.Api.Controllers
                         baseSalary += ext.Amount;
                     }
 
-                    // Tổng cộng lương
-                    decimal finalAmount = baseSalary + bonus - penalty - advance;
+                    // Tổng cộng lương: Lương cơ bản + Phụ cấp ca + Thưởng - Phạt - Tạm ứng
+                    decimal finalAmount = baseSalary + totalShiftAllowance + bonus - penalty - advance;
 
                     var detailsList = new List<object>();
 
@@ -1419,10 +1457,16 @@ namespace TheMoods.Api.Controllers
                             checkOutLimit = "",
                             hours = ext.Hours,
                             rawHours = ext.Hours,
+                            hourlyWage = ext.HourlyWage,
                             isSecurity = false,
                             securityAllowancePerHour = (decimal)0,
+                            securityPay = (decimal)0,
                             isNightShift = false,
                             nightAllowancePerHour = (decimal)0,
+                            nightPay = (decimal)0,
+                            shiftAllowance = (decimal)0,
+                            basePay = ext.Amount,
+                            totalShiftPay = ext.Amount,
                             note = ext.Note,
                             requesterName = ext.Requester?.FullName,
                             extensionAmount = ext.Amount
@@ -1453,8 +1497,17 @@ namespace TheMoods.Api.Controllers
                         var remM = (rawHrs - wholeH) * 60.0;
                         var hrs = remM >= 30.0 ? wholeH + 1.0 : wholeH;
 
+                        var shiftSecAllowance = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0;
+                        var shiftNightAllowance = (a.Schedule?.IsNightShift ?? false) ? nightAllowancePerHour : 0;
+                        var attShiftBaseWage = GetStaffHourlyWageForDate(user.Id, baseDate, staffWagePeriods, defaultHourlyWage);
+                        var attBasePay = (decimal)hrs * attShiftBaseWage;
+                        var attSecPay = (decimal)hrs * shiftSecAllowance;
+                        var attNightPay = (decimal)hrs * shiftNightAllowance;
+                        var attShiftAllowance = attSecPay + attNightPay;
+
                         detailsList.Add(new {
                             attId = a.Id,
+                            date = baseDate.ToString("yyyy-MM-dd"),
                             checkIn = a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOut = a.CheckOutTime?.ToString("yyyy-MM-dd HH:mm:ss"),
                             schedStart = hasSched ? schedStart.ToString("yyyy-MM-dd HH:mm:ss") : "--:--",
@@ -1463,21 +1516,35 @@ namespace TheMoods.Api.Controllers
                             checkOutLimit = checkOutLimit != DateTime.MinValue ? checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss") : "",
                             hours = hrs,
                             rawHours = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero),
+                            hourlyWage = attShiftBaseWage,
                             isSecurity = a.Schedule?.IsSecurity ?? false,
-                            securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0,
+                            securityAllowancePerHour = shiftSecAllowance,
+                            securityPay = Math.Round(attSecPay),
                             isNightShift = a.Schedule?.IsNightShift ?? false,
-                            nightAllowancePerHour = (a.Schedule?.IsNightShift ?? false) ? nightAllowancePerHour : 0
+                            nightAllowancePerHour = shiftNightAllowance,
+                            nightPay = Math.Round(attNightPay),
+                            shiftAllowance = Math.Round(attShiftAllowance),
+                            basePay = Math.Round(attBasePay),
+                            totalShiftPay = Math.Round(attBasePay + attShiftAllowance)
                         });
                     }
+
+                    // Lấy mức lương hiện tại (hoặc ngày gần nhất) để hiển thị ở cột Lương/giờ
+                    decimal currentDisplayWage = GetStaffHourlyWageForDate(user.Id, DateTime.UtcNow.Date, staffWagePeriods, defaultHourlyWage);
 
                     payrolls.Add(new
                     {
                         userId = user.Id,
                         fullName = user.FullName,
                         phoneNumber = user.PhoneNumber,
-                        hourlyWage,
+                        hourlyWage = currentDisplayWage,
                         totalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
                         baseSalary = Math.Round(baseSalary),
+                        totalShiftAllowance = Math.Round(totalShiftAllowance),
+                        totalSecurityAllowance = Math.Round(totalSecurityAllowance),
+                        totalNightAllowance = Math.Round(totalNightAllowance),
+                        securityHours = Math.Round(securityHours, 1, MidpointRounding.AwayFromZero),
+                        nightHours = Math.Round(nightHours, 1, MidpointRounding.AwayFromZero),
                         totalBonus = Math.Round(bonus),
                         totalPenalty = Math.Round(penalty),
                         totalAdvance = Math.Round(advance),
@@ -1580,6 +1647,18 @@ namespace TheMoods.Api.Controllers
                     catch { }
                 }
 
+                // Parse StaffWagePeriods
+                var wagePeriodsStr = configs.FirstOrDefault(c => c.ConfigKey == "StaffWagePeriods")?.ConfigValue;
+                var staffWagePeriods = new List<StaffWagePeriod>();
+                if (!string.IsNullOrEmpty(wagePeriodsStr))
+                {
+                    try
+                    {
+                        staffWagePeriods = JsonSerializer.Deserialize<List<StaffWagePeriod>>(wagePeriodsStr, _jsonCaseInsensitive) ?? new List<StaffWagePeriod>();
+                    }
+                    catch { }
+                }
+
                 var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
                 decimal defaultShiftBonus = 0;
                 decimal.TryParse(activeBonusStr, out defaultShiftBonus);
@@ -1606,12 +1685,13 @@ namespace TheMoods.Api.Controllers
                 ws.Cell(1, 3).Value = "Lương/giờ";
                 ws.Cell(1, 4).Value = "Tổng giờ làm";
                 ws.Cell(1, 5).Value = "Lương cơ bản";
-                ws.Cell(1, 6).Value = "Thưởng";
-                ws.Cell(1, 7).Value = "Phạt đi trễ";
-                ws.Cell(1, 8).Value = "Tạm ứng";
-                ws.Cell(1, 9).Value = "Lương thực nhận";
+                ws.Cell(1, 6).Value = "Phụ cấp ca (Đêm/BV)";
+                ws.Cell(1, 7).Value = "Thưởng";
+                ws.Cell(1, 8).Value = "Phạt đi trễ";
+                ws.Cell(1, 9).Value = "Tạm ứng";
+                ws.Cell(1, 10).Value = "Lương thực nhận";
 
-                var headerRange = ws.Range(1, 1, 1, 9);
+                var headerRange = ws.Range(1, 1, 1, 10);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#7c4831");
                 headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
@@ -1635,7 +1715,7 @@ namespace TheMoods.Api.Controllers
                 foreach (var user in users)
                 {
                     var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
-                    decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
+                    decimal defaultHourlyWage = userLoc?.HourlyWage ?? 25000;
 
                     var userAtts = user.Attendances
                         .Where(a => a.CheckInTime.Date >= start && a.CheckInTime.Date <= end && 
@@ -1644,6 +1724,9 @@ namespace TheMoods.Api.Controllers
 
                     double totalHours = 0;
                     decimal baseSalary = 0;
+                    decimal totalSecurityAllowance = 0;
+                    decimal totalNightAllowance = 0;
+                    decimal totalShiftAllowance = 0;
                     decimal penalty = 0;
                     decimal bonus = 0;
 
@@ -1696,25 +1779,29 @@ namespace TheMoods.Api.Controllers
                             {
                                 totalHours += hours;
 
+                                DateTime shiftDate = hasSchedule ? att.Schedule!.Date.Date : att.CheckInTime.Date;
+                                decimal shiftBaseWage = GetStaffHourlyWageForDate(user.Id, shiftDate, staffWagePeriods, defaultHourlyWage);
+
+                                decimal shiftBasePay = (decimal)hours * shiftBaseWage;
+                                decimal shiftSecPay = (hasSchedule && att.Schedule!.IsSecurity) ? ((decimal)hours * securityAllowancePerHour) : 0;
+                                decimal shiftNightPay = (hasSchedule && att.Schedule!.IsNightShift) ? ((decimal)hours * nightAllowancePerHour) : 0;
+                                decimal shiftAllowance = shiftSecPay + shiftNightPay;
+
+                                baseSalary += shiftBasePay;
+                                totalSecurityAllowance += shiftSecPay;
+                                totalNightAllowance += shiftNightPay;
+                                totalShiftAllowance += shiftAllowance;
+
                                 var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
                                 var schedDateStr = hasSchedule ? att.Schedule!.Date.ToString("yyyy-MM-dd") : attDateStr;
                                 HolidayDetail? holiday = null;
                                 if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                                 else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                                decimal shiftWage = hourlyWage 
-                                    + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0)
-                                    + ((hasSchedule && att.Schedule!.IsNightShift) ? nightAllowancePerHour : 0);
-
                                 if (holiday != null)
                                 {
                                     double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                    baseSalary += (decimal)hours * shiftWage;
-                                    bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
-                                }
-                                else
-                                {
-                                    baseSalary += (decimal)hours * shiftWage;
+                                    bonus += shiftBasePay * (decimal)(mult - 1.0) + holiday.FlatBonus;
                                 }
                             }
                         }
@@ -1795,17 +1882,19 @@ namespace TheMoods.Api.Controllers
                         baseSalary += ext.Amount;
                     }
 
-                    decimal finalAmount = baseSalary + bonus - penalty - advance;
+                    decimal finalAmount = baseSalary + totalShiftAllowance + bonus - penalty - advance;
+                    decimal currentDisplayWage = GetStaffHourlyWageForDate(user.Id, DateTime.UtcNow.Date, staffWagePeriods, defaultHourlyWage);
 
                     ws.Cell(rowIdx, 1).Value = user.FullName;
                     ws.Cell(rowIdx, 2).Value = user.PhoneNumber;
-                    ws.Cell(rowIdx, 3).Value = hourlyWage;
+                    ws.Cell(rowIdx, 3).Value = currentDisplayWage;
                     ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero);
                     ws.Cell(rowIdx, 5).Value = Math.Round(baseSalary);
-                    ws.Cell(rowIdx, 6).Value = Math.Round(bonus);
-                    ws.Cell(rowIdx, 7).Value = Math.Round(penalty);
-                    ws.Cell(rowIdx, 8).Value = Math.Round(advance);
-                    ws.Cell(rowIdx, 9).Value = Math.Round(finalAmount);
+                    ws.Cell(rowIdx, 6).Value = Math.Round(totalShiftAllowance);
+                    ws.Cell(rowIdx, 7).Value = Math.Round(bonus);
+                    ws.Cell(rowIdx, 8).Value = Math.Round(penalty);
+                    ws.Cell(rowIdx, 9).Value = Math.Round(advance);
+                    ws.Cell(rowIdx, 10).Value = Math.Round(finalAmount);
 
                     rowIdx++;
                 }
@@ -2184,11 +2273,19 @@ namespace TheMoods.Api.Controllers
                     int duration = request.ExtensionDurationMinutes ?? 60;
                     double hours = Math.Round(duration / 60.0, 1, MidpointRounding.AwayFromZero);
                     var covererLoc = await _context.UserLocations.FirstOrDefaultAsync(ul => ul.UserId == request.SwapWithStaffId && ul.LocationId == request.LocationId);
-                    decimal hourlyWage = covererLoc?.HourlyWage ?? 25000;
-                    decimal amount = (decimal)hours * hourlyWage;
 
                     DateTime extDate;
                     if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
+                    extDate = DateTime.SpecifyKind(extDate.Date, DateTimeKind.Utc);
+
+                    var wageConfig = await _context.PayrollConfigs.FirstOrDefaultAsync(c => c.LocationId == request.LocationId && c.ConfigKey == "StaffWagePeriods");
+                    var staffWagePeriods = new List<StaffWagePeriod>();
+                    if (wageConfig != null && !string.IsNullOrEmpty(wageConfig.ConfigValue))
+                    {
+                        try { staffWagePeriods = JsonSerializer.Deserialize<List<StaffWagePeriod>>(wageConfig.ConfigValue, _jsonCaseInsensitive) ?? new List<StaffWagePeriod>(); } catch { }
+                    }
+                    decimal hourlyWage = GetStaffHourlyWageForDate(request.SwapWithStaffId, extDate, staffWagePeriods, covererLoc?.HourlyWage ?? 25000);
+                    decimal amount = (decimal)hours * hourlyWage;
                     extDate = DateTime.SpecifyKind(extDate.Date, DateTimeKind.Utc);
 
                     var shiftExt = new ShiftExtension
@@ -2515,12 +2612,19 @@ namespace TheMoods.Api.Controllers
 
             // Get coverer's hourly wage
             var covererLoc = await _context.UserLocations.FirstOrDefaultAsync(ul => ul.UserId == request.SwapWithStaffId && ul.LocationId == request.LocationId);
-            decimal hourlyWage = covererLoc?.HourlyWage ?? 25000;
-            decimal amount = (decimal)hours * hourlyWage;
 
             DateTime extDate;
             if (!DateTime.TryParse(request.Date, out extDate)) extDate = DateTime.UtcNow.Date;
             extDate = DateTime.SpecifyKind(extDate.Date, DateTimeKind.Utc);
+
+            var wageConfigAdmin = await _context.PayrollConfigs.FirstOrDefaultAsync(c => c.LocationId == request.LocationId && c.ConfigKey == "StaffWagePeriods");
+            var staffWagePeriodsAdmin = new List<StaffWagePeriod>();
+            if (wageConfigAdmin != null && !string.IsNullOrEmpty(wageConfigAdmin.ConfigValue))
+            {
+                try { staffWagePeriodsAdmin = JsonSerializer.Deserialize<List<StaffWagePeriod>>(wageConfigAdmin.ConfigValue, _jsonCaseInsensitive) ?? new List<StaffWagePeriod>(); } catch { }
+            }
+            decimal hourlyWage = GetStaffHourlyWageForDate(request.SwapWithStaffId, extDate, staffWagePeriodsAdmin, covererLoc?.HourlyWage ?? 25000);
+            decimal amount = (decimal)hours * hourlyWage;
 
             // Create record in ShiftExtensions table!
             var shiftExt = new ShiftExtension
@@ -2693,6 +2797,58 @@ namespace TheMoods.Api.Controllers
             public decimal FlatBonus { get; set; } = 0;
         }
 
+        public class StaffWagePeriod
+        {
+            public string Id { get; set; } = Guid.NewGuid().ToString();
+            public string EmployeeId { get; set; } = string.Empty;
+            public string EmployeeName { get; set; } = string.Empty;
+            public decimal HourlyWage { get; set; }
+            public string FromDate { get; set; } = string.Empty; // "YYYY-MM-DD"
+            public string? ToDate { get; set; } // "YYYY-MM-DD" or empty if currently active
+            public string Note { get; set; } = string.Empty;
+            public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        }
+
+        private static readonly JsonSerializerOptions _jsonCaseInsensitive = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        private static decimal GetStaffHourlyWageForDate(string userId, DateTime date, List<StaffWagePeriod> periods, decimal defaultWage)
+        {
+            if (periods == null || periods.Count == 0 || string.IsNullOrEmpty(userId))
+                return defaultWage;
+
+            var dateOnly = date.Date;
+            var userPeriods = periods
+                .Where(p => string.Equals(p.EmployeeId, userId, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (userPeriods.Count == 0)
+                return defaultWage;
+
+            var matched = new List<(StaffWagePeriod period, DateTime from)>();
+            foreach (var p in userPeriods)
+            {
+                if (DateTime.TryParse(p.FromDate, out DateTime from))
+                {
+                    DateTime? to = null;
+                    if (!string.IsNullOrWhiteSpace(p.ToDate) && DateTime.TryParse(p.ToDate, out DateTime parsedTo))
+                    {
+                        to = parsedTo.Date;
+                    }
+
+                    if (from.Date <= dateOnly && (!to.HasValue || dateOnly <= to.Value))
+                    {
+                        matched.Add((p, from.Date));
+                    }
+                }
+            }
+
+            if (matched.Count == 0)
+                return defaultWage;
+
+            var active = matched.OrderByDescending(x => x.from).ThenByDescending(x => x.period.CreatedAt).First().period;
+            return active.HourlyWage > 0 ? active.HourlyWage : defaultWage;
+        }
+
         public class ConfigUpdateDto
         {
             public string ConfigKey { get; set; } = string.Empty;
@@ -2836,6 +2992,15 @@ namespace TheMoods.Api.Controllers
                 catch { }
             }
 
+            // Parse StaffWagePeriods
+            var wagePeriodsStr = configs.FirstOrDefault(c => c.ConfigKey == "StaffWagePeriods")?.ConfigValue;
+            var staffWagePeriods = new List<StaffWagePeriod>();
+            if (!string.IsNullOrEmpty(wagePeriodsStr))
+            {
+                try { staffWagePeriods = JsonSerializer.Deserialize<List<StaffWagePeriod>>(wagePeriodsStr, _jsonCaseInsensitive) ?? new List<StaffWagePeriod>(); }
+                catch { }
+            }
+
             var users = await _context.Users
                 .Include(u => u.UserLocations)
                 .Include(u => u.Attendances).ThenInclude(a => a.Schedule)
@@ -2858,7 +3023,7 @@ namespace TheMoods.Api.Controllers
             foreach (var user in users)
             {
                 var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == dto.LocationId);
-                decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
+                decimal defaultHourlyWage = userLoc?.HourlyWage ?? 25000;
 
                 var startCalc = start;
                 if (user.LastSettledDate.HasValue && user.LastSettledDate.Value.Date >= start)
@@ -2872,6 +3037,9 @@ namespace TheMoods.Api.Controllers
 
                 double totalHours = 0;
                 decimal baseSalary = 0;
+                decimal totalShiftAllowance = 0;
+                decimal totalSecurityAllowance = 0;
+                decimal totalNightAllowance = 0;
                 decimal penalty = 0;
                 decimal bonus = 0;
 
@@ -2898,25 +3066,29 @@ namespace TheMoods.Api.Controllers
 
                             totalHours += hours;
 
+                            DateTime shiftDate = att.Schedule.Date.Date;
+                            decimal shiftBaseWage = GetStaffHourlyWageForDate(user.Id, shiftDate, staffWagePeriods, defaultHourlyWage);
+
+                            decimal shiftBasePay = (decimal)hours * shiftBaseWage;
+                            decimal shiftSecPay = (att.Schedule.IsSecurity) ? ((decimal)hours * securityAllowancePerHour) : 0;
+                            decimal shiftNightPay = (att.Schedule.IsNightShift) ? ((decimal)hours * nightAllowancePerHour) : 0;
+                            decimal shiftAllowance = shiftSecPay + shiftNightPay;
+
+                            baseSalary += shiftBasePay;
+                            totalSecurityAllowance += shiftSecPay;
+                            totalNightAllowance += shiftNightPay;
+                            totalShiftAllowance += shiftAllowance;
+
                             var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
                             var schedDateStr = att.Schedule.Date.ToString("yyyy-MM-dd");
                             HolidayDetail? holiday = null;
                             if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
                             else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
 
-                            decimal shiftWage = hourlyWage 
-                                + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0)
-                                + ((att.Schedule != null && att.Schedule.IsNightShift) ? nightAllowancePerHour : 0);
-
                             if (holiday != null)
                             {
                                 double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * shiftWage;
-                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
-                            }
-                            else
-                            {
-                                baseSalary += (decimal)hours * shiftWage;
+                                bonus += shiftBasePay * (decimal)(mult - 1.0) + holiday.FlatBonus;
                             }
                         }
 
@@ -2993,7 +3165,8 @@ namespace TheMoods.Api.Controllers
                 }
                 catch { }
 
-                decimal finalAmount = baseSalary + bonus - penalty - advance;
+                decimal finalAmount = baseSalary + totalShiftAllowance + bonus - penalty - advance;
+                decimal currentDisplayWage = GetStaffHourlyWageForDate(user.Id, DateTime.UtcNow.Date, staffWagePeriods, defaultHourlyWage);
 
                 var wp = new WeeklyPayroll
                 {
@@ -3002,8 +3175,9 @@ namespace TheMoods.Api.Controllers
                     FromDate = start,
                     ToDate = end,
                     TotalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
-                    HourlyWage = hourlyWage,
+                    HourlyWage = currentDisplayWage,
                     BaseSalary = Math.Round(baseSalary),
+                    TotalShiftAllowance = Math.Round(totalShiftAllowance),
                     TotalBonus = Math.Round(bonus),
                     TotalPenalty = Math.Round(penalty),
                     TotalAdvance = Math.Round(advance),
@@ -3017,9 +3191,12 @@ namespace TheMoods.Api.Controllers
                     userId = user.Id,
                     fullName = user.FullName,
                     phoneNumber = user.PhoneNumber,
-                    hourlyWage,
+                    hourlyWage = currentDisplayWage,
                     totalWorkedHours = wp.TotalWorkedHours,
                     baseSalary = wp.BaseSalary,
+                    totalShiftAllowance = wp.TotalShiftAllowance,
+                    totalSecurityAllowance = Math.Round(totalSecurityAllowance),
+                    totalNightAllowance = Math.Round(totalNightAllowance),
                     totalBonus = wp.TotalBonus,
                     totalPenalty = wp.TotalPenalty,
                     totalAdvance = wp.TotalAdvance,
@@ -3061,6 +3238,7 @@ namespace TheMoods.Api.Controllers
                         hourlyWage = r.HourlyWage,
                         totalWorkedHours = r.TotalWorkedHours,
                         baseSalary = r.BaseSalary,
+                        totalShiftAllowance = r.TotalShiftAllowance,
                         totalBonus = r.TotalBonus,
                         totalPenalty = r.TotalPenalty,
                         totalAdvance = r.TotalAdvance,

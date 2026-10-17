@@ -534,6 +534,24 @@ export default function StaffPortal() {
   const [isOvernightReg, setIsOvernightReg] = useState(false);
   const [securityAllowancePerHour, setSecurityAllowancePerHour] = useState("2000");
   const [nightAllowancePerHour, setNightAllowancePerHour] = useState("5000");
+  const [staffWagePeriodsList, setStaffWagePeriodsList] = useState<any[]>([]);
+
+  const getStaffHourlyWageForDateClient = (userId: string, dateStr: string, defaultWage: number = 25000) => {
+    if (!staffWagePeriodsList || staffWagePeriodsList.length === 0 || !userId) return defaultWage;
+    const userPeriods = staffWagePeriodsList.filter((p: any) => p.employeeId === userId);
+    if (userPeriods.length === 0) return defaultWage;
+
+    const matched = userPeriods.filter((p: any) => {
+      if (!p.fromDate) return false;
+      if (dateStr < p.fromDate) return false;
+      if (p.toDate && dateStr > p.toDate) return false;
+      return true;
+    });
+    if (matched.length === 0) return defaultWage;
+
+    matched.sort((a: any, b: any) => (b.fromDate || "").localeCompare(a.fromDate || ""));
+    return matched[0].hourlyWage || defaultWage;
+  };
 
   // Scanner
   const [scanning, setScanning] = useState(true);
@@ -668,6 +686,17 @@ export default function StaffPortal() {
           }
         } else {
           setDetailedHolidaysList([]);
+        }
+
+        const wagePeriodsVal = data.find((c: any) => c.configKey === "StaffWagePeriods")?.configValue;
+        if (wagePeriodsVal) {
+          try {
+            setStaffWagePeriodsList(JSON.parse(wagePeriodsVal));
+          } catch {
+            setStaffWagePeriodsList([]);
+          }
+        } else {
+          setStaffWagePeriodsList([]);
         }
       }
     } catch (err) {
@@ -2966,7 +2995,8 @@ export default function StaffPortal() {
       .reduce((sum: number, item: any) => sum + (item.Amount || (item.Quantity * item.AmountPerUnit) || 0), 0);
 
     // 4. Tính toán ca làm việc và LƯƠNG LÀM THEO GIỜ trong khoảng ngày
-    const hourlyWage = activeStaff?.hourlyWage || 25000;
+    const defaultHourlyWage = activeStaff?.hourlyWage || 25000;
+    const currentWage = getStaffHourlyWageForDateClient(activeStaff?.id, new Date().toISOString().split("T")[0], defaultHourlyWage);
     const secAllowance = Number(securityAllowancePerHour || 2000);
     const nightAllowance = Number(nightAllowancePerHour || 5000);
     const myCompletedShifts = (officialSchedulesList || [])
@@ -3002,12 +3032,20 @@ export default function StaffPortal() {
           actualHours = rawH > 0 ? Math.round(rawH * 10) / 10 : 0;
         }
 
-        const effectiveWage = hourlyWage + (s.isSecurity ? secAllowance : 0) + (s.isNightShift ? nightAllowance : 0);
-        const shiftPay = Math.round(actualHours * effectiveWage);
+        const shiftBaseWage = getStaffHourlyWageForDateClient(activeStaff?.id, s.date, defaultHourlyWage);
+        const secPay = s.isSecurity ? Math.round(actualHours * secAllowance) : 0;
+        const nightPay = s.isNightShift ? Math.round(actualHours * nightAllowance) : 0;
+        const shiftAllowance = secPay + nightPay;
+        const basePay = Math.round(actualHours * shiftBaseWage);
+        const shiftPay = basePay + shiftAllowance;
         return {
           ...s,
           actualHours,
-          effectiveWage,
+          shiftBaseWage,
+          secPay,
+          nightPay,
+          shiftAllowance,
+          basePay,
           shiftPay
         };
       })
@@ -3016,29 +3054,44 @@ export default function StaffPortal() {
     // Bổ sung các ca kéo ca (làm thêm) từ backend nếu có
     const backendExtensions = (backendStaffPayroll?.details || [])
       .filter((d: any) => d.isExtension)
-      .map((d: any) => ({
-        id: d.attId,
-        date: d.date || (d.checkIn ? d.checkIn.split(" ")[0] : ""),
-        startTime: "Kéo ca",
-        endTime: d.checkOut || "Làm thêm",
-        actualHours: d.hours,
-        shiftPay: d.extensionAmount || Math.round(d.hours * hourlyWage),
-        isExtension: true,
-        note: d.note,
-        requesterName: d.requesterName
-      }));
+      .map((d: any) => {
+        const extDate = d.date || (d.checkIn ? d.checkIn.split(" ")[0] : "");
+        const extBaseWage = getStaffHourlyWageForDateClient(activeStaff?.id, extDate, defaultHourlyWage);
+        return {
+          id: d.attId,
+          date: extDate,
+          startTime: "Kéo ca",
+          endTime: d.checkOut || "Làm thêm",
+          actualHours: d.hours,
+          shiftBaseWage: extBaseWage,
+          secPay: 0,
+          nightPay: 0,
+          shiftAllowance: 0,
+          basePay: d.extensionAmount || Math.round(d.hours * extBaseWage),
+          shiftPay: d.extensionAmount || Math.round(d.hours * extBaseWage),
+          isExtension: true,
+          note: d.note,
+          requesterName: d.requesterName
+        };
+      });
 
     const allCompletedShifts = [...myCompletedShifts, ...backendExtensions].sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
     const clientWorkedHours = Math.round(allCompletedShifts.reduce((sum: number, s: any) => sum + s.actualHours, 0) * 10) / 10;
-    const clientBaseSalary = allCompletedShifts.reduce((sum: number, s: any) => sum + s.shiftPay, 0);
+    const clientBaseSalary = allCompletedShifts.reduce((sum: number, s: any) => sum + (s.basePay !== undefined ? s.basePay : s.shiftPay), 0);
+    const clientShiftAllowance = allCompletedShifts.reduce((sum: number, s: any) => sum + (s.shiftAllowance || 0), 0);
+    const clientSecurityAllowance = allCompletedShifts.reduce((sum: number, s: any) => sum + (s.secPay || 0), 0);
+    const clientNightAllowance = allCompletedShifts.reduce((sum: number, s: any) => sum + (s.nightPay || 0), 0);
 
     // Sử dụng số liệu từ backend payroll nếu có, nếu chưa tải xong thì dùng client
     const totalWorkedHours = backendStaffPayroll?.totalWorkedHours !== undefined ? backendStaffPayroll.totalWorkedHours : clientWorkedHours;
     const baseSalary = backendStaffPayroll?.baseSalary !== undefined ? backendStaffPayroll.baseSalary : clientBaseSalary;
+    const totalShiftAllowance = backendStaffPayroll?.totalShiftAllowance !== undefined ? backendStaffPayroll.totalShiftAllowance : clientShiftAllowance;
+    const totalSecurityAllowance = backendStaffPayroll?.totalSecurityAllowance !== undefined ? backendStaffPayroll.totalSecurityAllowance : clientSecurityAllowance;
+    const totalNightAllowance = backendStaffPayroll?.totalNightAllowance !== undefined ? backendStaffPayroll.totalNightAllowance : clientNightAllowance;
 
-    // LƯƠNG THỰC NHẬN = Lương làm theo giờ + Tổng thưởng - Tổng phạt - Tạm ứng
-    const finalNetSalary = baseSalary + totalBonus - totalPenalty - totalAdvance;
+    // LƯƠNG THỰC NHẬN = Lương cơ bản + Phụ cấp ca + Tổng thưởng - Tổng phạt - Tạm ứng
+    const finalNetSalary = baseSalary + totalShiftAllowance + totalBonus - totalPenalty - totalAdvance;
 
     const dNow = new Date();
     const curYear = dNow.getFullYear();
@@ -3056,7 +3109,7 @@ export default function StaffPortal() {
               <Award size={18} className="text-[#7c4831]" /> Thu Nhập & Thưởng Phạt
             </h3>
             <span className="text-[10px] font-bold text-[#7c4831]/80 bg-[#7c4831]/10 px-2.5 py-1 rounded-full font-mono">
-              {Number(hourlyWage).toLocaleString("vi-VN")}đ/giờ
+              {Number(currentWage).toLocaleString("vi-VN")}đ/giờ
             </span>
           </div>
 
@@ -3130,7 +3183,7 @@ export default function StaffPortal() {
                 {finalNetSalary >= 0 ? "+" : ""}{finalNetSalary.toLocaleString("vi-VN")}đ
               </p>
               <p className="text-[9px] text-white/90 font-medium leading-tight">
-                = Lương ca ({baseSalary.toLocaleString("vi-VN")}đ) + Thưởng ({totalBonus.toLocaleString("vi-VN")}đ) - Phạt ({totalPenalty.toLocaleString("vi-VN")}đ) - Tạm ứng ({totalAdvance.toLocaleString("vi-VN")}đ)
+                = Lương cơ bản ({baseSalary.toLocaleString("vi-VN")}đ) + Phụ cấp ca ({totalShiftAllowance.toLocaleString("vi-VN")}đ) + Thưởng ({totalBonus.toLocaleString("vi-VN")}đ) - Phạt ({totalPenalty.toLocaleString("vi-VN")}đ) - Tạm ứng ({totalAdvance.toLocaleString("vi-VN")}đ)
               </p>
             </div>
             <div
@@ -3143,12 +3196,12 @@ export default function StaffPortal() {
             </div>
           </div>
 
-          {/* 4 Cards chi tiết thành phần: Bố cục 2 cột rộng rãi chứa thoải mái số tiền hàng triệu */}
+          {/* 5 Cards chi tiết thành phần: Lương cơ bản, Phụ cấp ca, Thưởng, Phạt, Tạm ứng */}
           <div className="grid grid-cols-2 gap-2.5 font-sans">
-            {/* 1. Lương ca làm */}
+            {/* 1. Lương cơ bản */}
             <div className="p-3 bg-blue-50/90 border border-blue-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[9.5px] font-black uppercase text-blue-900 tracking-wider">Lương ca làm</span>
+                <span className="text-[9.5px] font-black uppercase text-blue-900 tracking-wider">Lương cơ bản</span>
                 <span className="p-1 rounded-lg bg-blue-100 text-blue-700">
                   <Clock size={13} />
                 </span>
@@ -3157,11 +3210,39 @@ export default function StaffPortal() {
                 +{baseSalary.toLocaleString("vi-VN")}đ
               </p>
               <span className="text-[9px] text-blue-600/80 font-bold mt-0.5">
-                {totalWorkedHours} giờ làm ({Number(hourlyWage).toLocaleString("vi-VN")}đ/h)
+                {totalWorkedHours}h làm việc
               </span>
             </div>
 
-            {/* 2. Tổng thưởng */}
+            {/* 2. Phụ cấp ca (Đêm & BV) */}
+            <div className="p-3 bg-purple-50/90 border border-purple-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[9.5px] font-black uppercase text-purple-900 tracking-wider">Phụ cấp ca</span>
+                <span className="p-1 rounded-lg bg-purple-100 text-purple-700">
+                  <Award size={13} />
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-black text-purple-700 font-mono tracking-tight whitespace-nowrap">
+                +{totalShiftAllowance.toLocaleString("vi-VN")}đ
+              </p>
+              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                {totalSecurityAllowance > 0 && (
+                  <span className="text-[8.5px] bg-blue-100 text-blue-900 font-bold px-1 rounded">
+                    🛡️ +{totalSecurityAllowance.toLocaleString("vi-VN")}đ
+                  </span>
+                )}
+                {totalNightAllowance > 0 && (
+                  <span className="text-[8.5px] bg-purple-100 text-purple-900 font-bold px-1 rounded">
+                    🌙 +{totalNightAllowance.toLocaleString("vi-VN")}đ
+                  </span>
+                )}
+                {totalShiftAllowance === 0 && (
+                  <span className="text-[9px] text-purple-600/80 font-medium">Ca chuẩn</span>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Tổng thưởng */}
             <div className="p-3 bg-emerald-50/90 border border-emerald-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[9.5px] font-black uppercase text-emerald-900 tracking-wider">Tổng thưởng</span>
@@ -3177,7 +3258,7 @@ export default function StaffPortal() {
               </span>
             </div>
 
-            {/* 3. Tổng phạt */}
+            {/* 4. Tổng phạt */}
             <div className="p-3 bg-red-50/90 border border-red-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[9.5px] font-black uppercase text-red-900 tracking-wider">Tổng phạt</span>
@@ -3193,8 +3274,8 @@ export default function StaffPortal() {
               </span>
             </div>
 
-            {/* 4. Tạm ứng */}
-            <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex flex-col justify-between shadow-2xs">
+            {/* 5. Tạm ứng */}
+            <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex flex-col justify-between shadow-2xs col-span-2">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[9.5px] font-black uppercase text-amber-900 tracking-wider">Tạm ứng</span>
                 <span className="p-1 rounded-lg bg-amber-100 text-amber-700">
@@ -3313,9 +3394,15 @@ export default function StaffPortal() {
                           <span className="font-bold text-[#7c4831] ml-1">({s.actualHours}h tính lương)</span>
                         </p>
                       </div>
-                      <span className="font-bold font-mono text-xs text-blue-700">
-                        +{s.shiftPay.toLocaleString("vi-VN")}đ
-                      </span>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold font-mono text-xs text-blue-700 block">
+                          +{s.shiftPay.toLocaleString("vi-VN")}đ
+                        </span>
+                        <span className="text-[8.5px] text-gray-500 font-semibold block">
+                          Lương: {(s.basePay !== undefined ? s.basePay : s.shiftPay).toLocaleString("vi-VN")}đ ({(s.shiftBaseWage || defaultHourlyWage).toLocaleString("vi-VN")}đ/h)
+                          {s.shiftAllowance > 0 && ` + PC: ${s.shiftAllowance.toLocaleString("vi-VN")}đ`}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>

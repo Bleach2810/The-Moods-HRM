@@ -428,7 +428,17 @@ export default function AdminPortal() {
   const [activeBonusStr, setActiveBonusStr] = useState("100000");
 
   // Adjustments & Config Tab State
-  const [adjActiveTab, setAdjActiveTab] = useState("payroll"); // "payroll", "history", "rules", "holidays"
+  const [adjActiveTab, setAdjActiveTab] = useState("payroll"); // "payroll", "history", "rules", "holidays", "wage_periods"
+  
+  // Staff Wage Periods (Lịch sử mức lương theo thời kỳ)
+  const [staffWagePeriodsList, setStaffWagePeriodsList] = useState<any[]>([]);
+  const [wageStaffId, setWageStaffId] = useState("");
+  const [wageAmount, setWageAmount] = useState("");
+  const [wageFromDate, setWageFromDate] = useState("");
+  const [wageToDate, setWageToDate] = useState("");
+  const [wageNote, setWageNote] = useState("");
+  const [editingWageId, setEditingWageId] = useState<string | null>(null);
+  const [wageSearchQuery, setWageSearchQuery] = useState("");
   const [configActiveTab, setConfigActiveTab] = useState("gps"); // "gps", "biometrics", "pin"
   const [oldPin, setOldPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -869,6 +879,18 @@ export default function AdminPortal() {
         } else {
           setAdjustmentsList([]);
         }
+
+        // Staff Wage Periods (Lịch sử mức lương theo thời kỳ)
+        const wagePeriodsVal = data.find((c: any) => c.configKey === "StaffWagePeriods")?.configValue;
+        if (wagePeriodsVal) {
+          try {
+            setStaffWagePeriodsList(JSON.parse(wagePeriodsVal));
+          } catch {
+            setStaffWagePeriodsList([]);
+          }
+        } else {
+          setStaffWagePeriodsList([]);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -1115,6 +1137,142 @@ export default function AdminPortal() {
       alert("Lỗi kết nối!");
     }
   };
+
+  const getStaffHourlyWageForDateClient = (userId: string, dateStr: string, defaultWage: number = 25000) => {
+    if (!staffWagePeriodsList || staffWagePeriodsList.length === 0 || !userId) return defaultWage;
+    const userPeriods = staffWagePeriodsList.filter((p: any) => p.employeeId === userId);
+    if (userPeriods.length === 0) return defaultWage;
+
+    const matched = userPeriods.filter((p: any) => {
+      if (!p.fromDate) return false;
+      if (dateStr < p.fromDate) return false;
+      if (p.toDate && dateStr > p.toDate) return false;
+      return true;
+    });
+    if (matched.length === 0) return defaultWage;
+
+    matched.sort((a: any, b: any) => (b.fromDate || "").localeCompare(a.fromDate || ""));
+    return matched[0].hourlyWage || defaultWage;
+  };
+
+  const handleSaveWagePeriod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!wageStaffId) {
+      alert("Vui lòng chọn nhân viên!");
+      return;
+    }
+    const wageNum = parseFloat(wageAmount);
+    if (isNaN(wageNum) || wageNum <= 0) {
+      alert("Vui lòng nhập mức lương hợp lệ!");
+      return;
+    }
+    if (!wageFromDate) {
+      alert("Vui lòng chọn ngày bắt đầu áp dụng!");
+      return;
+    }
+    if (wageToDate && wageToDate < wageFromDate) {
+      alert("Ngày kết thúc không thể nhỏ hơn ngày bắt đầu!");
+      return;
+    }
+
+    const staffObj = staffList.find((u: any) => u.id === wageStaffId);
+    const staffName = staffObj ? staffObj.fullName : "";
+
+    let updated: any[];
+    if (editingWageId) {
+      updated = staffWagePeriodsList.map((item: any) => {
+        if (item.id === editingWageId) {
+          return {
+            ...item,
+            employeeId: wageStaffId,
+            employeeName: staffName || item.employeeName,
+            hourlyWage: wageNum,
+            fromDate: wageFromDate,
+            toDate: wageToDate || null,
+            note: wageNote.trim()
+          };
+        }
+        return item;
+      });
+    } else {
+      const newEntry = {
+        id: "wp-" + Date.now(),
+        employeeId: wageStaffId,
+        employeeName: staffName,
+        hourlyWage: wageNum,
+        fromDate: wageFromDate,
+        toDate: wageToDate || null,
+        note: wageNote.trim(),
+        createdAt: new Date().toISOString()
+      };
+      updated = [newEntry, ...staffWagePeriodsList];
+    }
+
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "StaffWagePeriods", configValue: JSON.stringify(updated), description: "Lịch sử mức lương theo từng thời kỳ của nhân viên (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert(editingWageId ? "Cập nhật thời kỳ lương thành công!" : "Thêm thời kỳ lương thành công!");
+        setWageStaffId("");
+        setWageAmount("");
+        setWageFromDate("");
+        setWageToDate("");
+        setWageNote("");
+        setEditingWageId(null);
+        fetchHrmConfigs();
+        fetchPayrollData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi lưu thời kỳ lương!");
+    }
+  };
+
+  const handleDeleteWagePeriod = async (wagePeriodId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa mốc thời kỳ lương này?")) return;
+    const updated = staffWagePeriodsList.filter((item: any) => item.id !== wagePeriodId);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([
+          { configKey: "StaffWagePeriods", configValue: JSON.stringify(updated), description: "Lịch sử mức lương theo từng thời kỳ của nhân viên (JSON)" }
+        ])
+      });
+      if (res.ok) {
+        alert("Đã xóa thời kỳ lương!");
+        fetchHrmConfigs();
+        fetchPayrollData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi kết nối khi xóa thời kỳ lương!");
+    }
+  };
+
+  const handleEditWagePeriod = (item: any) => {
+    setEditingWageId(item.id);
+    setWageStaffId(item.employeeId);
+    setWageAmount(String(item.hourlyWage));
+    setWageFromDate(item.fromDate || "");
+    setWageToDate(item.toDate || "");
+    setWageNote(item.note || "");
+  };
+
+  const handleCancelEditWage = () => {
+    setEditingWageId(null);
+    setWageStaffId("");
+    setWageAmount("");
+    setWageFromDate("");
+    setWageToDate("");
+    setWageNote("");
+  };
+
   const handleAddAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAdjEmployeeId) {
@@ -2862,6 +3020,59 @@ export default function AdminPortal() {
                         </label>
                       </div>
 
+                      {/* Bảng tính chi tiết lương ca trực trực quan */}
+                      {(() => {
+                        const selectedStaff = staffList.find((u: any) => u.id === manualStaffId);
+                        const staffName = selectedStaff?.fullName || "Nhân viên";
+                        const defaultWage = selectedStaff?.hourlyWage || 25000;
+                        const baseWage = getStaffHourlyWageForDateClient(manualStaffId, manualDate, defaultWage);
+                        const secRate = manualIsSecurity ? (Number(securityAllowancePerHour) || 2000) : 0;
+                        const nightRate = manualIsNightShift ? (Number(nightAllowancePerHour) || 5000) : 0;
+                        const totalHourly = baseWage + secRate + nightRate;
+
+                        let durHours = 0;
+                        if (manualStartTime && manualEndTime) {
+                          const [sh, sm] = manualStartTime.split(":").map(Number);
+                          let [eh, em] = manualEndTime.split(":").map(Number);
+                          if (eh < sh) eh += 24;
+                          const mins = (eh * 60 + em) - (sh * 60 + sm);
+                          durHours = Math.max(0, Math.round(mins / 60));
+                        }
+
+                        return (
+                          <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/20 rounded-2xl space-y-2">
+                            <div className="flex justify-between items-center text-xs font-black text-[#7c4831]">
+                              <span>Dự tính mức lương ca:</span>
+                              <span className="text-sm font-black text-[#7c4831]">{totalHourly.toLocaleString("vi-VN")}đ/giờ</span>
+                            </div>
+                            <div className="text-[10px] text-[#4B3621]/80 space-y-1">
+                              <div className="flex justify-between">
+                                <span>• Lương theo thời kỳ ({staffName}):</span>
+                                <span className="font-bold">{baseWage.toLocaleString("vi-VN")}đ/h</span>
+                              </div>
+                              {manualIsSecurity && (
+                                <div className="flex justify-between text-blue-800 font-bold">
+                                  <span>• Phụ cấp bảo vệ:</span>
+                                  <span>+{secRate.toLocaleString("vi-VN")}đ/h</span>
+                                </div>
+                              )}
+                              {manualIsNightShift && (
+                                <div className="flex justify-between text-purple-800 font-bold">
+                                  <span>• Phụ cấp ca khuya:</span>
+                                  <span>+{nightRate.toLocaleString("vi-VN")}đ/h</span>
+                                </div>
+                              )}
+                              {durHours > 0 && (
+                                <div className="flex justify-between pt-1.5 border-t border-gray-200/80 font-black text-xs text-[#7c4831]">
+                                  <span>Tổng tiền công ca ({durHours}h):</span>
+                                  <span>{(totalHourly * durHours).toLocaleString("vi-VN")}đ</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Tùy chỉnh giờ vào / ra riêng (CHỈ HIỂN THỊ KHI CHẤM CÔNG BÙ) */}
                       {!isSchedule && (
                         <div className="pt-2 border-t border-gray-200/60">
@@ -3020,7 +3231,8 @@ export default function AdminPortal() {
         {/* CELL QUICK EDIT MODAL */}
         {editingCell && (() => {
           const cellStaff = staffList.find((s: any) => s.id === editingCell.userId);
-          const cellWage = cellStaff?.hourlyWage || 25000;
+          const defaultCellWage = cellStaff?.hourlyWage || 25000;
+          const cellWage = getStaffHourlyWageForDateClient(editingCell.userId, editingCell.date, defaultCellWage);
           
           const calcMins = (start: string, end: string) => {
             if (!start || !end) return 0;
@@ -3196,6 +3408,46 @@ export default function AdminPortal() {
                             <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-purple-600"></div>
                           </label>
                         </div>
+
+                        {/* Bảng tính chi tiết lương ca trực trực quan */}
+                        {(() => {
+                          const secRate = cellIsSecurity ? (Number(securityAllowancePerHour) || 2000) : 0;
+                          const nightRate = cellIsNightShift ? (Number(nightAllowancePerHour) || 5000) : 0;
+                          const totalHourly = cellWage + secRate + nightRate;
+
+                          return (
+                            <div className="p-3 bg-[#FAF9F6] border border-[#7c4831]/20 rounded-2xl space-y-2">
+                              <div className="flex justify-between items-center text-xs font-black text-[#7c4831]">
+                                <span>Dự tính mức lương ca:</span>
+                                <span className="text-sm font-black text-[#7c4831]">{totalHourly.toLocaleString("vi-VN")}đ/giờ</span>
+                              </div>
+                              <div className="text-[10px] text-[#4B3621]/80 space-y-1">
+                                <div className="flex justify-between">
+                                  <span>• Lương theo thời kỳ ({editingCell.userName}):</span>
+                                  <span className="font-bold">{cellWage.toLocaleString("vi-VN")}đ/h</span>
+                                </div>
+                                {cellIsSecurity && (
+                                  <div className="flex justify-between text-blue-800 font-bold">
+                                    <span>• Phụ cấp bảo vệ:</span>
+                                    <span>+{secRate.toLocaleString("vi-VN")}đ/h</span>
+                                  </div>
+                                )}
+                                {cellIsNightShift && (
+                                  <div className="flex justify-between text-purple-800 font-bold">
+                                    <span>• Phụ cấp ca khuya:</span>
+                                    <span>+{nightRate.toLocaleString("vi-VN")}đ/h</span>
+                                  </div>
+                                )}
+                                {schedHours > 0 && (
+                                  <div className="flex justify-between pt-1.5 border-t border-gray-200/80 font-black text-xs text-[#7c4831]">
+                                    <span>Tổng tiền công ca ({schedHours}h):</span>
+                                    <span>{(totalHourly * schedHours).toLocaleString("vi-VN")}đ</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* 3. Chấm công & Tính lương */}
                         <div className="p-3 bg-amber-50/40 border border-amber-200/80 rounded-2xl space-y-2">
@@ -3401,16 +3653,17 @@ export default function AdminPortal() {
                   <th className="px-6 py-4 text-right">Lương/giờ</th>
                   <th className="px-6 py-4 text-right">Giờ làm</th>
                   <th className="px-6 py-4 text-right">Lương cơ bản</th>
-                  <th className="px-6 py-4 text-right">Thưởng</th>
-                  <th className="px-6 py-4 text-right">Phạt</th>
-                  <th className="px-6 py-4 text-right">Tạm ứng</th>
+                  <th className="px-6 py-4 text-right text-blue-900">Phụ cấp ca</th>
+                  <th className="px-6 py-4 text-right text-emerald-600">Thưởng</th>
+                  <th className="px-6 py-4 text-right text-red-600">Phạt</th>
+                  <th className="px-6 py-4 text-right text-amber-700">Tạm ứng</th>
                   <th className="px-6 py-4 text-right font-black text-[#7c4831]">Thực nhận</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                 {payrollList.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
+                    <td colSpan={10} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
                   </tr>
                 ) : (
                   payrollList.map((p: any) => (
@@ -3420,6 +3673,25 @@ export default function AdminPortal() {
                       <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
                       <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
                       <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                      <td className="p-4 text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-extrabold text-blue-900">
+                            +{((p.totalShiftAllowance || 0)).toLocaleString("vi-VN")}đ
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {p.securityHours > 0 && (
+                              <span className="text-[9px] bg-blue-50 text-blue-800 border border-blue-200/80 px-1.5 py-0.2 rounded font-bold" title={`Phụ cấp bảo vệ (${p.securityHours}h)`}>
+                                🛡️ +{p.totalSecurityAllowance?.toLocaleString("vi-VN")}đ
+                              </span>
+                            )}
+                            {p.nightHours > 0 && (
+                              <span className="text-[9px] bg-purple-50 text-purple-800 border border-purple-200/80 px-1.5 py-0.2 rounded font-bold" title={`Phụ cấp ca khuya (${p.nightHours}h)`}>
+                                🌙 +{p.totalNightAllowance?.toLocaleString("vi-VN")}đ
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
                       <td className="p-4 text-right  text-emerald-600">
                         <div className="flex items-center justify-end gap-1.5">
                           <span>+{p.totalBonus?.toLocaleString("vi-VN")}đ</span>
@@ -4159,6 +4431,16 @@ export default function AdminPortal() {
           >
             Ngày nghỉ lễ chi tiết
           </button>
+          <button
+            onClick={() => setAdjActiveTab("wage_periods")}
+            type="button"
+            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${adjActiveTab === "wage_periods"
+              ? "bg-[#7c4831] text-white shadow-xs"
+              : "bg-[#FAF9F6] text-[#4B3621] hover:bg-[#7c4831]/5 border border-gray-200/50"
+              }`}
+          >
+            Lịch sử mức lương
+          </button>
         </div>
 
         {/* Tab 0: Payroll calculator */}
@@ -4216,16 +4498,17 @@ export default function AdminPortal() {
                         <th className="p-4 text-right">Lương/giờ</th>
                         <th className="p-4 text-right">Giờ làm</th>
                         <th className="p-4 text-right">Lương cơ bản</th>
-                        <th className="p-4 text-right">Thưởng</th>
-                        <th className="p-4 text-right">Phạt</th>
-                        <th className="p-4 text-right">Tạm ứng</th>
+                        <th className="p-4 text-right text-blue-900">Phụ cấp ca</th>
+                        <th className="p-4 text-right text-emerald-600">Thưởng</th>
+                        <th className="p-4 text-right text-red-600">Phạt</th>
+                        <th className="p-4 text-right text-amber-700">Tạm ứng</th>
                         <th className="p-4 text-right font-black text-[#7c4831]">Thực nhận</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                       {payrollList.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
+                          <td colSpan={10} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
                         </tr>
                       ) : (
                         payrollList.map((p: any) => {
@@ -4233,7 +4516,8 @@ export default function AdminPortal() {
                           const totalBonus = group.totalBonus || p.totalBonus || 0;
                           const totalPenalty = group.totalPenalty || p.totalPenalty || 0;
                           const totalAdvance = group.totalAdvance || p.totalAdvance || 0;
-                          const finalAmount = (p.baseSalary || 0) + totalBonus - totalPenalty - totalAdvance;
+                          const totalShiftAllowance = p.totalShiftAllowance || 0;
+                          const finalAmount = (p.baseSalary || 0) + totalShiftAllowance + totalBonus - totalPenalty - totalAdvance;
                           return (
                           <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
@@ -4241,6 +4525,25 @@ export default function AdminPortal() {
                             <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
                             <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
                             <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right">
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="font-extrabold text-blue-900">
+                                  +{totalShiftAllowance.toLocaleString("vi-VN")}đ
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  {p.securityHours > 0 && (
+                                    <span className="text-[9px] bg-blue-50 text-blue-800 border border-blue-200/80 px-1.5 py-0.2 rounded font-bold" title={`Phụ cấp bảo vệ (${p.securityHours}h)`}>
+                                      🛡️ +{p.totalSecurityAllowance?.toLocaleString("vi-VN")}đ
+                                    </span>
+                                  )}
+                                  {p.nightHours > 0 && (
+                                    <span className="text-[9px] bg-purple-50 text-purple-800 border border-purple-200/80 px-1.5 py-0.2 rounded font-bold" title={`Phụ cấp ca khuya (${p.nightHours}h)`}>
+                                      🌙 +{p.totalNightAllowance?.toLocaleString("vi-VN")}đ
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
                             <td className="p-4 text-right  text-emerald-600">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span>+{totalBonus.toLocaleString("vi-VN")}đ</span>
@@ -4993,6 +5296,261 @@ export default function AdminPortal() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Staff Wage Periods (Lịch sử mức lương theo thời kỳ) */}
+        {adjActiveTab === "wage_periods" && (
+          <div className="space-y-6">
+            {/* Guide banner */}
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 text-xs text-[#7c4831]">
+              <div className="flex items-start gap-2.5">
+                <span className="text-base leading-none">💡</span>
+                <div>
+                  <h4 className="font-extrabold text-[#7c4831] uppercase tracking-wider text-[11px] mb-1">
+                    Cơ chế tính lương theo từng thời kỳ
+                  </h4>
+                  <p className="text-[#4B3621] leading-relaxed">
+                    Khi nhân viên được tăng lương hoặc điều chỉnh mức lương theo giai đoạn (ví dụ: thử việc, chính thức, tăng lương định kỳ), hệ thống sẽ tự động áp dụng đúng mức lương tương ứng với ngày diễn ra ca làm việc.
+                    Các ca làm việc trong quá khứ sẽ giữ nguyên mức lương cũ mà không bị thay đổi. Phụ cấp ca đêm và phụ cấp bảo vệ được tính cộng thêm riêng biệt.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form Create/Edit Wage Period */}
+              <div className="card p-5 border border-gray-150 bg-white space-y-4">
+                <div className="border-b border-gray-150 pb-3 flex justify-between items-center">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                    <DollarSign size={14} /> {editingWageId ? "Cập nhật mức lương" : "Thiết lập thời kỳ lương mới"}
+                  </span>
+                  {editingWageId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditWage}
+                      className="text-[11px] font-bold text-gray-500 hover:text-gray-800 underline cursor-pointer"
+                    >
+                      Hủy bỏ
+                    </button>
+                  )}
+                </div>
+
+                <form onSubmit={handleSaveWagePeriod} className="space-y-3.5 text-xs font-semibold">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
+                      Nhân viên <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={wageStaffId}
+                      onChange={(e) => setWageStaffId(e.target.value)}
+                      required
+                      className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2.5 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
+                    >
+                      <option value="">-- Chọn nhân viên --</option>
+                      {staffList.map((st: any) => (
+                        <option key={st.id} value={st.id}>
+                          {st.fullName} ({st.role === "admin" ? "Quản lý" : "Nhân viên"}) - Mặc định: {(st.hourlyWage || 25000).toLocaleString("vi-VN")}đ/h
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
+                      Mức lương theo giờ (VNĐ/h) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="1000"
+                      min="1000"
+                      placeholder="VD: 28000"
+                      value={wageAmount}
+                      onChange={(e) => setWageAmount(e.target.value)}
+                      required
+                      className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2.5 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
+                    />
+                    {wageAmount && !isNaN(Number(wageAmount)) && (
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        ≈ {Number(wageAmount).toLocaleString("vi-VN")} đ/giờ
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
+                        Từ ngày <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={wageFromDate}
+                        onChange={(e) => setWageFromDate(e.target.value)}
+                        required
+                        className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
+                        Đến ngày <span className="text-gray-400 font-normal">(Tùy chọn)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={wageToDate}
+                        onChange={(e) => setWageToDate(e.target.value)}
+                        className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-gray-400 italic">
+                    * Nếu để trống "Đến ngày", mức lương sẽ áp dụng liên tục từ ngày bắt đầu cho tới khi có mốc mới.
+                  </p>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
+                      Ghi chú / Lý do điều chỉnh
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Hết thử việc lên chính thức, Tăng lương T10..."
+                      value={wageNote}
+                      onChange={(e) => setWageNote(e.target.value)}
+                      className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2.5 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="w-full bg-[#7c4831] text-white py-2.5 rounded-xl font-black uppercase text-xs tracking-wider hover:bg-[#633824] transition-all shadow-sm"
+                    >
+                      {editingWageId ? "Cập nhật thời kỳ lương" : "Lưu thời kỳ lương"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Table List Wage Periods */}
+              <div className="card p-0 lg:col-span-2 overflow-hidden border border-gray-150 bg-white flex flex-col">
+                <div className="p-3 border-b border-gray-150 flex flex-wrap justify-between items-center gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                    <Clock size={14} /> Danh sách lịch sử mức lương ({staffWagePeriodsList.length})
+                  </span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Tìm theo tên nhân viên / ghi chú..."
+                      value={wageSearchQuery}
+                      onChange={(e) => setWageSearchQuery(e.target.value)}
+                      className="bg-[#FAF9F6] border border-gray-200 rounded-xl px-2.5 py-1 text-[11px] text-[#4B3621] placeholder-gray-400 focus:outline-none focus:border-[#7c4831] w-56"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto w-full overscroll-x-contain flex-1" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+                  <table className="w-full min-w-[700px] text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
+                        <th className="p-3">Nhân viên</th>
+                        <th className="p-3 text-right">Mức lương / giờ</th>
+                        <th className="p-3 text-center">Thời gian áp dụng</th>
+                        <th className="p-3 text-center">Trạng thái</th>
+                        <th className="p-3">Ghi chú</th>
+                        <th className="p-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
+                      {staffWagePeriodsList.filter((item: any) => {
+                        if (!wageSearchQuery.trim()) return true;
+                        const q = wageSearchQuery.toLowerCase();
+                        return (
+                          (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
+                          (item.employeeId && item.employeeId.toLowerCase().includes(q)) ||
+                          (item.note && item.note.toLowerCase().includes(q))
+                        );
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-gray-400 italic">
+                            {wageSearchQuery ? "Không tìm thấy dữ liệu phù hợp." : "Chưa có thiết lập thời kỳ lương nào. Hãy tạo mốc lương đầu tiên ở khung bên trái!"}
+                          </td>
+                        </tr>
+                      ) : (
+                        staffWagePeriodsList
+                          .filter((item: any) => {
+                            if (!wageSearchQuery.trim()) return true;
+                            const q = wageSearchQuery.toLowerCase();
+                            return (
+                              (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
+                              (item.employeeId && item.employeeId.toLowerCase().includes(q)) ||
+                              (item.note && item.note.toLowerCase().includes(q))
+                            );
+                          })
+                          .map((item: any) => {
+                            const todayStr = new Date().toISOString().split("T")[0];
+                            const isUpcoming = item.fromDate && item.fromDate > todayStr;
+                            const isExpired = item.toDate && item.toDate < todayStr;
+                            const isCurrent = !isUpcoming && !isExpired;
+
+                            return (
+                              <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                                <td className="p-3 font-black text-xs text-[#7c4831]">
+                                  {item.employeeName || item.employeeId}
+                                </td>
+                                <td className="p-3 text-right font-black text-xs text-blue-900">
+                                  {(item.hourlyWage || 0).toLocaleString("vi-VN")}đ/h
+                                </td>
+                                <td className="p-3 text-center text-xs">
+                                  <span className="font-bold">{item.fromDate}</span>
+                                  <span className="text-gray-400 mx-1">→</span>
+                                  <span className={item.toDate ? "font-bold" : "text-gray-400 italic"}>
+                                    {item.toDate || "Vô thời hạn"}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center text-[10px]">
+                                  {isCurrent && (
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Đang áp dụng
+                                    </span>
+                                  )}
+                                  {isUpcoming && (
+                                    <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Sắp áp dụng
+                                    </span>
+                                  )}
+                                  {isExpired && (
+                                    <span className="bg-gray-100 text-gray-500 border border-gray-200 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span> Đã kết thúc
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-xs text-gray-600 max-w-[200px] truncate" title={item.note || ""}>
+                                  {item.note || "—"}
+                                </td>
+                                <td className="p-3 text-right space-x-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditWagePeriod(item)}
+                                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                                  >
+                                    Sửa
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteWagePeriod(item.id)}
+                                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                                  >
+                                    Xóa
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
