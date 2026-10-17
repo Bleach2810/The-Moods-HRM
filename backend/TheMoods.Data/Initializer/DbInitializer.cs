@@ -13,7 +13,7 @@ namespace TheMoods.Data.Initializer
             // Tự động chạy Migration nếu DB chưa được khởi tạo đầy đủ
             try { context.Database.Migrate(); } catch { }
 
-            // Đảm bảo bảng ShiftExtensions tồn tại
+            // 1. Đảm bảo bảng ShiftExtensions tồn tại
             try
             {
                 context.Database.ExecuteSqlRaw(@"
@@ -41,7 +41,7 @@ namespace TheMoods.Data.Initializer
                 Console.WriteLine("ShiftExtensions table ensure error: " + ex.Message);
             }
 
-            // Đảm bảo cột IsNightShift tồn tại trong OfficialSchedules
+            // 2. Đảm bảo cột IsNightShift tồn tại trong OfficialSchedules
             try
             {
                 context.Database.ExecuteSqlRaw(@"
@@ -50,10 +50,22 @@ namespace TheMoods.Data.Initializer
             }
             catch (Exception ex)
             {
-                Console.WriteLine("IsNightShift column ensure error: " + ex.Message);
+                Console.WriteLine("IsNightShift ensure error: " + ex.Message);
             }
 
-            // Đảm bảo cột TotalShiftAllowance tồn tại trong WeeklyPayrolls
+            // 3. Đảm bảo cột IsSecurity tồn tại trong OfficialSchedules
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    ALTER TABLE ""OfficialSchedules"" ADD COLUMN IF NOT EXISTS ""IsSecurity"" boolean NOT NULL DEFAULT FALSE;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("IsSecurity ensure error: " + ex.Message);
+            }
+
+            // 4. Đảm bảo cột TotalShiftAllowance tồn tại trong WeeklyPayrolls
             try
             {
                 context.Database.ExecuteSqlRaw(@"
@@ -62,7 +74,19 @@ namespace TheMoods.Data.Initializer
             }
             catch (Exception ex)
             {
-                Console.WriteLine("TotalShiftAllowance column ensure error: " + ex.Message);
+                Console.WriteLine("TotalShiftAllowance ensure error: " + ex.Message);
+            }
+
+            // 5. Đảm bảo cột Link tồn tại trong Notifications
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    ALTER TABLE ""Notifications"" ADD COLUMN IF NOT EXISTS ""Link"" text NULL;
+                ");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Link ensure error: " + ex.Message);
             }
 
             // 1. Seed Roles

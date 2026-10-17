@@ -34,20 +34,27 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    var context = services.GetRequiredService<TenantDbContext>();
+
+    // 1. Luôn chạy DbInitializer trước để các cột cần thiết (IsNightShift, TotalShiftAllowance, ShiftExtensions) luôn được đảm bảo tồn tại ngay cả khi EF Migration bị lỗi
     try
     {
-        var context = services.GetRequiredService<TenantDbContext>();
-        
-        // Tự động cập nhật Database (chạy các file Migration chưa chạy)
-        context.Database.Migrate();
-        
-        // Tạo dữ liệu mẫu nếu cần
         DbInitializer.Initialize(context);
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding or migrating the database.");
+        logger.LogError(ex, "An error occurred while initializing schema/seeding database.");
+    }
+
+    // 2. Chạy Migration (nếu có lỗi thì ghi log, không làm crash app)
+    try
+    {
+        context.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "An error occurred while running EF Core migrations (skipped to keep app running).");
     }
 }
 
