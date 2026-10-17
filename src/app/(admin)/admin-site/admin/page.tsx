@@ -2,15 +2,37 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText } from "lucide-react";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import ModalPortal from "@/components/ModalPortal";
+import { isWebAuthnSupported } from "@/utils/biometrics";
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
   const parts = timeStr.split(":");
   return parseFloat(parts[0]) + (parts[1] ? parseFloat(parts[1]) / 60 : 0);
+};
+
+const isShiftInTimeSlot = (startTime: string, endTime: string, slotStart: number, slotEnd: number) => {
+  if (!startTime || !endTime) return false;
+  let sStart = parseTimeToFloat(startTime);
+  let sEnd = parseTimeToFloat(endTime);
+
+  // If overnight shift (e.g. 22:00 to 06:00, 18:00 to 02:00, or 23:00 to 07:00)
+  if (sEnd <= sStart) {
+    // Part 1: same day (sStart to 24:00)
+    const overlapSameDay = Math.max(sStart, slotStart) < Math.min(24, slotEnd);
+    // Part 2: early hours next morning (00:00 to sEnd)
+    // If slot is KHUYA (00:00 - 06:00), check 0 to sEnd
+    const overlapNextDay = slotStart < 6 && Math.max(0, slotStart) < Math.min(sEnd, slotEnd);
+    // Part 3: if shift extends past 06:00 next day (e.g. 23:00 to 08:00), check morning slot as well
+    const overlapNextMorning = slotStart >= 6 && Math.max(6, slotStart) < Math.min(sEnd, slotEnd);
+    return overlapSameDay || overlapNextDay || overlapNextMorning;
+  } else {
+    // Normal shift e.g. 15:00 - 21:00 or 08:00 - 16:00
+    return Math.max(sStart, slotStart) < Math.min(sEnd, slotEnd);
+  }
 };
 
 const getVisualEventsForDay = (eventsList: any[], dayDateStr: string) => {
@@ -104,6 +126,15 @@ export default function AdminPortal() {
   const [managerNoteSaved, setManagerNoteSaved] = React.useState(false);
   const [devTab, setDevTab] = useState("matrix");
   const [selectedDayDetail, setSelectedDayDetail] = useState<string | null>(null);
+
+  // Zoom & Capture states for Schedule
+  const [scheduleZoom, setScheduleZoom] = useState<number>(100);
+  const [isCaptureMode, setIsCaptureMode] = useState<boolean>(false);
+  const [hideKhuyaInCapture, setHideKhuyaInCapture] = useState<boolean>(true);
+  const [isDetailCaptureMode, setIsDetailCaptureMode] = useState<boolean>(false);
+  const [hideKhuyaInDetailCapture, setHideKhuyaInDetailCapture] = useState<boolean>(true);
+  const [detailZoom, setDetailZoom] = useState<number>(100);
+
   const [editingCell, setEditingCell] = useState<{ userId: string; userName: string; date: string; dateLabel: string } | null>(null);
   const [cellIsOff, setCellIsOff] = useState(false);
   const [cellIsSecurity, setCellIsSecurity] = useState(false);
@@ -428,7 +459,7 @@ export default function AdminPortal() {
 
   // Adjustments & Config Tab State
   const [adjActiveTab, setAdjActiveTab] = useState("payroll"); // "payroll", "history", "rules", "holidays", "wage_periods"
-
+  
   // Staff Wage Periods (Lịch sử mức lương theo thời kỳ)
   const [staffWagePeriodsList, setStaffWagePeriodsList] = useState<any[]>([]);
   const [wageStaffId, setWageStaffId] = useState("");
@@ -667,12 +698,9 @@ export default function AdminPortal() {
 
   const handleRegisterBiometricDirectly = async () => {
     if (typeof window === "undefined") return;
-    if (!window.isSecureContext) {
-      alert("Thiết lập sinh trắc học yêu cầu kết nối bảo mật HTTPS (hoặc localhost).");
-      return;
-    }
-    if (!navigator.credentials) {
-      alert("Thiết bị hoặc trình duyệt của bạn không hỗ trợ bảo mật sinh trắc học Touch ID!");
+    const check = isWebAuthnSupported();
+    if (!check.supported) {
+      alert(check.reason || "Thiết bị hoặc trình duyệt không hỗ trợ bảo mật sinh trắc học.");
       return;
     }
 
@@ -693,12 +721,15 @@ export default function AdminPortal() {
           name: phone,
           displayName: phone,
         },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },   // ES256
+          { type: "public-key", alg: -257 }  // RS256
+        ],
         authenticatorSelection: {
           authenticatorAttachment: "platform",
-          userVerification: "required",
-          residentKey: "required",
-          requireResidentKey: true,
+          userVerification: "preferred",
+          residentKey: "preferred",
+          requireResidentKey: false,
         },
         timeout: 60000,
         attestation: "none"
@@ -724,11 +755,13 @@ export default function AdminPortal() {
 
         localStorage.setItem(`moods_bio_cred_${phone}`, bioKey);
         localStorage.setItem(`moods_bio_${phone}`, "enabled");
-        alert("Kích hoạt sinh trắc học (vân tay) thành công cho thiết bị này!");
+        alert("Kích hoạt sinh trắc học (vân tay / Face ID) thành công cho thiết bị này!");
       }
     } catch (err: any) {
       console.error(err);
-      alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+      if (err.name !== "NotAllowedError" && err.name !== "AbortError") {
+        alert("Kích hoạt sinh trắc học không thành công: " + (err.message || ""));
+      }
     }
   };
 
@@ -2177,99 +2210,282 @@ export default function AdminPortal() {
           )}
         </div>
 
-        ﻿        {/* KPI CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
-            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
+        {/* KPI CARDS */}
+        {!isCaptureMode && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
+              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
+            </div>
+            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
+              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
+            </div>
+            <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
+              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
+              <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
+            </div>
+            <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
+              <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
+              <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
+            </div>
+            <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
+              <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
+              <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
+            </div>
           </div>
-          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
-            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
-          </div>
-          <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
-            <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
-            <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
-          </div>
-          <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
-            <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
-            <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
-          </div>
-          <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
-            <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
-            <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
-          </div>
-        </div>
+        )}
 
         {/* TAB 1: BẢNG PHÂN CA CHÍNH (THEO BUỔI CA) */}
         {devTab === "matrix" && (() => {
           const shiftCategories = [
-            { key: "sang", title: "Ca Sáng", hours: "06:00 - 12:00", filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
-            { key: "chieu", title: "Ca Chiều", hours: "12:00 - 18:00", filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
-            { key: "toi", title: "Ca Tối", hours: "18:00 - 00:00", filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) !== 0 },
-            { key: "khuya", title: "Ca Khuya", hours: "00:00 - 06:00", filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
+            { key: "sang", title: "Ca Sáng", hours: "06:00 - 12:00", startHour: 6, endHour: 12 },
+            { key: "chieu", title: "Ca Chiều", hours: "12:00 - 18:00", startHour: 12, endHour: 18 },
+            { key: "toi", title: "Ca Tối", hours: "18:00 - 00:00", startHour: 18, endHour: 24 },
+            { key: "khuya", title: "Ca Khuya", hours: "00:00 - 06:00", startHour: 0, endHour: 6 }
           ];
+
+          const activeCategories = (isCaptureMode && hideKhuyaInCapture)
+            ? shiftCategories.filter(c => c.key !== "khuya")
+            : shiftCategories;
+
+          const isCompact = isCaptureMode || scheduleZoom <= 85;
 
           return (
             <div className="space-y-3">
               {/* Legend guide for Schedule */}
-              <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-                  <span>Đang trực (Trong ca)</span>
+              {!isCaptureMode && (
+                <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
+                    <span>Đang trực (Trong ca)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                    <span>Đã hoàn thành / Tự ngưng ca</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
+                    <span>Chưa chấm công</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+                    <span>Xin vắng</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                  <span>Đã hoàn thành / Tự ngưng ca</span>
+              )}
+
+              {/* POSTER BANNER WHEN IN CAPTURE MODE */}
+              {isCaptureMode && (
+                <div className="bg-[#7c4831] text-white p-3 sm:p-4 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-3 anim-fadeUp">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-lg">
+                      ☕
+                    </div>
+                    <div>
+                      <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-amber-100 flex items-center gap-2">
+                        <span>THE MOODS COFFEE</span>
+                        <span className="opacity-60">•</span>
+                        <span>BẢNG PHÂN CA LỊCH TRỰC TUẦN</span>
+                      </h2>
+                      <p className="text-[11px] text-amber-200/90 font-bold mt-0.5">
+                        Từ {weekDays[0]?.label} ({weekDays[0]?.dayNum}) đến {weekDays[6]?.label} ({weekDays[6]?.dayNum}) • {activeCategories.length} Buổi ca: {activeCategories.map(c => c.title).join(' • ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10.5px] bg-white/15 text-white font-extrabold px-3 py-1.5 rounded-xl border border-white/20">
+                      📸 Chế độ chụp ảnh (Cap 3 ca)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsCaptureMode(false)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-black uppercase bg-white text-[#7c4831] hover:bg-amber-50 transition-all cursor-pointer shadow-xs"
+                    >
+                      ✕ Thoát
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
-                  <span>Chưa chấm công</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
-                  <span>Xin vắng</span>
-                </div>
-              </div>
+              )}
 
               <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
-                <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+                {/* TOOLBAR: Title + Capture Mode + Zoom In / Out Controls */}
+                <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex flex-wrap justify-between items-center gap-3">
                   <div>
-                    <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Phân Công Lịch Trực (Theo Ca Làm Việc)</h3>
-                    <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Sắp xếp trực quan theo từng ca làm việc trong ngày</p>
+                    <h3 className="text-xs sm:text-sm font-black uppercase text-[#7c4831]">
+                      Bảng Phân Công Lịch Trực (Theo Ca Làm Việc)
+                    </h3>
+                    <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5">
+                      {isCaptureMode ? "Chế độ thu gọn chụp màn hình (Vừa trọn 3 ca trên 1 màn hình)" : "Sắp xếp trực quan theo từng ca làm việc trong ngày • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới"}
+                    </p>
+                  </div>
+
+                  {/* Actions & Zoom Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Capture Mode Toggle */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCaptureMode(prev => {
+                            const next = !prev;
+                            if (next && scheduleZoom > 80) setScheduleZoom(75);
+                            return next;
+                          });
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                          isCaptureMode 
+                            ? "bg-[#7c4831] text-white border-2 border-[#7c4831] ring-2 ring-[#7c4831]/20" 
+                            : "bg-amber-100/90 hover:bg-amber-200 text-[#7c4831] border-2 border-[#7c4831]/30"
+                        }`}
+                        title="Thu gọn bảng để chụp màn hình vừa vặn cả 3 ca trên 1 màn hình"
+                      >
+                        <Camera size={14} />
+                        <span>{isCaptureMode ? "✕ Thoát chế độ chụp" : "📸 Chế độ chụp (Cap 3 ca)"}</span>
+                      </button>
+
+                      {isCaptureMode && (
+                        <button
+                          type="button"
+                          onClick={() => setHideKhuyaInCapture(prev => !prev)}
+                          className="px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 transition-all cursor-pointer shadow-2xs"
+                          title="Chuyển đổi giữa 3 ca chính (Sáng, Chiều, Tối) và tất cả ca"
+                        >
+                          {hideKhuyaInCapture ? "3 Ca Chính (Sáng, Chiều, Tối)" : "Tất cả 4 Ca (Kèm Khuya)"}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Zoom In / Out Controls */}
+                    <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
+                      <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setScheduleZoom(prev => Math.max(50, prev - 10))}
+                        disabled={scheduleZoom <= 50}
+                        className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Thu nhỏ (-10%)"
+                      >
+                        <ZoomOut size={14} />
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {[70, 85, 100].map(lvl => (
+                          <button
+                            key={lvl}
+                            type="button"
+                            onClick={() => setScheduleZoom(lvl)}
+                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
+                              scheduleZoom === lvl 
+                                ? "bg-[#7c4831] text-white" 
+                                : "text-stone-600 hover:bg-stone-100"
+                            }`}
+                          >
+                            {lvl}%
+                          </button>
+                        ))}
+                        <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
+                          {scheduleZoom}%
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setScheduleZoom(prev => Math.min(130, prev + 10))}
+                        disabled={scheduleZoom >= 130}
+                        className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Phóng to (+10%)"
+                      >
+                        <ZoomIn size={14} />
+                      </button>
+
+                      {scheduleZoom !== 100 && (
+                        <button
+                          type="button"
+                          onClick={() => setScheduleZoom(100)}
+                          className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
+                          title="Về 100% mặc định"
+                        >
+                          Đặt lại
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+                <div 
+                  className="overflow-x-auto w-full overscroll-x-contain transition-all" 
+                  style={{ 
+                    WebkitOverflowScrolling: "touch", 
+                    touchAction: "pan-x pan-y",
+                    zoom: `${scheduleZoom}%` 
+                  }}
+                >
                   <table className="w-full min-w-[1000px] text-center border-collapse">
                     <thead>
                       <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                        <th className="p-3 text-left w-[120px] min-w-[120px] whitespace-nowrap">Buổi ca</th>
-                        {weekDays.map(day => (
-                          <th
-                            key={day.dateStr}
-                            onClick={() => setSelectedDayDetail(day.dateStr)}
-                            className="p-1.5 md:p-2.5 border-l border-gray-200 hover:bg-[#7c4831]/5 cursor-pointer transition-colors"
-                          >
-                            <div className="text-[9px] md:text-[10px]">{day.label}</div>
-                            <div className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</div>
-                          </th>
-                        ))}
+                        <th className="p-2 sm:p-3 text-left w-[120px] min-w-[120px] whitespace-nowrap">Buổi ca</th>
+                        {weekDays.map(day => {
+                          const isSelected = selectedDayDetail === day.dateStr;
+                          return (
+                            <th
+                              key={day.dateStr}
+                              onClick={() => {
+                                setSelectedDayDetail(day.dateStr);
+                                setTimeout(() => {
+                                  const el = document.getElementById("daily-detail-section");
+                                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                                }, 100);
+                              }}
+                              className={`p-1.5 md:p-2 border-l border-gray-200 hover:bg-amber-100/60 cursor-pointer transition-all select-none group relative ${
+                                isSelected ? "bg-amber-100/80 ring-2 ring-inset ring-[#7c4831]" : ""
+                              }`}
+                              title="Bấm để xem và sửa chi tiết phân ca ngày này bên dưới"
+                            >
+                              <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className={`text-[9.5px] md:text-[10.5px] font-black transition-colors ${isSelected ? "text-[#7c4831]" : "group-hover:text-[#7c4831]"}`}>
+                                    {day.label}
+                                  </span>
+                                  <span 
+                                    className={`p-1 rounded-md transition-all shadow-2xs flex items-center justify-center ${
+                                      isSelected 
+                                        ? "bg-[#7c4831] text-white" 
+                                        : "bg-stone-200/80 text-stone-600 group-hover:bg-[#7c4831] group-hover:text-white group-hover:scale-110"
+                                    }`} 
+                                    title="Bấm xem bảng phân ca chi tiết ngày này bên dưới"
+                                  >
+                                    <Menu size={11} className="stroke-[2.5]" />
+                                  </span>
+                                </div>
+                                <div className="text-gray-400 group-hover:text-[#7c4831] text-[8px] md:text-[9px] font-bold">
+                                  {day.dayNum}
+                                </div>
+                                {isSelected && (
+                                  <span className="text-[7.5px] font-black text-[#7c4831] uppercase tracking-tighter bg-white px-1.5 py-0.2 rounded-full border border-[#7c4831]/30 mt-0.5 shadow-2xs">
+                                    Đang xem ▼
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
-                      {shiftCategories.map(cat => (
+                      {activeCategories.map(cat => (
                         <tr key={cat.key} className="hover:bg-stone-50/30 transition-colors">
-                          <td className="p-3 text-left bg-stone-50/30 w-[120px] min-w-[120px] whitespace-nowrap">
+                          <td className="p-2 sm:p-3 text-left bg-stone-50/30 w-[120px] min-w-[120px] whitespace-nowrap">
                             <div className="font-extrabold text-xs uppercase text-[#7c4831]">{cat.title}</div>
                             <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
                           </td>
                           {weekDays.map(day => {
-                            const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && cat.filter(s.startTime));
+                            const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && isShiftInTimeSlot(s.startTime, s.endTime, cat.startHour, cat.endHour));
 
                             return (
-                              <td key={day.dateStr} className="p-2 border-l border-gray-150 align-top text-left min-w-[130px]">
-                                <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
+                              <td key={day.dateStr} className={`p-1.5 border-l border-gray-150 align-top text-left min-w-[125px]`}>
+                                <div className={`space-y-1.5 ${isCompact ? "min-h-[44px]" : "min-h-[95px]"} flex flex-col justify-start`}>
                                   {cellScheds.length === 0 ? (
                                     <div
                                       onClick={() => {
@@ -2287,10 +2503,10 @@ export default function AdminPortal() {
                                         setManualLogMode("schedule");
                                         setShowManualLogModal(true);
                                       }}
-                                      className="py-6 px-1 text-center border border-dashed border-gray-200 hover:border-[#7c4831]/40 hover:bg-amber-50/30 rounded-2xl text-[8.5px] text-gray-400 font-extrabold uppercase cursor-pointer transition-all flex-grow flex flex-col items-center justify-center gap-1 group select-none"
+                                      className={`${isCompact ? "py-2 px-1 text-[8px]" : "py-6 px-1 text-[8.5px]"} text-center border border-dashed border-gray-200 hover:border-[#7c4831]/40 hover:bg-amber-50/30 rounded-xl text-gray-400 font-extrabold uppercase cursor-pointer transition-all flex-grow flex flex-col items-center justify-center gap-0.5 group select-none`}
                                     >
-                                      <Plus size={13} className="text-gray-300 group-hover:text-[#7c4831] transition-colors" />
-                                      <span className="group-hover:text-[#7c4831]">Trống • Bấm xếp ca</span>
+                                      <Plus size={isCompact ? 10 : 13} className="text-gray-300 group-hover:text-[#7c4831] transition-colors" />
+                                      <span className="group-hover:text-[#7c4831]">{isCompact ? "Trống" : "Trống • Bấm xếp ca"}</span>
                                     </div>
                                   ) : (
                                     <>
@@ -2342,77 +2558,87 @@ export default function AdminPortal() {
                                               setCellCustomTimes(false);
                                               setCellNote("Điều chỉnh ca làm việc");
                                             }}
-                                            className={`p-2 rounded-2xl border ${col.bg} space-y-1.5 shadow-xs transition-all hover:scale-[1.02] cursor-pointer`}
+                                            className={`${isCompact ? "p-1.5 rounded-xl space-y-0.5" : "p-2.5 rounded-2xl space-y-1.5"} border-2 ${col.bg} shadow-xs transition-all hover:scale-[1.02] cursor-pointer`}
                                           >
-                                            <div className="font-extrabold uppercase text-[9.5px] tracking-tight truncate flex items-center justify-between gap-1">
+                                            <div className="font-extrabold uppercase text-[10.5px] sm:text-xs tracking-tight truncate flex items-center justify-between gap-1">
                                               <span className="truncate">{s.fullName}</span>
-                                              <span className="text-[7.5px] px-1 py-0.2 rounded bg-black/5 font-black shrink-0">{skill}</span>
+                                              <div className="flex items-center gap-0.5 shrink-0">
+                                                {!isCompact && <span className="text-[8px] sm:text-[8.5px] px-1.5 py-0.5 rounded bg-black/5 font-black">{skill}</span>}
+                                                {sched.isSecurity && <span title="Bảo vệ" className="text-[9px]">🛡️</span>}
+                                                {sched.isNightShift && <span title="Ca khuya" className="text-[9px]">🌙</span>}
+                                              </div>
                                             </div>
-                                            <div className="text-[8.5px] font-black opacity-85 flex items-center gap-1">
-                                              <Clock size={11} className="shrink-0" />
+                                            <div className="text-[9px] sm:text-[10px] font-black opacity-90 flex items-center gap-1">
+                                              <Clock size={isCompact ? 10 : 12} className="shrink-0" />
                                               <span>{sched.startTime} – {sched.endTime}{crossesMidnight ? " (Hôm sau)" : ""}</span>
                                             </div>
 
-                                            {sched.isSecurity && (
-                                              <div className="text-[7.5px] font-black uppercase text-blue-900 bg-blue-100/90 px-1.5 py-0.5 rounded-md border border-blue-300 w-fit flex items-center gap-1 shadow-2xs">
-                                                🛡️ Bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)
-                                              </div>
-                                            )}
+                                            {!isCompact && (
+                                              <>
+                                                {sched.isSecurity && (
+                                                  <div className="text-[7.5px] font-black uppercase text-blue-900 bg-blue-100/90 px-1.5 py-0.5 rounded-md border border-blue-300 w-fit flex items-center gap-1 shadow-2xs">
+                                                    🛡️ Bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)
+                                                  </div>
+                                                )}
 
-                                            {sched.isNightShift && (
-                                              <div className="text-[7.5px] font-black uppercase text-purple-900 bg-purple-100/90 px-1.5 py-0.5 rounded-md border border-purple-300 w-fit flex items-center gap-1 shadow-2xs">
-                                                🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)
-                                              </div>
-                                            )}
+                                                {sched.isNightShift && (
+                                                  <div className="text-[7.5px] font-black uppercase text-purple-900 bg-purple-100/90 px-1.5 py-0.5 rounded-md border border-purple-300 w-fit flex items-center gap-1 shadow-2xs">
+                                                    🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)
+                                                  </div>
+                                                )}
 
-                                            {/* Trạng thái chấm công */}
-                                            {isLeaveApproved ? (
-                                              <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
-                                                🚨 Xin vắng
-                                              </div>
-                                            ) : hasClockedOut ? (
-                                              <div className="text-[7.5px] font-black uppercase text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-250 w-fit">
-                                                ✓ {isAutoEnded ? "Tự ngưng ca" : "Đã hoàn thành"}
-                                              </div>
-                                            ) : hasClockedIn ? (
-                                              <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
-                                                🟢 Đang trực ({sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime})
-                                              </div>
-                                            ) : isShiftPassed ? (
-                                              <div className="text-[7.5px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
-                                                ⚪ Chưa chấm công
-                                              </div>
-                                            ) : (
-                                              <div className="text-[7.5px] font-bold text-gray-500 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
-                                                ⚪ Lịch trực
-                                              </div>
+                                                {/* Trạng thái chấm công */}
+                                                {isLeaveApproved ? (
+                                                  <div className="text-[7.5px] font-black uppercase text-rose-800 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-250 w-fit">
+                                                    🚨 Xin vắng
+                                                  </div>
+                                                ) : hasClockedOut ? (
+                                                  <div className="text-[7.5px] font-black uppercase text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-250 w-fit">
+                                                    ✓ {isAutoEnded ? "Tự ngưng ca" : "Đã hoàn thành"}
+                                                  </div>
+                                                ) : hasClockedIn ? (
+                                                  <div className="text-[7.5px] font-black uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-md border border-emerald-250 w-fit">
+                                                    🟢 Đang trực ({sched.checkInTime ? sched.checkInTime.slice(0, 5) : sched.startTime})
+                                                  </div>
+                                                ) : isShiftPassed ? (
+                                                  <div className="text-[7.5px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                                    ⚪ Chưa chấm công
+                                                  </div>
+                                                ) : (
+                                                  <div className="text-[7.5px] font-bold text-gray-500 bg-white/80 px-1.5 py-0.5 rounded-md border border-gray-250 w-fit">
+                                                    ⚪ Lịch trực
+                                                  </div>
+                                                )}
+                                              </>
                                             )}
                                           </div>
                                         );
                                       })}
 
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setManualStaffId(staffOnly[0]?.id || "");
-                                          setManualDate(day.dateStr);
-                                          setManualStartTime(cat.hours.split(" - ")[0]);
-                                          setManualEndTime(cat.hours.split(" - ")[1]);
-                                          setManualCheckInTime(cat.hours.split(" - ")[0]);
-                                          setManualCheckOutTime(cat.hours.split(" - ")[1]);
-                                          setManualRecordAttendance(false);
-                                          setManualCustomTimes(false);
-                                          setManualIsSecurity(false);
-                                          setManualIsNightShift(false);
-                                          setManualNote("");
-                                          setManualLogMode("schedule");
-                                          setShowManualLogModal(true);
-                                        }}
-                                        className="w-full py-1 text-center rounded-xl border border-dashed border-gray-200 hover:border-[#7c4831] hover:bg-[#7c4831]/5 text-[8.5px] font-extrabold uppercase text-[#7c4831] transition-all flex items-center justify-center gap-1 cursor-pointer"
-                                      >
-                                        <Plus size={10} />
-                                        <span>+ Thêm người</span>
-                                      </button>
+                                      {!isCaptureMode && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setManualStaffId(staffOnly[0]?.id || "");
+                                            setManualDate(day.dateStr);
+                                            setManualStartTime(cat.hours.split(" - ")[0]);
+                                            setManualEndTime(cat.hours.split(" - ")[1]);
+                                            setManualCheckInTime(cat.hours.split(" - ")[0]);
+                                            setManualCheckOutTime(cat.hours.split(" - ")[1]);
+                                            setManualRecordAttendance(false);
+                                            setManualCustomTimes(false);
+                                            setManualIsSecurity(false);
+                                            setManualIsNightShift(false);
+                                            setManualNote("");
+                                            setManualLogMode("schedule");
+                                            setShowManualLogModal(true);
+                                          }}
+                                          className="w-full py-1 text-center rounded-xl border border-dashed border-gray-200 hover:border-[#7c4831] hover:bg-[#7c4831]/5 text-[8.5px] font-extrabold uppercase text-[#7c4831] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                        >
+                                          <Plus size={10} />
+                                          <span>+ Thêm người</span>
+                                        </button>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -2449,30 +2675,123 @@ export default function AdminPortal() {
             </div>
 
             <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
-              <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex justify-between items-center">
+              <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <h3 className="text-xs font-black uppercase text-[#7c4831]">Bảng Đăng Ký Ca Rảnh (Theo Nhân Sự)</h3>
-                  <p className="text-[9px] text-[#7c4831]/60 font-semibold mt-0.5">Theo dõi lịch rảnh của từng nhân viên để sắp xếp ca trực phù hợp</p>
+                  <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5">Theo dõi lịch rảnh của từng nhân viên để sắp xếp ca trực phù hợp • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới</p>
+                </div>
+
+                {/* Zoom Controls for Availability Matrix */}
+                <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleZoom(prev => Math.max(50, prev - 10))}
+                    disabled={scheduleZoom <= 50}
+                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    title="Thu nhỏ (-10%)"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {[70, 85, 100].map(lvl => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setScheduleZoom(lvl)}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
+                          scheduleZoom === lvl ? "bg-[#7c4831] text-white" : "text-stone-600 hover:bg-stone-100"
+                        }`}
+                      >
+                        {lvl}%
+                      </button>
+                    ))}
+                    <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
+                      {scheduleZoom}%
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setScheduleZoom(prev => Math.min(130, prev + 10))}
+                    disabled={scheduleZoom >= 130}
+                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    title="Phóng to (+10%)"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+
+                  {scheduleZoom !== 100 && (
+                    <button
+                      type="button"
+                      onClick={() => setScheduleZoom(100)}
+                      className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
+                      title="Về 100% mặc định"
+                    >
+                      Đặt lại
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
+              <div 
+                className="overflow-x-auto w-full overscroll-x-contain transition-all" 
+                style={{ 
+                  WebkitOverflowScrolling: "touch", 
+                  touchAction: "pan-x pan-y",
+                  zoom: `${scheduleZoom}%` 
+                }}
+              >
                 <table className="w-full min-w-[1000px] text-center border-collapse">
                   <thead>
                     <tr className="bg-[#FAF9F6] border-b border-gray-200 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
                       <th className="p-3 text-left w-[130px] min-w-[130px] whitespace-nowrap">Nhân viên</th>
-                      {weekDays.map(day => (
-                        <th
-                          key={day.dateStr}
-                          onClick={() => setSelectedDayDetail(day.dateStr)}
-                          className="p-1.5 md:p-2.5 border-l border-gray-250/70 hover:bg-[#7c4831]/5 cursor-pointer transition-colors"
-                        >
-                          <div className="flex flex-col items-center">
-                            <span className="text-[9px] md:text-[10px]">{day.label}</span>
-                            <span className="text-gray-400 text-[8px] md:text-[9px] font-bold mt-0.5">{day.dayNum}</span>
-                          </div>
-                        </th>
-                      ))}
+                      {weekDays.map(day => {
+                        const isSelected = selectedDayDetail === day.dateStr;
+                        return (
+                          <th
+                            key={day.dateStr}
+                            onClick={() => {
+                              setSelectedDayDetail(day.dateStr);
+                              setTimeout(() => {
+                                const el = document.getElementById("daily-detail-section");
+                                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }, 100);
+                            }}
+                            className={`p-1.5 md:p-2 border-l border-gray-250/70 hover:bg-amber-100/60 cursor-pointer transition-all select-none group relative ${
+                              isSelected ? "bg-amber-100/80 ring-2 ring-inset ring-[#7c4831]" : ""
+                            }`}
+                            title="Bấm để xem và sửa chi tiết phân ca ngày này bên dưới"
+                          >
+                            <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className={`text-[9.5px] md:text-[10.5px] font-black transition-colors ${isSelected ? "text-[#7c4831]" : "group-hover:text-[#7c4831]"}`}>
+                                  {day.label}
+                                </span>
+                                <span 
+                                  className={`p-1 rounded-md transition-all shadow-2xs flex items-center justify-center ${
+                                    isSelected 
+                                      ? "bg-[#7c4831] text-white" 
+                                      : "bg-stone-200/80 text-stone-600 group-hover:bg-[#7c4831] group-hover:text-white group-hover:scale-110"
+                                  }`} 
+                                  title="Bấm xem bảng phân ca chi tiết ngày này bên dưới"
+                                >
+                                  <Menu size={11} className="stroke-[2.5]" />
+                                </span>
+                              </div>
+                              <div className="text-gray-400 group-hover:text-[#7c4831] text-[8px] md:text-[9px] font-bold">
+                                {day.dayNum}
+                              </div>
+                              {isSelected && (
+                                <span className="text-[7.5px] font-black text-[#7c4831] uppercase tracking-tighter bg-white px-1.5 py-0.2 rounded-full border border-[#7c4831]/30 mt-0.5 shadow-2xs">
+                                  Đang xem ▼
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
@@ -2567,43 +2886,150 @@ export default function AdminPortal() {
 
         {/* DAILY DETAIL VIEW */}
         {devTab === "matrix" && selectedDayDetail && (
-          <div className="space-y-4 anim-fadeUp mt-6 border-t-2 border-dashed border-[#7c4831]/20 pt-6">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+          <div id="daily-detail-section" className="space-y-4 anim-fadeUp mt-6 border-t-2 border-dashed border-[#7c4831]/20 pt-6 scroll-mt-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-3">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedDayDetail(null)}
-                  className="px-3 py-1.5 rounded-xl border border-gray-250 bg-[#FAF9F6] text-xs font-black uppercase text-[#7c4831] hover:bg-gray-100"
+                  className="px-3.5 py-2 rounded-xl border border-stone-300 bg-white shadow-2xs text-xs font-black uppercase text-[#7c4831] hover:bg-stone-50 transition-all cursor-pointer"
                 >
                   ← Quay lại
                 </button>
-                <h3 className="text-lg font-black uppercase text-[#7c4831]">
+                <h3 className="text-base sm:text-lg font-black uppercase text-[#7c4831]">
                   CHI TIẾT PHÂN CA NGÀY {selectedDayDetail.split('-').reverse().join('/')}
                 </h3>
               </div>
+
+              {/* Action Toolbar: Capture & Zoom for Day Detail */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDetailCaptureMode(prev => {
+                      const next = !prev;
+                      if (next && detailZoom > 90) setDetailZoom(85);
+                      return next;
+                    });
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                    isDetailCaptureMode 
+                      ? "bg-[#7c4831] text-white border-2 border-[#7c4831] ring-2 ring-[#7c4831]/20" 
+                      : "bg-amber-100/90 hover:bg-amber-200 text-[#7c4831] border-2 border-[#7c4831]/30"
+                  }`}
+                  title="Thu gọn bảng để chụp màn hình vừa vặn cả 3 ca trên 1 màn hình"
+                >
+                  <Camera size={14} />
+                  <span>{isDetailCaptureMode ? "✕ Thoát Chụp" : "📸 Chế độ chụp (Cap 3 ca)"}</span>
+                </button>
+
+                {isDetailCaptureMode && (
+                  <button
+                    type="button"
+                    onClick={() => setHideKhuyaInDetailCapture(prev => !prev)}
+                    className="px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 transition-all cursor-pointer shadow-2xs"
+                    title="Chuyển đổi giữa 3 ca chính và 4 ca"
+                  >
+                    {hideKhuyaInDetailCapture ? "3 Ca Chính (Sáng, Chiều, Tối)" : "Tất cả 4 Ca (Kèm Khuya)"}
+                  </button>
+                )}
+
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDetailZoom(prev => Math.max(50, prev - 10))}
+                    disabled={detailZoom <= 50}
+                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    title="Thu nhỏ (-10%)"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {[70, 85, 100].map(lvl => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setDetailZoom(lvl)}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
+                          detailZoom === lvl ? "bg-[#7c4831] text-white" : "text-stone-600 hover:bg-stone-100"
+                        }`}
+                      >
+                        {lvl}%
+                      </button>
+                    ))}
+                    <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
+                      {detailZoom}%
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDetailZoom(prev => Math.min(130, prev + 10))}
+                    disabled={detailZoom >= 130}
+                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    title="Phóng to (+10%)"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                  {detailZoom !== 100 && (
+                    <button
+                      type="button"
+                      onClick={() => setDetailZoom(100)}
+                      className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
+                      title="Về 100% mặc định"
+                    >
+                      Đặt lại
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* Branded Banner for Capture Mode */}
+            {isDetailCaptureMode && (
+              <div className="p-3.5 bg-gradient-to-r from-[#7c4831] via-[#633824] to-[#4B3621] text-white rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md border border-[#7c4831]/30 anim-fadeUp">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center font-black text-amber-200 text-lg">
+                    ☕
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-200">
+                      THE MOODS COFFEE • BẢNG PHÂN CA HẰNG NGÀY
+                    </div>
+                    <div className="text-sm sm:text-base font-black">
+                      LỊCH TRỰC {new Date(selectedDayDetail + "T00:00:00").toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10.5px] font-extrabold bg-white/20 text-white px-3 py-1 rounded-full backdrop-blur-xs">
+                    {(isDetailCaptureMode && hideKhuyaInDetailCapture ? 3 : 4)} Ca trực • {weekScheds.filter((s: any) => s.date === selectedDayDetail).length} Lượt trực
+                  </span>
+                </div>
+              </div>
+            )}
 
             {(() => {
               const dayScheds = weekScheds.filter((s: any) => s.date === selectedDayDetail);
 
-              // Helper categorizer
-              const categorizeShift = (startTime: string) => {
-                const hour = parseTime(startTime);
-                if (hour >= 5 && hour < 14) return "SÁNG (05:00 - 14:00)";
-                if (hour >= 14 && hour < 22) return "CHIỀU (14:00 - 22:00)";
-                return "KHUYA (22:00 - 05:00)";
-              };
-
-              const categories = [
-                { title: "SÁNG (06:00 - 12:00)", filter: (t: string) => parseTime(t) >= 6 && parseTime(t) < 12 },
-                { title: "CHIỀU (12:00 - 18:00)", filter: (t: string) => parseTime(t) >= 12 && parseTime(t) < 18 },
-                { title: "TỐI (18:00 - 00:00)", filter: (t: string) => parseTime(t) >= 18 && parseTime(t) <= 24 && parseTime(t) != 0 },
-                { title: "KHUYA (00:00 - 06:00)", filter: (t: string) => parseTime(t) >= 0 && parseTime(t) < 6 }
+              const allCategories = [
+                { title: "SÁNG (06:00 - 12:00)", startHour: 6, endHour: 12, defaultStart: "06:00", defaultEnd: "12:00" },
+                { title: "CHIỀU (12:00 - 18:00)", startHour: 12, endHour: 18, defaultStart: "12:00", defaultEnd: "18:00" },
+                { title: "TỐI (18:00 - 00:00)", startHour: 18, endHour: 24, defaultStart: "18:00", defaultEnd: "00:00" },
+                { title: "KHUYA (00:00 - 06:00)", startHour: 0, endHour: 6, defaultStart: "00:00", defaultEnd: "06:00" }
               ];
 
+              const categories = (isDetailCaptureMode && hideKhuyaInDetailCapture)
+                ? allCategories.filter(c => c.startHour !== 0 || c.endHour !== 6)
+                : allCategories;
+
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div 
+                  className={`grid ${categories.length === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"} gap-4 sm:gap-5 transition-all`}
+                  style={{ zoom: `${detailZoom}%` }}
+                >
                   {categories.map(cat => {
-                    const scheds = dayScheds.filter((s: any) => cat.filter(s.startTime));
+                    const scheds = dayScheds.filter((s: any) => isShiftInTimeSlot(s.startTime, s.endTime, cat.startHour, cat.endHour));
                     const currentCount = scheds.length;
                     const requiredCount = 3; // Target default required staff per shift
                     const diff = currentCount - requiredCount;
@@ -2617,151 +3043,241 @@ export default function AdminPortal() {
                       const avails = devAvailsList.filter((a: any) => a.userId === s.id && a.date === selectedDayDetail);
                       if (avails.length === 0) return false;
 
-                      return avails.some((a: any) => cat.filter(a.startTime));
+                      return avails.some((a: any) => isShiftInTimeSlot(a.startTime, a.endTime, cat.startHour, cat.endHour));
                     });
 
-                    const prefixId = cat.title.split(' ')[0]; // SANG, CHIEU, KHUYA, TOI
-                    const defaultStart = cat.title.includes("SÁNG") ? "06:00" : cat.title.includes("CHIỀU") ? "12:00" : cat.title.includes("TỐI") ? "18:00" : "00:00";
-                    const defaultEnd = cat.title.includes("SÁNG") ? "12:00" : cat.title.includes("CHIỀU") ? "18:00" : cat.title.includes("TỐI") ? "00:00" : "06:00";
+                    const prefixId = cat.title.split(' ')[0]; // SANG, CHIEU, TOI, KHUYA
+                    const defaultStart = cat.defaultStart;
+                    const defaultEnd = cat.defaultEnd;
 
                     return (
-                      <div key={cat.title} className="card border border-[#7c4831]/15 bg-[#FAF9F6] space-y-4 flex flex-col justify-between">
+                      <div
+                        key={cat.title}
+                        className={`bg-white border-2 border-[#7c4831]/25 hover:border-[#7c4831]/40 rounded-2xl ${isDetailCaptureMode ? "p-3 sm:p-4" : "p-4 sm:p-5"} shadow-sm space-y-4 flex flex-col justify-between transition-all`}
+                      >
                         <div className="space-y-4">
-                          <div className="border-b border-[#7c4831]/10 pb-2 flex justify-between items-center">
-                            <h4 className="text-xs font-black uppercase tracking-wider text-[#7c4831]">{cat.title}</h4>
-                            <span className={`pill text-[8px] font-black uppercase border ${diff >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-150" : "bg-rose-50 text-rose-800 border-rose-150"}`}>
+                          <div className={`border-b-2 border-stone-150 pb-2.5 flex justify-between items-center bg-stone-50/70 ${isDetailCaptureMode ? "-mx-3 -mt-3 sm:-mx-4 sm:-mt-4 p-3 sm:p-3.5" : "-mx-4 -mt-4 sm:-mx-5 sm:-mt-5 p-3.5 sm:p-4"} rounded-t-2xl`}>
+                            <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#7c4831]">{cat.title}</h4>
+                            <span className={`pill text-[9px] sm:text-[10px] font-black uppercase border-2 px-2.5 py-0.5 rounded-full ${diff >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-rose-50 text-rose-800 border-rose-300"}`}>
                               {currentCount} / {requiredCount} Nhân viên
                             </span>
                           </div>
 
-                          <div className="space-y-2">
+                          <div className="space-y-2.5">
                             {scheds.length === 0 ? (
-                              <p className="text-[10px] text-gray-400 italic">Chưa xếp nhân sự nào ca này.</p>
+                              <div className="p-3.5 rounded-xl bg-stone-50 border border-dashed border-stone-250 text-center text-xs font-bold text-stone-400 italic">
+                                Chưa xếp nhân sự nào ca này.
+                              </div>
                             ) : (
-                              scheds.map((s: any) => (
-                                <div key={s.id} className="flex justify-between items-center p-2.5 bg-white border border-gray-150 rounded-xl shadow-xs">
-                                  <span className="font-extrabold uppercase text-xs">{s.staffName}</span>
-                                  <span className="text-[10px] text-gray-500 font-semibold">{s.startTime} - {s.endTime}</span>
+                              scheds.map((s: any) => {
+                                const staff = staffOnly.find((st: any) => st.id === s.userId);
+                                return (
+                                  <div
+                                    key={s.id}
+                                    className={`${isDetailCaptureMode ? "p-2.5" : "p-3"} bg-stone-50/80 border-2 border-stone-200/90 hover:border-[#7c4831]/40 rounded-xl shadow-xs transition-all space-y-1.5`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="space-y-1">
+                                        <span className="font-black uppercase text-xs sm:text-sm text-[#4B3621] block tracking-tight">
+                                          {s.staffName || staff?.fullName || "Nhân viên"}
+                                        </span>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-[11px] sm:text-xs font-mono font-bold text-stone-700 bg-white px-2 py-0.5 rounded-md border border-stone-250 flex items-center gap-1 shadow-2xs">
+                                            <Clock className="w-3 h-3 text-stone-500" />
+                                            {s.startTime} - {s.endTime}
+                                          </span>
+                                          {s.isSecurity && (
+                                            <span className="text-[9.5px] font-black uppercase text-blue-900 bg-blue-100/90 px-1.5 py-0.5 rounded border border-blue-300">
+                                              🛡️ Bảo vệ
+                                            </span>
+                                          )}
+                                          {s.isNightShift && (
+                                            <span className="text-[9.5px] font-black uppercase text-purple-900 bg-purple-100/90 px-1.5 py-0.5 rounded border border-purple-300">
+                                              🌙 Ca khuya
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Direct Action Buttons: Sửa & Xóa (Ẩn khi ở Chế độ Chụp) */}
+                                      {!isDetailCaptureMode && (
+                                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingCell({
+                                                userId: s.userId,
+                                                userName: s.staffName || staff?.fullName || "Nhân viên",
+                                                date: selectedDayDetail,
+                                                dateLabel: selectedDayDetail.split('-').reverse().join('/')
+                                              });
+                                              setCellIsOff(false);
+                                              setCellStartTime(s.startTime);
+                                              setCellEndTime(s.endTime);
+                                              setCellIsSecurity(!!s.isSecurity);
+                                              setCellIsNightShift(!!s.isNightShift);
+                                              const hasAtt = !!(s.clockedIn || s.checkInTime);
+                                              setCellHasExistingAtt(hasAtt);
+                                              setCellRecordAttendance(hasAtt);
+                                              setCellCustomTimes(false);
+                                              setCellCheckInTime(s.checkInTime ? s.checkInTime.slice(0, 5) : s.startTime);
+                                              setCellCheckOutTime(s.checkOutTime ? s.checkOutTime.slice(0, 5) : s.endTime);
+                                              setCellNote(hasAtt ? "Điều chỉnh chấm công" : "Xếp ca trực");
+                                            }}
+                                            className="px-2 py-1 text-xs font-black text-[#7c4831] bg-white hover:bg-amber-50 border border-stone-300 hover:border-[#7c4831]/50 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                            title="Sửa ca làm việc này"
+                                          >
+                                            <Edit3 className="w-3.5 h-3.5 text-[#7c4831]" />
+                                            <span>Sửa</span>
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              await handleDeleteSchedule(s.id);
+                                            }}
+                                            className="px-2 py-1 text-xs font-black text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                            title="Xóa ca trực này"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                            <span>Xóa</span>
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {!isDetailCaptureMode && (
+                          <div className="space-y-3.5 pt-3 border-t-2 border-stone-150 mt-auto">
+                            {/* Candidates list for quick assign */}
+                            {availableCandidates.length > 0 && (
+                              <div className="space-y-2">
+                                <span className="text-[10px] sm:text-[11px] font-black uppercase text-[#7c4831] tracking-wider block">
+                                  Nhân sự rảnh khả dụng ({availableCandidates.length}):
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {availableCandidates.map((cand: any) => {
+                                    const candAvail = devAvailsList.find((a: any) => a.userId === cand.id && a.date === selectedDayDetail && isShiftInTimeSlot(a.startTime, a.endTime, cat.startHour, cat.endHour));
+                                    const timeRangeStr = candAvail ? `${candAvail.startTime}-${candAvail.endTime}` : "";
+                                    return (
+                                      <button
+                                        key={cand.id}
+                                        type="button"
+                                        onClick={() => handleQuickAssign(cand.id, selectedDayDetail, candAvail?.startTime || defaultStart, candAvail?.endTime || defaultEnd)}
+                                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-2 border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                                        title="Click xếp ca nhanh"
+                                      >
+                                        <Plus className="w-3.5 h-3.5 text-emerald-700 stroke-[3]" />
+                                        <span>{cand.fullName}</span>
+                                        {timeRangeStr && <span className="text-emerald-700 font-bold opacity-80">({timeRangeStr})</span>}
+                                      </button>
+                                    );
+                                  })}
                                 </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-3.5 pt-3 border-t border-gray-150/60 mt-auto">
-                          {/* Candidates list for quick assign */}
-                          {availableCandidates.length > 0 && (
-                            <div className="space-y-1.5">
-                              <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân sự rảnh khả dụng ({availableCandidates.length}):</span>
-                              <div className="flex flex-wrap gap-1">
-                                {availableCandidates.map((cand: any) => {
-                                  const candAvail = devAvailsList.find((a: any) => a.userId === cand.id && a.date === selectedDayDetail && cat.filter(a.startTime));
-                                  const timeRangeStr = candAvail ? `${candAvail.startTime}-${candAvail.endTime}` : "";
-                                  return (
-                                    <button
-                                      key={cand.id}
-                                      onClick={() => handleQuickAssign(cand.id, selectedDayDetail, candAvail?.startTime || defaultStart, candAvail?.endTime || defaultEnd)}
-                                      className="bg-emerald-55/90 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase flex items-center gap-1 transition-all cursor-pointer"
-                                      title="Click xếp ca nhanh"
-                                    >
-                                      + {cand.fullName} ({timeRangeStr})
-                                    </button>
-                                  );
-                                })}
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {/* Custom Assign Form inline */}
-                          <div className="bg-[#FAF9F6] border border-gray-200 p-2.5 rounded-2xl space-y-2">
-                            <span className="text-[9px] font-black uppercase text-[#7c4831] tracking-wider block">Xếp ca tùy chỉnh:</span>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <select
-                                id={`assign-staff-${prefixId}`}
-                                className="select text-[9.5px] font-bold py-1 px-1.5 border border-gray-250 bg-white rounded-lg col-span-2"
-                                defaultValue=""
+                            {/* Custom Assign Form inline */}
+                            <div className="bg-[#FAF9F6] border-2 border-stone-200/90 p-3 rounded-2xl space-y-2.5 shadow-2xs">
+                              <span className="text-[10px] sm:text-[11px] font-black uppercase text-[#7c4831] tracking-wider block">
+                                Xếp ca tùy chỉnh:
+                              </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                <select
+                                  id={`assign-staff-${prefixId}`}
+                                  className="select text-xs font-bold py-1.5 px-2 border-2 border-stone-200 bg-white rounded-xl col-span-2"
+                                  defaultValue=""
+                                >
+                                  <option value="">-- Chọn nhân sự --</option>
+                                  {staffOnly.map((s: any) => (
+                                    <option key={s.id} value={s.id}>{s.fullName}</option>
+                                  ))}
+                                </select>
+
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] font-bold text-stone-500 block uppercase">Bắt đầu:</span>
+                                  <input
+                                    type="time"
+                                    id={`assign-start-${prefixId}`}
+                                    defaultValue={defaultStart}
+                                    className="input text-xs font-semibold py-1.5 px-2 border-2 border-stone-200 bg-white rounded-xl w-full"
+                                  />
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] font-bold text-stone-500 block uppercase">Kết thúc:</span>
+                                  <input
+                                    type="time"
+                                    id={`assign-end-${prefixId}`}
+                                    defaultValue={defaultEnd}
+                                    className="input text-xs font-semibold py-1.5 px-2 border-2 border-stone-200 bg-white rounded-xl w-full"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 py-1">
+                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] sm:text-[11px] font-extrabold text-blue-900">
+                                  <input
+                                    type="checkbox"
+                                    id={`assign-security-${prefixId}`}
+                                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                                  />
+                                  <span>🛡️ Trực bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] sm:text-[11px] font-extrabold text-purple-900">
+                                  <input
+                                    type="checkbox"
+                                    id={`assign-night-${prefixId}`}
+                                    className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                                  />
+                                  <span>🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)</span>
+                                </label>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const staffSelect = document.getElementById(`assign-staff-${prefixId}`) as HTMLSelectElement;
+                                  const startInput = document.getElementById(`assign-start-${prefixId}`) as HTMLInputElement;
+                                  const endInput = document.getElementById(`assign-end-${prefixId}`) as HTMLInputElement;
+                                  const secCheck = document.getElementById(`assign-security-${prefixId}`) as HTMLInputElement;
+                                  const nightCheck = document.getElementById(`assign-night-${prefixId}`) as HTMLInputElement;
+                                  if (staffSelect && staffSelect.value) {
+                                    handleQuickAssign(staffSelect.value, selectedDayDetail, startInput.value, endInput.value, secCheck ? secCheck.checked : false, nightCheck ? nightCheck.checked : false);
+                                    staffSelect.value = "";
+                                    if (secCheck) secCheck.checked = false;
+                                    if (nightCheck) nightCheck.checked = false;
+                                  } else {
+                                    alert("Vui lòng chọn nhân sự!");
+                                  }
+                                }}
+                                className="btn btn-primary w-full py-2 text-xs font-black uppercase tracking-wider cursor-pointer shadow-xs active:scale-98"
                               >
-                                <option value="">-- Chọn nhân sự --</option>
-                                {staffOnly.map((s: any) => (
-                                  <option key={s.id} value={s.id}>{s.fullName}</option>
-                                ))}
-                              </select>
-
-                              <div className="space-y-0.5">
-                                <span className="text-[8px] font-bold text-gray-400 block">Bắt đầu:</span>
-                                <input
-                                  type="time"
-                                  id={`assign-start-${prefixId}`}
-                                  defaultValue={defaultStart}
-                                  className="input text-[9.5px] font-semibold py-1 px-1.5 border border-gray-250 bg-white rounded-lg w-full"
-                                />
-                              </div>
-
-                              <div className="space-y-0.5">
-                                <span className="text-[8px] font-bold text-gray-400 block">Kết thúc:</span>
-                                <input
-                                  type="time"
-                                  id={`assign-end-${prefixId}`}
-                                  defaultValue={defaultEnd}
-                                  className="input text-[9.5px] font-semibold py-1 px-1.5 border border-gray-250 bg-white rounded-lg w-full"
-                                />
-                              </div>
+                                Xếp Ca Tùy Chọn
+                              </button>
                             </div>
 
-                            <div className="flex items-center justify-between py-1 px-1">
-                              <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-extrabold text-blue-900">
-                                <input
-                                  type="checkbox"
-                                  id={`assign-security-${prefixId}`}
-                                  className="rounded text-blue-600 focus:ring-blue-500"
-                                />
-                                <span>🛡️ Trực bảo vệ (+{Number(securityAllowancePerHour || 2000).toLocaleString("vi-VN")}đ/h)</span>
-                              </label>
-                              <label className="flex items-center gap-1.5 cursor-pointer text-[9px] font-extrabold text-purple-900">
-                                <input
-                                  type="checkbox"
-                                  id={`assign-night-${prefixId}`}
-                                  className="rounded text-purple-600 focus:ring-purple-500"
-                                />
-                                <span>🌙 Ca khuya (+{Number(nightAllowancePerHour || 5000).toLocaleString("vi-VN")}đ/h)</span>
-                              </label>
+                            <div>
+                              {diff < 0 ? (
+                                <div className="p-2.5 bg-rose-50 border-2 border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                  <span>⚠️</span>
+                                  <span>Thiếu {Math.abs(diff)} nhân sự ca này!</span>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 bg-emerald-50 border-2 border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                  <span>✅</span>
+                                  <span>Đủ chỉ tiêu nhân sự.</span>
+                                </div>
+                              )}
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const staffSelect = document.getElementById(`assign-staff-${prefixId}`) as HTMLSelectElement;
-                                const startInput = document.getElementById(`assign-start-${prefixId}`) as HTMLInputElement;
-                                const endInput = document.getElementById(`assign-end-${prefixId}`) as HTMLInputElement;
-                                const secCheck = document.getElementById(`assign-security-${prefixId}`) as HTMLInputElement;
-                                const nightCheck = document.getElementById(`assign-night-${prefixId}`) as HTMLInputElement;
-                                if (staffSelect && staffSelect.value) {
-                                  handleQuickAssign(staffSelect.value, selectedDayDetail, startInput.value, endInput.value, secCheck ? secCheck.checked : false, nightCheck ? nightCheck.checked : false);
-                                  staffSelect.value = "";
-                                  if (secCheck) secCheck.checked = false;
-                                  if (nightCheck) nightCheck.checked = false;
-                                } else {
-                                  alert("Vui lòng chọn nhân sự!");
-                                }
-                              }}
-                              className="btn btn-primary w-full py-1.5 text-[9px] font-extrabold uppercase tracking-wide cursor-pointer"
-                            >
-                              Xếp Ca Tùy Chọn
-                            </button>
                           </div>
-
-                          <div>
-                            {diff < 0 ? (
-                              <div className="p-2 bg-rose-50/55 border border-rose-200 text-rose-700 rounded-xl text-[10px] font-bold">
-                                ⚠️ Thiếu {Math.abs(diff)} nhân sự ca này!
-                              </div>
-                            ) : (
-                              <div className="p-2 bg-emerald-50/55 border border-emerald-250 text-emerald-700 rounded-xl text-[10px] font-bold">
-                                ✅ Đủ chỉ tiêu nhân sự.
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -2945,9 +3461,9 @@ export default function AdminPortal() {
                       </div>
 
                       {/* Chọn nhanh ca mẫu */}
-                      <div className="space-y-1 pt-1">
-                        <span className="text-[8.5px] font-black text-gray-400 uppercase block">Chọn nhanh ca mẫu:</span>
-                        <div className="flex flex-wrap gap-1.5">
+                      <div className="space-y-1.5 pt-2">
+                        <span className="text-[10px] font-black text-stone-500 uppercase tracking-wider block">Chọn nhanh ca mẫu:</span>
+                        <div className="flex flex-wrap gap-2">
                           {[
                             { label: "Ca Sáng (06 - 12)", start: "06:00", end: "12:00" },
                             { label: "Ca Chiều (12 - 18)", start: "12:00", end: "18:00" },
@@ -2967,7 +3483,7 @@ export default function AdminPortal() {
                                   setManualCheckOutTime(p.end);
                                 }
                               }}
-                              className="text-[9.5px] font-bold py-1 px-2.5 rounded-lg border border-gray-200 bg-white hover:bg-[#7c4831]/5 hover:border-[#7c4831]/30 text-[#4B3621] transition-all cursor-pointer"
+                              className="text-xs font-black py-2 px-3 rounded-xl border-2 border-stone-200 bg-white hover:bg-amber-50 hover:border-[#7c4831]/40 text-[#4B3621] transition-all cursor-pointer shadow-xs active:scale-95"
                             >
                               {p.label}
                             </button>
@@ -3336,11 +3852,11 @@ export default function AdminPortal() {
                             const avails = devAvailsList.filter((a: any) => a.userId === editingCell.userId && a.date === editingCell.date);
                             if (avails.length > 0) {
                               return (
-                                <div className="pt-1.5 border-t border-gray-200">
-                                  <span className="text-[8.5px] font-bold text-emerald-800 uppercase block mb-1">
+                                <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                                  <span className="text-[10px] font-black text-emerald-900 uppercase tracking-wider block">
                                     Nhân viên rảnh ngày này:
                                   </span>
-                                  <div className="flex flex-wrap gap-1">
+                                  <div className="flex flex-wrap gap-2">
                                     {avails.map((a: any) => (
                                       <button
                                         key={a.id}
@@ -3351,7 +3867,7 @@ export default function AdminPortal() {
                                           setCellCheckInTime(a.startTime);
                                           setCellCheckOutTime(a.endTime);
                                         }}
-                                        className="text-[9.5px] font-bold py-1 px-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 cursor-pointer"
+                                        className="text-xs font-black py-2 px-3.5 rounded-xl bg-emerald-50 text-emerald-900 border-2 border-emerald-300 hover:bg-emerald-100 shadow-xs cursor-pointer active:scale-95 flex items-center gap-1.5"
                                       >
                                         ✓ Chọn {a.startTime} – {a.endTime}
                                       </button>
@@ -3362,6 +3878,39 @@ export default function AdminPortal() {
                             }
                             return null;
                           })()}
+
+                          {/* Chọn nhanh ca mẫu */}
+                          <div className="pt-2 border-t border-gray-200 space-y-1.5">
+                            <span className="text-[10px] font-black text-stone-500 uppercase tracking-wider block">
+                              Chọn nhanh ca mẫu:
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { label: "Ca Sáng (06 - 12)", start: "06:00", end: "12:00" },
+                                { label: "Ca Chiều (12 - 18)", start: "12:00", end: "18:00" },
+                                { label: "Ca Tối (18 - 00)", start: "18:00", end: "00:00" },
+                                { label: "Ca Khuya (00 - 06)", start: "00:00", end: "06:00" },
+                                { label: "Ca 8h (08 - 16)", start: "08:00", end: "16:00" },
+                                { label: "+2h Tăng ca (16 - 18)", start: "16:00", end: "18:00" }
+                              ].map(p => (
+                                <button
+                                  key={p.label}
+                                  type="button"
+                                  onClick={() => {
+                                    setCellStartTime(p.start);
+                                    setCellEndTime(p.end);
+                                    if (!cellCustomTimes) {
+                                      setCellCheckInTime(p.start);
+                                      setCellCheckOutTime(p.end);
+                                    }
+                                  }}
+                                  className="text-xs font-black py-2 px-3 rounded-xl border-2 border-stone-200 bg-white hover:bg-amber-50 hover:border-[#7c4831]/40 text-[#4B3621] transition-all cursor-pointer shadow-xs active:scale-95"
+                                >
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
 
                         {/* Phân công làm Bảo vệ */}
@@ -4974,15 +5523,17 @@ export default function AdminPortal() {
                                       <button
                                         onClick={async () => {
                                           if (!confirm("Hủy khoản thưởng/phạt tự động này?")) return;
+                                          const autoKey = item.AutoKey;
+                                          const autoRef = item.AutoKey ? `LATE_${item.EmployeeId}_${item.Date}_${item.AutoKey.split("_")[2]}` : `LATE_${item.EmployeeId}_${item.Date}`;
                                           const newOverride = {
                                             EmployeeId: item.EmployeeId,
                                             EmployeeName: item.EmployeeName,
                                             Date: item.Date,
                                             Type: item.Type,
                                             IsAutoOverride: true,
-                                            OverrideKey: item.AutoKey,
-                                            AutoKey: item.AutoKey,
-                                            AutoRef: item.AutoKey ? `LATE_${item.EmployeeId}_${item.Date}_${item.AutoKey.split("_")[2]}` : `LATE_${item.EmployeeId}_${item.Date}`,
+                                            OverrideKey: autoKey,
+                                            AutoKey: autoKey,
+                                            AutoRef: autoRef,
                                             Amount: 0,
                                             Note: "Đã hủy (Hệ thống tự động)",
                                             Quantity: 0,
