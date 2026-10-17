@@ -59,8 +59,6 @@ export default function LandingPage() {
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
 
   // Auto redirect if staff is already logged in
-
-  // Auto redirect if staff is already logged in
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       const storedStaffStr = localStorage.getItem("moods_active_staff");
@@ -474,7 +472,7 @@ export default function LandingPage() {
 
     // Haptic vibration feedback (0ms native tactile feel on mobile)
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      try { navigator.vibrate(12); } catch (_) {}
+      try { navigator.vibrate(12); } catch (_) { }
     }
 
     if (newPin.length === 6) {
@@ -489,7 +487,7 @@ export default function LandingPage() {
     setPinCode(newPin);
 
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      try { navigator.vibrate(8); } catch (_) {}
+      try { navigator.vibrate(8); } catch (_) { }
     }
   };
 
@@ -923,9 +921,9 @@ export default function LandingPage() {
                     Quét vân tay / Khuôn mặt
                   </button>
 
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => { setStep("fallback_pin"); resetPinCode(); }} 
+                    onClick={() => { setStep("fallback_pin"); resetPinCode(); }}
                     className="text-xs text-[#7c4831] hover:underline font-bold block w-full mt-2 cursor-pointer"
                   >
                     Nhập mã PIN 6 số thay thế

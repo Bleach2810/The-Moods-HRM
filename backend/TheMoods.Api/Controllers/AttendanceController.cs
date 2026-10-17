@@ -1037,7 +1037,6 @@ namespace TheMoods.Api.Controllers
                 // Nếu làm quá giờ ca trực thì tự động chốt checkout đúng giờ ca trực kết thúc (No OT)
                 actualEndTime = scheduleEnd;
             }
-
             att.CheckOutTime = nowTime; // Lưu thời gian bấm nút thực tế
             await _context.SaveChangesAsync();
 
@@ -1045,7 +1044,6 @@ namespace TheMoods.Api.Controllers
             DateTime actualStartTime = att.CheckInTime < scheduleStart ? scheduleStart : att.CheckInTime;
             double hoursWorked = (actualEndTime - actualStartTime).TotalHours;
             if (hoursWorked < 0) hoursWorked = 0;
-            // Giờ làm thực tế (làm tròn số học 1 chữ số thập phân: ví dụ 1.1h, 1.2h... cứ 6 phút = 0.1h)
             double roundedHours = Math.Round(hoursWorked, 1, MidpointRounding.AwayFromZero);
 
             return Ok(new
@@ -1062,175 +1060,227 @@ namespace TheMoods.Api.Controllers
 
         // 10. Tính lương tự động (Payroll) cho chi nhánh
         [HttpGet("payroll")]
-        public async Task<IActionResult> GetPayroll([FromQuery] string locationId, [FromQuery] string fromDate, [FromQuery] string toDate)
+        public async Task<IActionResult> GetPayroll([FromQuery] string? locationId = null, [FromQuery] string? fromDate = null, [FromQuery] string? toDate = null)
         {
-            if (string.IsNullOrEmpty(locationId)) locationId = "govap-branch";
-            var start = DateTime.Parse(fromDate).Date;
-            var end = DateTime.Parse(toDate).Date;
-
-            // Load configs
-            var configs = await _context.PayrollConfigs.Where(c => c.LocationId == locationId && c.IsActive).ToListAsync();
-            
-            // New Late Penalty formula parameters
-            var startMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyStartMinutes")?.ConfigValue;
-            var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
-            var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
-            var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
-            var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
-
-            int startMins = 10;
-            decimal baseAmt = 50000;
-            int intervalMins = 10;
-            double multiplier = 2;
-            decimal maxAmt = 500000;
-
-            if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
-            if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
-            if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
-            if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
-            if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
-
-            var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
-            decimal securityAllowancePerHour = 2000;
-            if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
-
-            // Parse Holidays_Detailed
-            var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
-            var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrEmpty(holidaysDetailedStr))
+            try
             {
-                try
+                if (string.IsNullOrWhiteSpace(locationId) || locationId == "null" || locationId == "undefined") 
+                    locationId = "govap-branch";
+
+                DateTime start;
+                if (!DateTime.TryParse(fromDate, out start))
                 {
-                    var detailedList = JsonSerializer.Deserialize<List<HolidayDetail>>(holidaysDetailedStr);
-                    if (detailedList != null)
+                    start = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                }
+                start = start.Date;
+
+                DateTime end;
+                if (!DateTime.TryParse(toDate, out end))
+                {
+                    end = start.AddMonths(1).AddDays(-1);
+                }
+                end = end.Date;
+
+                // Load configs
+                var configs = await _context.PayrollConfigs.Where(c => c.LocationId == locationId && c.IsActive).ToListAsync();
+                
+                // New Late Penalty formula parameters
+                var startMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyStartMinutes")?.ConfigValue;
+                var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
+                var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
+                var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
+                var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
+
+                int startMins = 10;
+                decimal baseAmt = 50000;
+                int intervalMins = 10;
+                double multiplier = 2;
+                decimal maxAmt = 500000;
+
+                if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
+                if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
+                if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
+                if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
+                if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
+
+                var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
+                decimal securityAllowancePerHour = 2000;
+                if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
+
+                // Parse Holidays_Detailed
+                var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
+                var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrEmpty(holidaysDetailedStr))
+                {
+                    try
                     {
-                        foreach (var h in detailedList)
+                        var detailedList = JsonSerializer.Deserialize<List<HolidayDetail>>(holidaysDetailedStr);
+                        if (detailedList != null)
                         {
-                            if (DateTime.TryParse(h.Date, out DateTime hDate))
+                            foreach (var h in detailedList)
                             {
-                                var dateKey = hDate.ToString("yyyy-MM-dd");
-                                holidayMap[dateKey] = h;
+                                if (DateTime.TryParse(h.Date, out DateTime hDate))
+                                {
+                                    var dateKey = hDate.ToString("yyyy-MM-dd");
+                                    holidayMap[dateKey] = h;
+                                }
                             }
                         }
                     }
+                    catch { }
                 }
-                catch { }
-            }
 
-            // Custom Adjustments (individual bonus/penalty)
-            var adjustmentsStr = configs.FirstOrDefault(c => c.ConfigKey == "Adjustments")?.ConfigValue;
-            var adjustmentsList = new List<PayrollAdjustment>();
-            if (!string.IsNullOrEmpty(adjustmentsStr))
-            {
+                // Custom Adjustments (individual bonus/penalty)
+                var adjustmentsStr = configs.FirstOrDefault(c => c.ConfigKey == "Adjustments")?.ConfigValue;
+                var adjustmentsList = new List<PayrollAdjustment>();
+                if (!string.IsNullOrEmpty(adjustmentsStr))
+                {
+                    try
+                    {
+                        adjustmentsList = JsonSerializer.Deserialize<List<PayrollAdjustment>>(adjustmentsStr) ?? new List<PayrollAdjustment>();
+                    }
+                    catch
+                    {
+                        // Ignore parsing error
+                    }
+                }
+
+                var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
+                decimal defaultShiftBonus = 0;
+                decimal.TryParse(activeBonusStr, out defaultShiftBonus);
+
+                // Lấy danh sách toàn bộ nhân viên (Super Admin Role 1, Admin Role 2 và Staff Role 3)
+                var users = await _context.Users
+                    .Include(u => u.UserLocations)
+                    .Include(u => u.Attendances).ThenInclude(a => a.Schedule)
+                    .Include(u => u.OfficialSchedules)
+                    .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted)
+                    .ToListAsync();
+
+                // Lọc ra các nhân sự thuộc chi nhánh hoặc có chấm công/lịch trực tại chi nhánh này
+                users = users.Where(u => 
+                    u.UserLocations.Any(ul => ul.LocationId == locationId) || 
+                    u.Attendances.Any(a => a.LocationId == locationId || (a.Schedule != null && a.Schedule.LocationId == locationId)) ||
+                    u.OfficialSchedules.Any(s => s.LocationId == locationId)
+                ).ToList();
+
+                var payrolls = new List<object>();
+
+                // Lấy toàn bộ các ca kéo ca (làm thêm) đã duyệt trong kỳ của chi nhánh
+                var allExtensions = new List<ShiftExtension>();
                 try
                 {
-                    adjustmentsList = JsonSerializer.Deserialize<List<PayrollAdjustment>>(adjustmentsStr) ?? new List<PayrollAdjustment>();
+                    var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+                    var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                    allExtensions = await _context.ShiftExtensions
+                        .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
+                        .Include(se => se.Requester)
+                        .ToListAsync();
                 }
                 catch
                 {
-                    // Ignore parsing error
+                    allExtensions = new List<ShiftExtension>();
                 }
-            }
 
-            var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
-            decimal defaultShiftBonus = 0;
-            decimal.TryParse(activeBonusStr, out defaultShiftBonus);
-
-            // Lấy danh sách toàn bộ nhân viên (Super Admin Role 1, Admin Role 2 và Staff Role 3)
-            var users = await _context.Users
-                .Include(u => u.UserLocations)
-                .Include(u => u.Attendances).ThenInclude(a => a.Schedule)
-                .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted)
-                .ToListAsync();
-
-            // Lọc ra các nhân sự thuộc chi nhánh hoặc có chấm công/lịch trực tại chi nhánh này
-            users = users.Where(u => 
-                u.UserLocations.Any(ul => ul.LocationId == locationId) || 
-                u.Attendances.Any(a => a.LocationId == locationId)
-            ).ToList();
-
-            var payrolls = new List<object>();
-
-
-            // Lấy toàn bộ các ca kéo ca (làm thêm) đã duyệt trong kỳ của chi nhánh
-            var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
-            var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-            var allExtensions = await _context.ShiftExtensions
-                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
-                .Include(se => se.Requester)
-                .ToListAsync();
-
-            foreach (var user in users)
-            {
-                var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
-                decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
-
-                // Lọc danh sách chấm công trong khoảng thời gian (cả đã checkout và đang làm việc để phạt đi trễ trừ liền)
-                var userAtts = user.Attendances
-                    .Where(a => a.CheckInTime.Date >= start && a.CheckInTime.Date <= end && a.LocationId == locationId)
-                    .ToList();
-
-                double totalHours = 0;
-                decimal baseSalary = 0;
-                decimal penalty = 0;
-                decimal bonus = 0;
-
-                foreach (var att in userAtts)
+                foreach (var user in users)
                 {
-                    if (att.Schedule != null)
+                    var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
+                    decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
+
+                    // Lọc danh sách chấm công trong khoảng thời gian (cả đã checkout và đang làm việc để phạt đi trễ trừ liền)
+                    var userAtts = user.Attendances
+                        .Where(a => a.CheckInTime.Date >= start && a.CheckInTime.Date <= end && 
+                                   (a.LocationId == locationId || (a.Schedule != null && a.Schedule.LocationId == locationId)))
+                        .ToList();
+
+                    double totalHours = 0;
+                    decimal baseSalary = 0;
+                    decimal penalty = 0;
+                    decimal bonus = 0;
+
+                    foreach (var att in userAtts)
                     {
-                        var baseDate = att.Schedule.Date.Date;
-                        var schedStart = DateTime.SpecifyKind(baseDate.Add(att.Schedule.StartTime), att.CheckInTime.Kind);
-                        var schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), att.CheckInTime.Kind);
-                        if (att.Schedule.EndTime < att.Schedule.StartTime)
+                        DateTime schedStart = DateTime.MinValue;
+                        DateTime schedEnd = DateTime.MinValue;
+                        bool hasSchedule = att.Schedule != null;
+
+                        if (hasSchedule)
                         {
-                            schedEnd = schedEnd.AddDays(1);
+                            var baseDate = att.Schedule!.Date.Date;
+                            schedStart = DateTime.SpecifyKind(baseDate.Add(att.Schedule.StartTime), att.CheckInTime.Kind);
+                            schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), att.CheckInTime.Kind);
+                            if (att.Schedule.EndTime < att.Schedule.StartTime)
+                            {
+                                schedEnd = schedEnd.AddDays(1);
+                            }
                         }
 
                         if (att.CheckOutTime != null)
                         {
-                            // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
-                            var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
-                            var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var rawHours = (checkOutLimit - checkInLimit).TotalHours;
-                            if (rawHours < 0) rawHours = 0;
-
-                            // Giờ làm thực tế (làm tròn 1 chữ số thập phân: ví dụ 1.1h, 1.2h)
-                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
-                            if (hours <= 0) continue;
-
-                            totalHours += hours;
-
-                            // Lương theo hệ số lễ hoặc thường
-                            var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
-                            var schedDateStr = att.Schedule.Date.ToString("yyyy-MM-dd");
-                            HolidayDetail? holiday = null;
-                            if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
-                            else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
-
-                            // Cộng thêm phụ cấp bảo vệ nếu ca trực được gán là bảo vệ
-                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
-
-                            if (holiday != null)
+                            double rawHours = 0;
+                            if (hasSchedule)
                             {
-                                double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * shiftWage;
-                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
+                                var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
+                                var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
+                                rawHours = (checkOutLimit - checkInLimit).TotalHours;
+
+                                // Fallback nếu giờ check-in / check-out lệch ra ngoài khung ca trực được gán
+                                if (rawHours <= 0 && att.CheckOutTime.Value > att.CheckInTime)
+                                {
+                                    var actualDur = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                    var nominalDur = (schedEnd - schedStart).TotalHours;
+                                    if (nominalDur <= 0) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
+                                    rawHours = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
+                                }
                             }
                             else
                             {
-                                baseSalary += (decimal)hours * shiftWage;
+                                rawHours = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                            }
+
+                            if (rawHours < 0) rawHours = 0;
+
+                            // Quy tắc làm tròn: "chỉ tính giờ làm dựa trên ca được xếp và chỉ làm trong giờ làm được xếp, tối thiểu làm được 30p thì mới làm tròn lên 1h ví dụ 5.5h->6h, 5.4h->5h"
+                            var wholeH = Math.Floor(rawHours);
+                            var remMins = (rawHours - wholeH) * 60.0;
+                            var hours = remMins >= 30.0 ? wholeH + 1.0 : wholeH;
+
+                            if (hours > 0)
+                            {
+                                totalHours += hours;
+
+                                // Lương theo hệ số lễ hoặc thường
+                                var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
+                                var schedDateStr = hasSchedule ? att.Schedule!.Date.ToString("yyyy-MM-dd") : attDateStr;
+                                HolidayDetail? holiday = null;
+                                if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
+                                else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
+
+                                // Phụ cấp bảo vệ nếu ca trực được gán là bảo vệ
+                                decimal shiftWage = hourlyWage + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0);
+
+                                if (holiday != null)
+                                {
+                                    double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
+                                    baseSalary += (decimal)hours * shiftWage;
+                                    bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                }
+                                else
+                                {
+                                    baseSalary += (decimal)hours * shiftWage;
+                                }
                             }
                         }
 
-                        // Tính đi trễ theo công thức lũy tiến mới (trừ liền khi có check-in)
-                        if (att.CheckInTime > schedStart)
+                        // Tính phạt đi trễ theo công thức lũy tiến mới nếu có lịch trực
+                        if (hasSchedule && att.CheckInTime > schedStart)
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             
-                            string autoKey = $"{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}_penalty";
-                            string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
+                            string autoKey = $"{user.Id}_{att.Schedule!.Date:yyyy-MM-dd}_{att.Schedule!.StartTime.ToString(@"hh\:mm")}_penalty";
+                            string autoRef = $"LATE_{user.Id}_{att.Schedule!.Date:yyyy-MM-dd}_{att.Schedule!.StartTime.ToString(@"hh\:mm")}";
                             bool isOverridden = adjustmentsList.Any(a => 
                                 (a.AutoRef != null && a.AutoRef == autoRef) ||
                                 (a.OverrideKey != null && a.OverrideKey == autoKey) ||
@@ -1244,340 +1294,403 @@ namespace TheMoods.Api.Controllers
                             }
                         }
                     }
-                }
 
-                // Cộng/Trừ các khoản Adjustments riêng cho từng nhân viên
-                var userAdjustments = adjustmentsList
-                    .Where(a => a.EmployeeId == user.Id)
-                    .ToList();
+                    // Cộng/Trừ các khoản Adjustments riêng cho từng nhân viên
+                    var userAdjustments = adjustmentsList
+                        .Where(a => a.EmployeeId == user.Id)
+                        .ToList();
 
-                decimal advance = 0;
-                foreach (var adj in userAdjustments)
-                {
-                    if (DateTime.TryParse(adj.Date, out DateTime adjDate))
+                    decimal advance = 0;
+                    foreach (var adj in userAdjustments)
                     {
-                        if (adjDate.Date >= start && adjDate.Date <= end)
+                        if (DateTime.TryParse(adj.Date, out DateTime adjDate))
                         {
-                            decimal amount = adj.Amount > 0 ? adj.Amount : (decimal)adj.Quantity * adj.AmountPerUnit;
-                            if (adj.Type == "bonus")
+                            if (adjDate.Date >= start && adjDate.Date <= end)
                             {
-                                bonus += amount;
-                            }
-                            else if (adj.Type == "penalty")
-                            {
-                                penalty += amount;
-                            }
-                            else if (adj.Type == "advance")
-                            {
-                                advance += amount;
+                                decimal amount = adj.Amount > 0 ? adj.Amount : (decimal)adj.Quantity * adj.AmountPerUnit;
+                                if (adj.Type == "bonus")
+                                {
+                                    bonus += amount;
+                                }
+                                else if (adj.Type == "penalty")
+                                {
+                                    penalty += amount;
+                                }
+                                else if (adj.Type == "advance")
+                                {
+                                    advance += amount;
+                                }
                             }
                         }
                     }
-                }
 
-                // Tính các loại thưởng và phạt động khác từ database configs (Bonus_ / Penalty_ nếu có)
-                foreach (var config in configs)
-                {
-                    // Thưởng động khác (Bonus_)
-                    if (config.ConfigKey.StartsWith("Bonus_"))
+                    // Tính các loại thưởng và phạt động khác từ database configs (Bonus_ / Penalty_ nếu có)
+                    foreach (var config in configs)
                     {
-                        var valStr = config.ConfigValue;
-                        if (valStr.StartsWith("per_shift:"))
+                        // Thưởng động khác (Bonus_)
+                        if (config.ConfigKey.StartsWith("Bonus_"))
                         {
-                            if (decimal.TryParse(valStr.Substring(10), out decimal val))
+                            var valStr = config.ConfigValue;
+                            if (valStr.StartsWith("per_shift:"))
                             {
-                                bonus += val * userAtts.Count;
+                                if (decimal.TryParse(valStr.Substring(10), out decimal val))
+                                {
+                                    bonus += val * userAtts.Count;
+                                }
+                            }
+                            else
+                            {
+                                if (decimal.TryParse(valStr, out decimal val))
+                                {
+                                    bonus += val;
+                                }
                             }
                         }
-                        else
+                        // Phạt động khác (Penalty_)
+                        else if (config.ConfigKey.StartsWith("Penalty_"))
                         {
-                            if (decimal.TryParse(valStr, out decimal val))
+                            var valStr = config.ConfigValue;
+                            if (valStr.StartsWith("per_shift:"))
                             {
-                                bonus += val;
+                                if (decimal.TryParse(valStr.Substring(10), out decimal val))
+                                {
+                                    penalty += val * userAtts.Count;
+                                }
+                            }
+                            else
+                            {
+                                if (decimal.TryParse(valStr, out decimal val))
+                                {
+                                    penalty += val;
+                                }
                             }
                         }
                     }
-                    // Phạt động khác (Penalty_)
-                    else if (config.ConfigKey.StartsWith("Penalty_"))
+
+                    // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
+                    var userExtensions = allExtensions.Where(se => se.CovererId == user.Id).ToList();
+                    foreach (var ext in userExtensions)
                     {
-                        var valStr = config.ConfigValue;
-                        if (valStr.StartsWith("per_shift:"))
-                        {
-                            if (decimal.TryParse(valStr.Substring(10), out decimal val))
-                            {
-                                penalty += val * userAtts.Count;
-                            }
-                        }
-                        else
-                        {
-                            if (decimal.TryParse(valStr, out decimal val))
-                            {
-                                penalty += val;
-                            }
-                        }
+                        totalHours += ext.Hours;
+                        baseSalary += ext.Amount;
                     }
-                }
 
-                // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
-                var userExtensions = allExtensions.Where(se => se.CovererId == user.Id).ToList();
-                foreach (var ext in userExtensions)
-                {
-                    totalHours += ext.Hours;
-                    baseSalary += ext.Amount;
-                }
+                    // Tổng cộng lương
+                    decimal finalAmount = baseSalary + bonus - penalty - advance;
 
-                // Tổng cộng lương
-                decimal finalAmount = baseSalary + bonus - penalty - advance;
+                    var detailsList = new List<object>();
 
-                var detailsList = new List<object>();
-
-                foreach (var ext in userExtensions)
-                {
-                    detailsList.Add(new {
-                        attId = "ext-" + ext.Id,
-                        isExtension = true,
-                        date = ext.Date.ToString("yyyy-MM-dd"),
-                        checkIn = ext.Date.ToString("yyyy-MM-dd") + " (Kéo ca)",
-                        checkOut = $"{ext.DurationMinutes} phút",
-                        schedStart = "--:--",
-                        schedEnd = "--:--",
-                        checkInLimit = "",
-                        checkOutLimit = "",
-                        hours = ext.Hours,
-                        rawHours = ext.Hours,
-                        isSecurity = false,
-                        securityAllowancePerHour = (decimal)0,
-                        note = ext.Note,
-                        requesterName = ext.Requester?.FullName,
-                        extensionAmount = ext.Amount
-                    });
-                }
-
-                foreach (var a in userAtts)
-                {
-                    if (a.Schedule != null)
+                    foreach (var ext in userExtensions)
                     {
-                        var baseDate = a.Schedule.Date.Date;
-                        var schedStart = baseDate.Add(a.Schedule.StartTime);
-                        var schedEnd = baseDate.Add(a.Schedule.EndTime);
-                        if (a.Schedule.EndTime < a.Schedule.StartTime) schedEnd = schedEnd.AddDays(1);
-                        var checkInLimit = a.CheckInTime < schedStart ? schedStart : a.CheckInTime;
-                        var checkOutLimit = a.CheckOutTime != null ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : DateTime.MinValue;
+                        detailsList.Add(new {
+                            attId = "ext-" + ext.Id,
+                            isExtension = true,
+                            date = ext.Date.ToString("yyyy-MM-dd"),
+                            checkIn = ext.Date.ToString("yyyy-MM-dd") + " (Kéo ca)",
+                            checkOut = $"{ext.DurationMinutes} phút",
+                            schedStart = "--:--",
+                            schedEnd = "--:--",
+                            checkInLimit = "",
+                            checkOutLimit = "",
+                            hours = ext.Hours,
+                            rawHours = ext.Hours,
+                            isSecurity = false,
+                            securityAllowancePerHour = (decimal)0,
+                            note = ext.Note,
+                            requesterName = ext.Requester?.FullName,
+                            extensionAmount = ext.Amount
+                        });
+                    }
+
+                    foreach (var a in userAtts)
+                    {
+                        var hasSched = a.Schedule != null;
+                        var baseDate = hasSched ? a.Schedule!.Date.Date : a.CheckInTime.Date;
+                        var schedStart = hasSched ? baseDate.Add(a.Schedule!.StartTime) : DateTime.MinValue;
+                        var schedEnd = hasSched ? baseDate.Add(a.Schedule!.EndTime) : DateTime.MinValue;
+                        if (hasSched && a.Schedule!.EndTime < a.Schedule!.StartTime) schedEnd = schedEnd.AddDays(1);
+
+                        var checkInLimit = hasSched ? (a.CheckInTime < schedStart ? schedStart : a.CheckInTime) : a.CheckInTime;
+                        var checkOutLimit = a.CheckOutTime != null ? (hasSched ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : a.CheckOutTime.Value) : DateTime.MinValue;
                         var rawHrs = a.CheckOutTime != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
+                        if (rawHrs <= 0 && a.CheckOutTime != null && a.CheckOutTime.Value > a.CheckInTime)
+                        {
+                            var actualDur = (a.CheckOutTime.Value - a.CheckInTime).TotalHours;
+                            var nominalDur = hasSched ? (schedEnd - schedStart).TotalHours : actualDur;
+                            if (nominalDur <= 0 && hasSched) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
+                            rawHrs = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
+                        }
                         if (rawHrs < 0) rawHrs = 0;
-                        var hrs = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero);
+
+                        var wholeH = Math.Floor(rawHrs);
+                        var remM = (rawHrs - wholeH) * 60.0;
+                        var hrs = remM >= 30.0 ? wholeH + 1.0 : wholeH;
 
                         detailsList.Add(new {
                             attId = a.Id,
                             checkIn = a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
                             checkOut = a.CheckOutTime?.ToString("yyyy-MM-dd HH:mm:ss"),
-                            schedStart = schedStart.ToString("yyyy-MM-dd HH:mm:ss"),
-                            schedEnd = schedEnd.ToString("yyyy-MM-dd HH:mm:ss"),
-                            checkInLimit = checkInLimit.ToString("yyyy-MM-dd HH:mm:ss"),
-                            checkOutLimit = checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss"),
+                            schedStart = hasSched ? schedStart.ToString("yyyy-MM-dd HH:mm:ss") : "--:--",
+                            schedEnd = hasSched ? schedEnd.ToString("yyyy-MM-dd HH:mm:ss") : "--:--",
+                            checkInLimit = hasSched ? checkInLimit.ToString("yyyy-MM-dd HH:mm:ss") : a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                            checkOutLimit = checkOutLimit != DateTime.MinValue ? checkOutLimit.ToString("yyyy-MM-dd HH:mm:ss") : "",
                             hours = hrs,
                             rawHours = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero),
                             isSecurity = a.Schedule?.IsSecurity ?? false,
                             securityAllowancePerHour = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0
                         });
                     }
+
+                    payrolls.Add(new
+                    {
+                        userId = user.Id,
+                        fullName = user.FullName,
+                        phoneNumber = user.PhoneNumber,
+                        hourlyWage,
+                        totalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
+                        baseSalary = Math.Round(baseSalary),
+                        totalBonus = Math.Round(bonus),
+                        totalPenalty = Math.Round(penalty),
+                        totalAdvance = Math.Round(advance),
+                        finalAmount = Math.Round(finalAmount),
+                        details = detailsList
+                    });
                 }
 
-                payrolls.Add(new
-                {
-                    userId = user.Id,
-                    fullName = user.FullName,
-                    phoneNumber = user.PhoneNumber,
-                    hourlyWage,
-                    totalWorkedHours = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero),
-                    baseSalary = Math.Round(baseSalary),
-                    totalBonus = Math.Round(bonus),
-                    totalPenalty = Math.Round(penalty),
-                    totalAdvance = Math.Round(advance),
-                    finalAmount = Math.Round(finalAmount),
-                    details = detailsList
-                });
+                return Ok(payrolls);
             }
-
-            return Ok(payrolls);
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi tính bảng lương: " + ex.Message });
+            }
         }
 
         // 11. Xuất báo cáo bảng lương ra định dạng Excel (.xlsx)
         [HttpGet("payroll/export")]
-        public async Task<IActionResult> ExportPayroll([FromQuery] string locationId, [FromQuery] string fromDate, [FromQuery] string toDate)
+        public async Task<IActionResult> ExportPayroll([FromQuery] string? locationId = null, [FromQuery] string? fromDate = null, [FromQuery] string? toDate = null)
         {
-            if (string.IsNullOrEmpty(locationId)) locationId = "govap-branch";
-            var start = DateTime.Parse(fromDate).Date;
-            var end = DateTime.Parse(toDate).Date;
-
-            // Load configs
-            var configs = await _context.PayrollConfigs.Where(c => c.LocationId == locationId && c.IsActive).ToListAsync();
-            
-            var startMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyStartMinutes")?.ConfigValue;
-            var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
-            var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
-            var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
-            var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
-
-            int startMins = 10;
-            decimal baseAmt = 50000;
-            int intervalMins = 10;
-            double multiplier = 2;
-            decimal maxAmt = 500000;
-
-            if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
-            if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
-            if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
-            if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
-            if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
-
-            var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
-            decimal securityAllowancePerHour = 2000;
-            if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
-
-            // Parse Holidays_Detailed
-            var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
-            var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
-            if (!string.IsNullOrEmpty(holidaysDetailedStr))
+            try
             {
-                try
+                if (string.IsNullOrWhiteSpace(locationId) || locationId == "null" || locationId == "undefined") 
+                    locationId = "govap-branch";
+
+                DateTime start;
+                if (!DateTime.TryParse(fromDate, out start))
                 {
-                    var detailedList = JsonSerializer.Deserialize<List<HolidayDetail>>(holidaysDetailedStr);
-                    if (detailedList != null)
+                    start = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                }
+                start = start.Date;
+
+                DateTime end;
+                if (!DateTime.TryParse(toDate, out end))
+                {
+                    end = start.AddMonths(1).AddDays(-1);
+                }
+                end = end.Date;
+
+                // Load configs
+                var configs = await _context.PayrollConfigs.Where(c => c.LocationId == locationId && c.IsActive).ToListAsync();
+                
+                var startMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyStartMinutes")?.ConfigValue;
+                var baseAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyBaseAmount")?.ConfigValue;
+                var intervalMinsConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyIntervalMinutes")?.ConfigValue;
+                var multiplierConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMultiplier")?.ConfigValue;
+                var maxAmtConfig = configs.FirstOrDefault(c => c.ConfigKey == "LatePenaltyMaxAmount")?.ConfigValue;
+
+                int startMins = 10;
+                decimal baseAmt = 50000;
+                int intervalMins = 10;
+                double multiplier = 2;
+                decimal maxAmt = 500000;
+
+                if (int.TryParse(startMinsConfig, out int parsedStart)) startMins = parsedStart;
+                if (decimal.TryParse(baseAmtConfig, out decimal parsedBase)) baseAmt = parsedBase;
+                if (int.TryParse(intervalMinsConfig, out int parsedInterval)) intervalMins = parsedInterval;
+                if (double.TryParse(multiplierConfig, out double parsedMultiplier)) multiplier = parsedMultiplier;
+                if (decimal.TryParse(maxAmtConfig, out decimal parsedMax)) maxAmt = parsedMax;
+
+                var securityAllowanceConfig = configs.FirstOrDefault(c => c.ConfigKey == "SecurityAllowancePerHour")?.ConfigValue;
+                decimal securityAllowancePerHour = 2000;
+                if (decimal.TryParse(securityAllowanceConfig, out decimal parsedSec)) securityAllowancePerHour = parsedSec;
+
+                // Parse Holidays_Detailed
+                var holidaysDetailedStr = configs.FirstOrDefault(c => c.ConfigKey == "Holidays_Detailed")?.ConfigValue;
+                var holidayMap = new Dictionary<string, HolidayDetail>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrEmpty(holidaysDetailedStr))
+                {
+                    try
                     {
-                        foreach (var h in detailedList)
+                        var detailedList = JsonSerializer.Deserialize<List<HolidayDetail>>(holidaysDetailedStr);
+                        if (detailedList != null)
                         {
-                            if (DateTime.TryParse(h.Date, out DateTime hDate))
+                            foreach (var h in detailedList)
                             {
-                                var dateKey = hDate.ToString("yyyy-MM-dd");
-                                holidayMap[dateKey] = h;
+                                if (DateTime.TryParse(h.Date, out DateTime hDate))
+                                {
+                                    var dateKey = hDate.ToString("yyyy-MM-dd");
+                                    holidayMap[dateKey] = h;
+                                }
                             }
                         }
                     }
+                    catch { }
                 }
-                catch { }
-            }
 
-            var adjustmentsStr = configs.FirstOrDefault(c => c.ConfigKey == "Adjustments")?.ConfigValue;
-            var adjustmentsList = new List<PayrollAdjustment>();
-            if (!string.IsNullOrEmpty(adjustmentsStr))
-            {
+                var adjustmentsStr = configs.FirstOrDefault(c => c.ConfigKey == "Adjustments")?.ConfigValue;
+                var adjustmentsList = new List<PayrollAdjustment>();
+                if (!string.IsNullOrEmpty(adjustmentsStr))
+                {
+                    try
+                    {
+                        adjustmentsList = JsonSerializer.Deserialize<List<PayrollAdjustment>>(adjustmentsStr) ?? new List<PayrollAdjustment>();
+                    }
+                    catch { }
+                }
+
+                var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
+                decimal defaultShiftBonus = 0;
+                decimal.TryParse(activeBonusStr, out defaultShiftBonus);
+
+                var users = await _context.Users
+                    .Include(u => u.UserLocations)
+                    .Include(u => u.Attendances).ThenInclude(a => a.Schedule)
+                    .Include(u => u.OfficialSchedules)
+                    .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted)
+                    .ToListAsync();
+
+                users = users.Where(u => 
+                    u.UserLocations.Any(ul => ul.LocationId == locationId) || 
+                    u.Attendances.Any(a => a.LocationId == locationId || (a.Schedule != null && a.Schedule.LocationId == locationId)) ||
+                    u.OfficialSchedules.Any(s => s.LocationId == locationId)
+                ).ToList();
+
+                using var workbook = new ClosedXML.Excel.XLWorkbook();
+                var ws = workbook.Worksheets.Add("Bang Luong Chi Nhanh");
+
+                // Header row
+                ws.Cell(1, 1).Value = "Họ tên";
+                ws.Cell(1, 2).Value = "Số điện thoại";
+                ws.Cell(1, 3).Value = "Lương/giờ";
+                ws.Cell(1, 4).Value = "Tổng giờ làm";
+                ws.Cell(1, 5).Value = "Lương cơ bản";
+                ws.Cell(1, 6).Value = "Thưởng";
+                ws.Cell(1, 7).Value = "Phạt đi trễ";
+                ws.Cell(1, 8).Value = "Tạm ứng";
+                ws.Cell(1, 9).Value = "Lương thực nhận";
+
+                var headerRange = ws.Range(1, 1, 1, 9);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#7c4831");
+                headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
+                headerRange.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
+
+                var allExcelExtensions = new List<ShiftExtension>();
                 try
                 {
-                    adjustmentsList = JsonSerializer.Deserialize<List<PayrollAdjustment>>(adjustmentsStr) ?? new List<PayrollAdjustment>();
+                    var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+                    var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                    allExcelExtensions = await _context.ShiftExtensions
+                        .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
+                        .ToListAsync();
                 }
-                catch { }
-            }
-
-            var activeBonusStr = configs.FirstOrDefault(c => c.ConfigKey == "ActiveBonus")?.ConfigValue ?? "100000";
-            decimal defaultShiftBonus = 0;
-            decimal.TryParse(activeBonusStr, out defaultShiftBonus);
-
-            var users = await _context.Users
-                .Include(u => u.UserLocations)
-                .Include(u => u.Attendances).ThenInclude(a => a.Schedule)
-                .Where(u => (u.RoleId == 1 || u.RoleId == 2 || u.RoleId == 3) && !u.IsDeleted)
-                .ToListAsync();
-
-            users = users.Where(u => 
-                u.UserLocations.Any(ul => ul.LocationId == locationId) || 
-                u.Attendances.Any(a => a.LocationId == locationId)
-            ).ToList();
-
-            using var workbook = new ClosedXML.Excel.XLWorkbook();
-            var ws = workbook.Worksheets.Add("Bang Luong Chi Nhanh");
-
-            // Header row
-            ws.Cell(1, 1).Value = "Họ tên";
-            ws.Cell(1, 2).Value = "Số điện thoại";
-            ws.Cell(1, 3).Value = "Lương/giờ";
-            ws.Cell(1, 4).Value = "Tổng giờ làm";
-            ws.Cell(1, 5).Value = "Lương cơ bản";
-            ws.Cell(1, 6).Value = "Thưởng";
-            ws.Cell(1, 7).Value = "Phạt đi trễ";
-            ws.Cell(1, 8).Value = "Tạm ứng";
-            ws.Cell(1, 9).Value = "Lương thực nhận";
-
-            var headerRange = ws.Range(1, 1, 1, 9);
-            headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#7c4831");
-            headerRange.Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
-            headerRange.Style.Alignment.Horizontal = ClosedXML.Excel.XLAlignmentHorizontalValues.Center;
-
-            var startUtc = DateTime.SpecifyKind(start, DateTimeKind.Utc);
-            var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-            var allExcelExtensions = await _context.ShiftExtensions
-                .Where(se => se.LocationId == locationId && se.Status == "approved" && se.Date >= startUtc && se.Date <= endUtc)
-                .ToListAsync();
-
-            int rowIdx = 2;
-            foreach (var user in users)
-            {
-                var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
-                decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
-
-                var userAtts = user.Attendances
-                    .Where(a => a.CheckInTime.Date >= start && a.CheckInTime.Date <= end && a.LocationId == locationId)
-                    .ToList();
-
-                double totalHours = 0;
-                decimal baseSalary = 0;
-                decimal penalty = 0;
-                decimal bonus = 0;
-
-                foreach (var att in userAtts)
+                catch
                 {
-                    if (att.Schedule != null)
+                    allExcelExtensions = new List<ShiftExtension>();
+                }
+
+                int rowIdx = 2;
+                foreach (var user in users)
+                {
+                    var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
+                    decimal hourlyWage = userLoc?.HourlyWage ?? 25000;
+
+                    var userAtts = user.Attendances
+                        .Where(a => a.CheckInTime.Date >= start && a.CheckInTime.Date <= end && 
+                                   (a.LocationId == locationId || (a.Schedule != null && a.Schedule.LocationId == locationId)))
+                        .ToList();
+
+                    double totalHours = 0;
+                    decimal baseSalary = 0;
+                    decimal penalty = 0;
+                    decimal bonus = 0;
+
+                    foreach (var att in userAtts)
                     {
-                        var baseDate = att.Schedule.Date.Date;
-                        var schedStart = DateTime.SpecifyKind(baseDate.Add(att.Schedule.StartTime), att.CheckInTime.Kind);
-                        var schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), att.CheckInTime.Kind);
-                        if (att.Schedule.EndTime < att.Schedule.StartTime)
+                        DateTime schedStart = DateTime.MinValue;
+                        DateTime schedEnd = DateTime.MinValue;
+                        bool hasSchedule = att.Schedule != null;
+
+                        if (hasSchedule)
                         {
-                            schedEnd = schedEnd.AddDays(1);
+                            var baseDate = att.Schedule!.Date.Date;
+                            schedStart = DateTime.SpecifyKind(baseDate.Add(att.Schedule.StartTime), att.CheckInTime.Kind);
+                            schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), att.CheckInTime.Kind);
+                            if (att.Schedule.EndTime < att.Schedule.StartTime)
+                            {
+                                schedEnd = schedEnd.AddDays(1);
+                            }
                         }
 
                         if (att.CheckOutTime != null)
                         {
-                            var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
-                            var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
-                            var rawHours = (checkOutLimit - checkInLimit).TotalHours;
-                            if (rawHours < 0) rawHours = 0;
-
-                            // Giờ làm thực tế (làm tròn 1 chữ số thập phân: ví dụ 1.1h, 1.2h)
-                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
-                            if (hours <= 0) continue;
-
-                            totalHours += hours;
-
-                            // Lương theo hệ số lễ hoặc thường
-                            var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
-                            var schedDateStr = att.Schedule.Date.ToString("yyyy-MM-dd");
-                            HolidayDetail? holiday = null;
-                            if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
-                            else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
-
-                            decimal shiftWage = hourlyWage + ((att.Schedule != null && att.Schedule.IsSecurity) ? securityAllowancePerHour : 0);
-
-                            if (holiday != null)
+                            double rawHours = 0;
+                            if (hasSchedule)
                             {
-                                double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
-                                baseSalary += (decimal)hours * shiftWage;
-                                bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
+                                var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
+                                rawHours = (checkOutLimit - checkInLimit).TotalHours;
+
+                                if (rawHours <= 0 && att.CheckOutTime.Value > att.CheckInTime)
+                                {
+                                    var actualDur = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                    var nominalDur = (schedEnd - schedStart).TotalHours;
+                                    if (nominalDur <= 0) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
+                                    rawHours = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
+                                }
                             }
                             else
                             {
-                                baseSalary += (decimal)hours * shiftWage;
+                                rawHours = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                            }
+
+                            if (rawHours < 0) rawHours = 0;
+
+                            var wholeH = Math.Floor(rawHours);
+                            var remMins = (rawHours - wholeH) * 60.0;
+                            var hours = remMins >= 30.0 ? wholeH + 1.0 : wholeH;
+
+                            if (hours > 0)
+                            {
+                                totalHours += hours;
+
+                                var attDateStr = att.CheckInTime.ToString("yyyy-MM-dd");
+                                var schedDateStr = hasSchedule ? att.Schedule!.Date.ToString("yyyy-MM-dd") : attDateStr;
+                                HolidayDetail? holiday = null;
+                                if (holidayMap.ContainsKey(attDateStr)) holiday = holidayMap[attDateStr];
+                                else if (holidayMap.ContainsKey(schedDateStr)) holiday = holidayMap[schedDateStr];
+
+                                decimal shiftWage = hourlyWage + ((hasSchedule && att.Schedule!.IsSecurity) ? securityAllowancePerHour : 0);
+
+                                if (holiday != null)
+                                {
+                                    double mult = holiday.Multiplier > 0 ? holiday.Multiplier : 1.0;
+                                    baseSalary += (decimal)hours * shiftWage;
+                                    bonus += (decimal)hours * shiftWage * (decimal)(mult - 1.0) + holiday.FlatBonus;
+                                }
+                                else
+                                {
+                                    baseSalary += (decimal)hours * shiftWage;
+                                }
                             }
                         }
 
-                        if (att.CheckInTime > schedStart)
+                        if (hasSchedule && att.CheckInTime > schedStart)
                         {
                             var lateMin = (att.CheckInTime - schedStart).TotalMinutes;
                             var latePenaltyAmt = CalculateLatePenalty(lateMin, startMins, baseAmt, intervalMins, multiplier, maxAmt);
                             
-                            string autoKey = $"{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}_penalty";
-                            string autoRef = $"LATE_{user.Id}_{att.Schedule.Date:yyyy-MM-dd}_{att.Schedule.StartTime.ToString(@"hh\:mm")}";
+                            string autoKey = $"{user.Id}_{att.Schedule!.Date:yyyy-MM-dd}_{att.Schedule!.StartTime.ToString(@"hh\:mm")}_penalty";
+                            string autoRef = $"LATE_{user.Id}_{att.Schedule!.Date:yyyy-MM-dd}_{att.Schedule!.StartTime.ToString(@"hh\:mm")}";
                             bool isOverridden = adjustmentsList.Any(a => 
                                 (a.AutoRef != null && a.AutoRef == autoRef) ||
                                 (a.OverrideKey != null && a.OverrideKey == autoKey) ||
@@ -1591,89 +1704,93 @@ namespace TheMoods.Api.Controllers
                             }
                         }
                     }
-                }
 
-                var userAdjustments = adjustmentsList
-                    .Where(a => a.EmployeeId == user.Id)
-                    .ToList();
+                    var userAdjustments = adjustmentsList
+                        .Where(a => a.EmployeeId == user.Id)
+                        .ToList();
 
-                decimal advance = 0;
-                foreach (var adj in userAdjustments)
-                {
-                    if (DateTime.TryParse(adj.Date, out DateTime adjDate))
+                    decimal advance = 0;
+                    foreach (var adj in userAdjustments)
                     {
-                        if (adjDate.Date >= start && adjDate.Date <= end)
+                        if (DateTime.TryParse(adj.Date, out DateTime adjDate))
                         {
-                            decimal amount = adj.Amount > 0 ? adj.Amount : (decimal)adj.Quantity * adj.AmountPerUnit;
-                            if (adj.Type == "bonus") bonus += amount;
-                            else if (adj.Type == "penalty") penalty += amount;
-                            else if (adj.Type == "advance") advance += amount;
+                            if (adjDate.Date >= start && adjDate.Date <= end)
+                            {
+                                decimal amount = adj.Amount > 0 ? adj.Amount : (decimal)adj.Quantity * adj.AmountPerUnit;
+                                if (adj.Type == "bonus") bonus += amount;
+                                else if (adj.Type == "penalty") penalty += amount;
+                                else if (adj.Type == "advance") advance += amount;
+                            }
                         }
                     }
-                }
 
-                foreach (var config in configs)
-                {
-                    if (config.ConfigKey.StartsWith("Bonus_"))
+                    foreach (var config in configs)
                     {
-                        var valStr = config.ConfigValue;
-                        if (valStr.StartsWith("per_shift:"))
+                        if (config.ConfigKey.StartsWith("Bonus_"))
                         {
-                            if (decimal.TryParse(valStr.Substring(10), out decimal val)) bonus += val * userAtts.Count;
+                            var valStr = config.ConfigValue;
+                            if (valStr.StartsWith("per_shift:"))
+                            {
+                                if (decimal.TryParse(valStr.Substring(10), out decimal val)) bonus += val * userAtts.Count;
+                            }
+                            else
+                            {
+                                if (decimal.TryParse(valStr, out decimal val)) bonus += val;
+                            }
                         }
-                        else
+                        else if (config.ConfigKey.StartsWith("Penalty_"))
                         {
-                            if (decimal.TryParse(valStr, out decimal val)) bonus += val;
+                            var valStr = config.ConfigValue;
+                            if (valStr.StartsWith("per_shift:"))
+                            {
+                                if (decimal.TryParse(valStr.Substring(10), out decimal val)) penalty += val * userAtts.Count;
+                            }
+                            else
+                            {
+                                if (decimal.TryParse(valStr, out decimal val)) penalty += val;
+                            }
                         }
                     }
-                    else if (config.ConfigKey.StartsWith("Penalty_"))
+
+                    // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
+                    var userExcelExts = allExcelExtensions.Where(se => se.CovererId == user.Id).ToList();
+                    foreach (var ext in userExcelExts)
                     {
-                        var valStr = config.ConfigValue;
-                        if (valStr.StartsWith("per_shift:"))
-                        {
-                            if (decimal.TryParse(valStr.Substring(10), out decimal val)) penalty += val * userAtts.Count;
-                        }
-                        else
-                        {
-                            if (decimal.TryParse(valStr, out decimal val)) penalty += val;
-                        }
+                        totalHours += ext.Hours;
+                        baseSalary += ext.Amount;
                     }
+
+                    decimal finalAmount = baseSalary + bonus - penalty - advance;
+
+                    ws.Cell(rowIdx, 1).Value = user.FullName;
+                    ws.Cell(rowIdx, 2).Value = user.PhoneNumber;
+                    ws.Cell(rowIdx, 3).Value = hourlyWage;
+                    ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero);
+                    ws.Cell(rowIdx, 5).Value = Math.Round(baseSalary);
+                    ws.Cell(rowIdx, 6).Value = Math.Round(bonus);
+                    ws.Cell(rowIdx, 7).Value = Math.Round(penalty);
+                    ws.Cell(rowIdx, 8).Value = Math.Round(advance);
+                    ws.Cell(rowIdx, 9).Value = Math.Round(finalAmount);
+
+                    rowIdx++;
                 }
 
-                // Cộng thêm giờ và tiền từ ca kéo ca (làm thêm)
-                var userExcelExts = allExcelExtensions.Where(se => se.CovererId == user.Id).ToList();
-                foreach (var ext in userExcelExts)
-                {
-                    totalHours += ext.Hours;
-                    baseSalary += ext.Amount;
-                }
+                ws.Columns().AdjustToContents();
 
-                decimal finalAmount = baseSalary + bonus - penalty - advance;
+                using var stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                stream.Position = 0;
 
-                ws.Cell(rowIdx, 1).Value = user.FullName;
-                ws.Cell(rowIdx, 2).Value = user.PhoneNumber;
-                ws.Cell(rowIdx, 3).Value = hourlyWage;
-                ws.Cell(rowIdx, 4).Value = Math.Round(totalHours, 1, MidpointRounding.AwayFromZero);
-                ws.Cell(rowIdx, 5).Value = Math.Round(baseSalary);
-                ws.Cell(rowIdx, 6).Value = Math.Round(bonus);
-                ws.Cell(rowIdx, 7).Value = Math.Round(penalty);
-                ws.Cell(rowIdx, 8).Value = Math.Round(advance);
-                ws.Cell(rowIdx, 9).Value = Math.Round(finalAmount);
-
-                rowIdx++;
+                return File(
+                    stream.ToArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    $"BangLuong_{locationId}_{start:yyyy-MM-dd}_to_{end:yyyy-MM-dd}.xlsx"
+                );
             }
-
-            ws.Columns().AdjustToContents();
-
-            using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
-            stream.Position = 0;
-
-            return File(
-                stream.ToArray(),
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                $"BangLuong_{locationId}_{fromDate}_to_{toDate}.xlsx"
-            );
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi xuất bảng lương: " + ex.Message });
+            }
         }
 
 
@@ -2469,43 +2586,50 @@ namespace TheMoods.Api.Controllers
 
         // 12b. Lấy danh sách các ca kéo ca (làm thêm) của chi nhánh
         [HttpGet("shift-extensions")]
-        public async Task<IActionResult> GetShiftExtensions([FromQuery] string locationId, [FromQuery] string? fromDate, [FromQuery] string? toDate)
+        public async Task<IActionResult> GetShiftExtensions([FromQuery] string? locationId, [FromQuery] string? fromDate, [FromQuery] string? toDate)
         {
-            if (string.IsNullOrEmpty(locationId)) return BadRequest(new { message = "locationId is required" });
+            if (string.IsNullOrEmpty(locationId)) locationId = "govap-branch";
 
-            var query = _context.ShiftExtensions
-                .Include(se => se.Requester)
-                .Include(se => se.Coverer)
-                .Where(se => se.LocationId == locationId);
-
-            if (!string.IsNullOrEmpty(fromDate) && DateTime.TryParse(fromDate, out var fDate))
+            try
             {
-                var fDateUtc = DateTime.SpecifyKind(fDate.Date, DateTimeKind.Utc);
-                query = query.Where(se => se.Date >= fDateUtc);
+                var query = _context.ShiftExtensions
+                    .Include(se => se.Requester)
+                    .Include(se => se.Coverer)
+                    .Where(se => se.LocationId == locationId);
+
+                if (!string.IsNullOrEmpty(fromDate) && DateTime.TryParse(fromDate, out var fDate))
+                {
+                    var fDateUtc = DateTime.SpecifyKind(fDate.Date, DateTimeKind.Utc);
+                    query = query.Where(se => se.Date >= fDateUtc);
+                }
+                if (!string.IsNullOrEmpty(toDate) && DateTime.TryParse(toDate, out var tDate))
+                {
+                    var tDateUtc = DateTime.SpecifyKind(tDate.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                    query = query.Where(se => se.Date <= tDateUtc);
+                }
+
+                var list = await query.OrderByDescending(se => se.Date).ToListAsync();
+                return Ok(list.Select(se => new
+                {
+                    id = se.Id,
+                    date = se.Date.ToString("yyyy-MM-dd"),
+                    requesterId = se.RequesterId,
+                    requesterName = se.Requester?.FullName,
+                    covererId = se.CovererId,
+                    covererName = se.Coverer?.FullName,
+                    durationMinutes = se.DurationMinutes,
+                    hours = se.Hours,
+                    hourlyWage = se.HourlyWage,
+                    amount = se.Amount,
+                    note = se.Note,
+                    status = se.Status,
+                    createdAt = se.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                }));
             }
-            if (!string.IsNullOrEmpty(toDate) && DateTime.TryParse(toDate, out var tDate))
+            catch
             {
-                var tDateUtc = DateTime.SpecifyKind(tDate.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-                query = query.Where(se => se.Date <= tDateUtc);
+                return Ok(new List<object>());
             }
-
-            var list = await query.OrderByDescending(se => se.Date).ToListAsync();
-            return Ok(list.Select(se => new
-            {
-                id = se.Id,
-                date = se.Date.ToString("yyyy-MM-dd"),
-                requesterId = se.RequesterId,
-                requesterName = se.Requester?.FullName,
-                covererId = se.CovererId,
-                covererName = se.Coverer?.FullName,
-                durationMinutes = se.DurationMinutes,
-                hours = se.Hours,
-                hourlyWage = se.HourlyWage,
-                amount = se.Amount,
-                note = se.Note,
-                status = se.Status,
-                createdAt = se.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")
-            }));
         }
 
         // DTOs
@@ -2811,16 +2935,20 @@ namespace TheMoods.Api.Controllers
                 }
 
                 // Cộng thêm giờ kéo ca từ ShiftExtensions
-                var startCalcUtc = DateTime.SpecifyKind(startCalc, DateTimeKind.Utc);
-                var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
-                var userCalcExts = await _context.ShiftExtensions
-                    .Where(se => se.CovererId == user.Id && se.Status == "approved" && se.Date >= startCalcUtc && se.Date <= endUtc)
-                    .ToListAsync();
-                foreach (var ext in userCalcExts)
+                try
                 {
-                    totalHours += ext.Hours;
-                    baseSalary += ext.Amount;
+                    var startCalcUtc = DateTime.SpecifyKind(startCalc, DateTimeKind.Utc);
+                    var endUtc = DateTime.SpecifyKind(end.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+                    var userCalcExts = await _context.ShiftExtensions
+                        .Where(se => se.CovererId == user.Id && se.Status == "approved" && se.Date >= startCalcUtc && se.Date <= endUtc)
+                        .ToListAsync();
+                    foreach (var ext in userCalcExts)
+                    {
+                        totalHours += ext.Hours;
+                        baseSalary += ext.Amount;
+                    }
                 }
+                catch { }
 
                 decimal finalAmount = baseSalary + bonus - penalty - advance;
 
