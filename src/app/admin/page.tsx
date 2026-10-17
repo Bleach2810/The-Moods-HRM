@@ -152,6 +152,10 @@ export default function AdminPortal() {
   const [manualCustomTimes, setManualCustomTimes] = useState(false);
   const [showManualLogModal, setShowManualLogModal] = useState(false);
   const [manualStaffId, setManualStaffId] = useState("");
+  const [manualStaffSearch, setManualStaffSearch] = useState("");
+  const [dailyStaffSearches, setDailyStaffSearches] = useState<{ [key: string]: string }>({});
+  const [adjStaffSearch, setAdjStaffSearch] = useState("");
+  const [wageStaffSearch, setWageStaffSearch] = useState("");
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [manualStartTime, setManualStartTime] = useState("08:00");
   const [manualEndTime, setManualEndTime] = useState("16:00");
@@ -3188,6 +3192,28 @@ export default function AdminPortal() {
                               <span className="text-[10px] sm:text-[11px] font-black uppercase text-[#7c4831] tracking-wider block">
                                 Xếp ca tùy chỉnh:
                               </span>
+
+                              {/* Box tìm kiếm nhân viên */}
+                              <div className="relative">
+                                <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  placeholder="🔍 Tìm nhanh tên nhân viên..."
+                                  value={dailyStaffSearches[prefixId] || ""}
+                                  onChange={e => setDailyStaffSearches(prev => ({ ...prev, [prefixId]: e.target.value }))}
+                                  className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold bg-white border border-stone-250 rounded-xl focus:border-[#7c4831] focus:outline-none placeholder:text-stone-400"
+                                />
+                                {dailyStaffSearches[prefixId] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDailyStaffSearches(prev => ({ ...prev, [prefixId]: "" }))}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs font-black cursor-pointer p-0.5"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+
                               <div className="grid grid-cols-2 gap-2">
                                 <select
                                   id={`assign-staff-${prefixId}`}
@@ -3195,9 +3221,25 @@ export default function AdminPortal() {
                                   defaultValue=""
                                 >
                                   <option value="">-- Chọn nhân sự --</option>
-                                  {staffOnly.map((s: any) => (
-                                    <option key={s.id} value={s.id}>{s.fullName}</option>
-                                  ))}
+                                  {[...staffOnly]
+                                    .filter((s: any) => {
+                                      const q = (dailyStaffSearches[prefixId] || "").trim().toLowerCase();
+                                      if (!q) return true;
+                                      return (s.fullName || "").toLowerCase().includes(q) || (s.phoneNumber || s.phone || "").includes(q);
+                                    })
+                                    .sort((a: any, b: any) => {
+                                      const aAvail = devAvailsList.some((av: any) => av.userId === a.id && av.date === selectedDayDetail && !av.isOff) ? 1 : 0;
+                                      const bAvail = devAvailsList.some((av: any) => av.userId === b.id && av.date === selectedDayDetail && !av.isOff) ? 1 : 0;
+                                      return bAvail - aAvail;
+                                    })
+                                    .map((s: any) => {
+                                      const isAvail = devAvailsList.some((a: any) => a.userId === s.id && a.date === selectedDayDetail && !a.isOff);
+                                      return (
+                                        <option key={s.id} value={s.id}>
+                                          {isAvail ? "⭐ " : ""}{s.fullName}
+                                        </option>
+                                      );
+                                    })}
                                 </select>
 
                                 <div className="space-y-0.5">
@@ -3387,24 +3429,70 @@ export default function AdminPortal() {
                   <form onSubmit={handleManualLogSubmit} className="space-y-4 text-xs font-semibold text-[#4B3621] overflow-y-auto pr-1 flex-grow">
                     {/* 1. Chọn Nhân viên */}
                     <div className="space-y-1.5">
-                      <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
-                        {isSchedule ? "1. Nhân viên được phân ca *" : "1. Nhân viên nhận công *"}
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-black uppercase text-gray-500 tracking-wider block">
+                          {isSchedule ? "1. Nhân viên được phân ca *" : "1. Nhân viên nhận công *"}
+                        </label>
+                        {manualStaffSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setManualStaffSearch("")}
+                            className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer"
+                          >
+                            ✕ Xóa tìm
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Box tìm kiếm nhân viên */}
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="🔍 Gõ tìm nhanh tên nhân viên..."
+                          value={manualStaffSearch}
+                          onChange={e => setManualStaffSearch(e.target.value)}
+                          className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-white border-2 border-stone-200 rounded-xl focus:border-[#7c4831] focus:outline-none transition-all placeholder:text-stone-400"
+                        />
+                        {manualStaffSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setManualStaffSearch("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs font-black cursor-pointer p-0.5"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
                       <select
                         required
                         value={manualStaffId}
                         onChange={e => setManualStaffId(e.target.value)}
-                        className="input w-full text-xs font-bold bg-[#FAF9F6] border-gray-200 py-2.5 rounded-xl cursor-pointer"
+                        className="input w-full text-xs font-bold bg-[#FAF9F6] border-2 border-stone-200 py-2.5 rounded-xl cursor-pointer"
                       >
                         <option value="">-- Bấm chọn nhân viên --</option>
-                        {staffList.map((s: any) => {
-                          const isAvail = devAvailsList.some((a: any) => a.userId === s.id && a.date === manualDate && !a.isOff);
-                          return (
-                            <option key={s.id} value={s.id}>
-                              {isAvail ? "⭐ " : ""}{s.fullName} ({s.phoneNumber || s.phone || "Không SĐT"}){isAvail ? " [ĐÃ ĐĂNG KÝ RẢNH NGÀY NÀY]" : ""}
-                            </option>
-                          );
-                        })}
+                        {[...staffList]
+                          .filter((s: any) => {
+                            if (!manualStaffSearch.trim()) return true;
+                            const q = manualStaffSearch.trim().toLowerCase();
+                            const name = (s.fullName || "").toLowerCase();
+                            const phone = (s.phoneNumber || s.phone || "").toLowerCase();
+                            return name.includes(q) || phone.includes(q);
+                          })
+                          .sort((a: any, b: any) => {
+                            const aAvail = devAvailsList.some((av: any) => av.userId === a.id && av.date === manualDate && !av.isOff) ? 1 : 0;
+                            const bAvail = devAvailsList.some((av: any) => av.userId === b.id && av.date === manualDate && !av.isOff) ? 1 : 0;
+                            return bAvail - aAvail;
+                          })
+                          .map((s: any) => {
+                            const isAvail = devAvailsList.some((a: any) => a.userId === s.id && a.date === manualDate && !a.isOff);
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {isAvail ? "⭐ " : ""}{s.fullName}
+                              </option>
+                            );
+                          })}
                       </select>
                     </div>
 
@@ -5274,7 +5362,37 @@ export default function AdminPortal() {
 
               <form onSubmit={handleAddAdjustment} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân viên áp dụng:</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Nhân viên áp dụng:</label>
+                    {adjStaffSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setAdjStaffSearch("")}
+                        className="text-[9.5px] font-bold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="🔍 Tìm tên nhân viên..."
+                      value={adjStaffSearch}
+                      onChange={e => setAdjStaffSearch(e.target.value)}
+                      className="input w-full pl-7 pr-7 py-1 text-xs font-semibold bg-white border border-stone-250 rounded-xl"
+                    />
+                    {adjStaffSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setAdjStaffSearch("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs font-black cursor-pointer p-0.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                   <select
                     id="new-adj-employee-id"
                     value={newAdjEmployeeId}
@@ -5283,9 +5401,16 @@ export default function AdminPortal() {
                     required
                   >
                     <option value="">-- Chọn nhân viên --</option>
-                    {staffList.filter((s: any) => s.roleId === 3).map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.fullName} ({s.phoneNumber})</option>
-                    ))}
+                    {staffList
+                      .filter((s: any) => s.roleId === 3)
+                      .filter((s: any) => {
+                        if (!adjStaffSearch.trim()) return true;
+                        const q = adjStaffSearch.trim().toLowerCase();
+                        return (s.fullName || "").toLowerCase().includes(q) || (s.phoneNumber || "").includes(q);
+                      })
+                      .map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.fullName} ({s.phoneNumber})</option>
+                      ))}
                   </select>
                 </div>
 
@@ -5885,10 +6010,40 @@ export default function AdminPortal() {
                 </div>
 
                 <form onSubmit={handleSaveWagePeriod} className="space-y-3.5 text-xs font-semibold">
-                  <div>
-                    <label className="block text-[11px] font-bold text-[#7c4831] uppercase mb-1">
-                      Nhân viên <span className="text-red-500">*</span>
-                    </label>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-[#7c4831] uppercase">
+                        Nhân viên <span className="text-red-500">*</span>
+                      </label>
+                      {wageStaffSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setWageStaffSearch("")}
+                          className="text-[9.5px] font-bold text-rose-600 hover:underline cursor-pointer"
+                        >
+                          ✕ Xóa tìm
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        placeholder="🔍 Tìm nhanh tên nhân viên..."
+                        value={wageStaffSearch}
+                        onChange={e => setWageStaffSearch(e.target.value)}
+                        className="w-full pl-7 pr-7 py-1.5 text-xs bg-white border border-gray-250 rounded-xl focus:outline-none focus:border-[#7c4831]"
+                      />
+                      {wageStaffSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setWageStaffSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs font-black cursor-pointer p-0.5"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                     <select
                       value={wageStaffId}
                       onChange={(e) => setWageStaffId(e.target.value)}
@@ -5896,11 +6051,17 @@ export default function AdminPortal() {
                       className="w-full bg-[#FAF9F6] border border-gray-200 rounded-xl p-2.5 text-xs text-[#4B3621] focus:outline-none focus:border-[#7c4831]"
                     >
                       <option value="">-- Chọn nhân viên --</option>
-                      {staffList.map((st: any) => (
-                        <option key={st.id} value={st.id}>
-                          {st.fullName} ({st.role === "admin" ? "Quản lý" : "Nhân viên"}) - Mặc định: {(st.hourlyWage || 25000).toLocaleString("vi-VN")}đ/h
-                        </option>
-                      ))}
+                      {staffList
+                        .filter((st: any) => {
+                          if (!wageStaffSearch.trim()) return true;
+                          const q = wageStaffSearch.trim().toLowerCase();
+                          return (st.fullName || "").toLowerCase().includes(q) || (st.phoneNumber || st.phone || "").includes(q);
+                        })
+                        .map((st: any) => (
+                          <option key={st.id} value={st.id}>
+                            {st.fullName} ({st.role === "admin" ? "Quản lý" : "Nhân viên"}) - Mặc định: {(st.hourlyWage || 25000).toLocaleString("vi-VN")}đ/h
+                          </option>
+                        ))}
                     </select>
                   </div>
 
