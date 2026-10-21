@@ -2520,38 +2520,26 @@ export default function AdminPortal() {
                     </div>
 
                     
-                    {/* NÚT XUẤT ẢNH LỊCH TRỰC */}
-                    <div className="flex items-center gap-1.5 border-l border-stone-250 pl-2">
-                      <button
-                        type="button"
-                        onClick={() => handleExportScheduleImage("download")}
-                        disabled={isExportingSchedule}
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white disabled:opacity-50"
-                        title="Tự động chụp toàn bộ bảng lịch trực và lưu file ảnh PNG về máy"
-                      >
-                        {isExportingSchedule ? (
-                          <>
-                            <RefreshCw size={13} className="animate-spin" />
-                            <span>Đang chụp ảnh...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Download size={13} />
-                            <span>📸 Tải ảnh lịch (PNG)</span>
-                          </>
-                        )}
-                      </button>
-
+                    {/* NÚT COPY ẢNH LỊCH TRỰC GỬI ZALO */}
+                    <div className="flex items-center border-l border-stone-250 pl-2">
                       <button
                         type="button"
                         onClick={() => handleExportScheduleImage("copy")}
                         disabled={isExportingSchedule}
-                        className="px-2.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] active:scale-95 text-white disabled:opacity-50"
-                        title="Sao chép ảnh vào Clipboard để dán (Ctrl+V) ngay vào nhóm Zalo hoặc Messenger"
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] active:scale-95 text-white disabled:opacity-50"
+                        title="Sao chép ảnh toàn bộ bảng lịch trực vào Clipboard để dán (Ctrl+V) ngay vào nhóm Zalo hoặc Messenger"
                       >
-                        <Copy size={13} />
-                        <span className="hidden sm:inline">Copy gửi Zalo</span>
-                        <span className="sm:hidden">Copy</span>
+                        {isExportingSchedule ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Đang copy ảnh...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} />
+                            <span>📋 Copy ảnh gửi Zalo</span>
+                          </>
+                        )}
                       </button>
                     </div>
 
