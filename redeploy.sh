@@ -2,6 +2,7 @@
 # redeploy.sh - Tự động build và restart cả FE và BE trên server
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -e
 
 echo "========================================="
 echo "   BẮT ĐẦU TỰ ĐỘNG DEPLOY (FE & BE)      "
@@ -19,8 +20,11 @@ cd "$SCRIPT_DIR/backend/publish"
 pm2 start "dotnet TheMoods.Api.dll --urls http://127.0.0.1:5078" --name "themoods-be"
 
 # 2. Build & Restart Frontend
-echo "--> Đang build Frontend (Next.js)..."
+echo "--> Đang cài đặt thư viện dependencies mới (npm install)..."
 cd "$SCRIPT_DIR"
+npm install --no-audit
+
+echo "--> Đang build Frontend (Next.js)..."
 npm run build
 
 echo "--> Đang restart Frontend trên PM2..."
