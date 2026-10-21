@@ -35,6 +35,50 @@ const isShiftInTimeSlot = (startTime: string, endTime: string, slotStart: number
   }
 };
 
+
+const getPrimaryShiftCategoryKey = (startTime: string, endTime: string): "sang" | "chieu" | "toi" | "khuya" => {
+  if (!startTime) return "sang";
+  const sStart = parseTimeToFloat(startTime);
+  let sEnd = endTime ? parseTimeToFloat(endTime) : sStart + 4;
+  const isOvernight = sEnd <= sStart;
+  if (isOvernight) sEnd += 24;
+
+  const categories: Array<{ key: "sang" | "chieu" | "toi" | "khuya"; start: number; end: number }> = [
+    { key: "sang", start: 6, end: 12 },
+    { key: "chieu", start: 12, end: 18 },
+    { key: "toi", start: 18, end: 24 },
+    { key: "khuya", start: 24, end: 30 }
+  ];
+
+  let bestKey: "sang" | "chieu" | "toi" | "khuya" = "sang";
+  let maxOverlap = -1;
+
+  for (const cat of categories) {
+    let overlap = Math.max(0, Math.min(sEnd, cat.end) - Math.max(sStart, cat.start));
+    if (cat.key === "khuya" && sStart < 6) {
+      overlap += Math.max(0, Math.min(sEnd, 6) - Math.max(sStart, 0));
+    }
+    if (overlap > maxOverlap) {
+      maxOverlap = overlap;
+      bestKey = cat.key;
+    } else if (overlap === maxOverlap && maxOverlap > 0) {
+      const inCat = (sStart >= cat.start && sStart < cat.end) || 
+                    (cat.key === "khuya" && (sStart < 6 || (sStart >= 24 && sStart < 30)));
+      if (inCat) bestKey = cat.key;
+    }
+  }
+
+  if (maxOverlap <= 0) {
+    if (sStart >= 6 && sStart < 12) return "sang";
+    if (sStart >= 12 && sStart < 18) return "chieu";
+    if (sStart >= 18 && sStart < 24) return "toi";
+    return "khuya";
+  }
+
+  return bestKey;
+};
+
+
 const getVisualEventsForDay = (eventsList: any[], dayDateStr: string) => {
   if (!eventsList) return [];
   const d = new Date(dayDateStr);
@@ -2485,7 +2529,7 @@ export default function AdminPortal() {
                             <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
                           </td>
                           {weekDays.map(day => {
-                            const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && isShiftInTimeSlot(s.startTime, s.endTime, cat.startHour, cat.endHour));
+                            const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key);
 
                             return (
                               <td key={day.dateStr} className={`p-1.5 border-l border-gray-150 align-top text-left min-w-[125px]`}>
@@ -3016,15 +3060,22 @@ export default function AdminPortal() {
             {(() => {
               const dayScheds = weekScheds.filter((s: any) => s.date === selectedDayDetail);
 
-              const allCategories = [
-                { title: "SÁNG (06:00 - 12:00)", startHour: 6, endHour: 12, defaultStart: "06:00", defaultEnd: "12:00" },
-                { title: "CHIỀU (12:00 - 18:00)", startHour: 12, endHour: 18, defaultStart: "12:00", defaultEnd: "18:00" },
-                { title: "TỐI (18:00 - 00:00)", startHour: 18, endHour: 24, defaultStart: "18:00", defaultEnd: "00:00" },
-                { title: "KHUYA (00:00 - 06:00)", startHour: 0, endHour: 6, defaultStart: "00:00", defaultEnd: "06:00" }
+              const allCategories: Array<{
+                key: "sang" | "chieu" | "toi" | "khuya";
+                title: string;
+                startHour: number;
+                endHour: number;
+                defaultStart: string;
+                defaultEnd: string;
+              }> = [
+                { key: "sang", title: "SÁNG (06:00 - 12:00)", startHour: 6, endHour: 12, defaultStart: "06:00", defaultEnd: "12:00" },
+                { key: "chieu", title: "CHIỀU (12:00 - 18:00)", startHour: 12, endHour: 18, defaultStart: "12:00", defaultEnd: "18:00" },
+                { key: "toi", title: "TỐI (18:00 - 00:00)", startHour: 18, endHour: 24, defaultStart: "18:00", defaultEnd: "00:00" },
+                { key: "khuya", title: "KHUYA (00:00 - 06:00)", startHour: 0, endHour: 6, defaultStart: "00:00", defaultEnd: "06:00" }
               ];
 
               const categories = (isDetailCaptureMode && hideKhuyaInDetailCapture)
-                ? allCategories.filter(c => c.startHour !== 0 || c.endHour !== 6)
+                ? allCategories.filter(c => c.key !== "khuya")
                 : allCategories;
 
               return (
@@ -3033,7 +3084,7 @@ export default function AdminPortal() {
                   style={{ zoom: `${detailZoom}%` }}
                 >
                   {categories.map(cat => {
-                    const scheds = dayScheds.filter((s: any) => isShiftInTimeSlot(s.startTime, s.endTime, cat.startHour, cat.endHour));
+                    const scheds = dayScheds.filter((s: any) => getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key);
                     const currentCount = scheds.length;
                     const requiredCount = 3; // Target default required staff per shift
                     const diff = currentCount - requiredCount;

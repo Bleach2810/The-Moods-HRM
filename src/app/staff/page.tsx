@@ -34,6 +34,50 @@ const parseTimeToFloat = (timeStr: string) => {
   return parseFloat(parts[0]) + (parts[1] ? parseFloat(parts[1]) / 60 : 0);
 };
 
+
+const getPrimaryShiftCategoryKey = (startTime: string, endTime: string): "sang" | "chieu" | "toi" | "khuya" => {
+  if (!startTime) return "sang";
+  const sStart = parseTimeToFloat(startTime);
+  let sEnd = endTime ? parseTimeToFloat(endTime) : sStart + 4;
+  const isOvernight = sEnd <= sStart;
+  if (isOvernight) sEnd += 24;
+
+  const categories: Array<{ key: "sang" | "chieu" | "toi" | "khuya"; start: number; end: number }> = [
+    { key: "sang", start: 6, end: 12 },
+    { key: "chieu", start: 12, end: 18 },
+    { key: "toi", start: 18, end: 24 },
+    { key: "khuya", start: 24, end: 30 }
+  ];
+
+  let bestKey: "sang" | "chieu" | "toi" | "khuya" = "sang";
+  let maxOverlap = -1;
+
+  for (const cat of categories) {
+    let overlap = Math.max(0, Math.min(sEnd, cat.end) - Math.max(sStart, cat.start));
+    if (cat.key === "khuya" && sStart < 6) {
+      overlap += Math.max(0, Math.min(sEnd, 6) - Math.max(sStart, 0));
+    }
+    if (overlap > maxOverlap) {
+      maxOverlap = overlap;
+      bestKey = cat.key;
+    } else if (overlap === maxOverlap && maxOverlap > 0) {
+      const inCat = (sStart >= cat.start && sStart < cat.end) || 
+                    (cat.key === "khuya" && (sStart < 6 || (sStart >= 24 && sStart < 30)));
+      if (inCat) bestKey = cat.key;
+    }
+  }
+
+  if (maxOverlap <= 0) {
+    if (sStart >= 6 && sStart < 12) return "sang";
+    if (sStart >= 12 && sStart < 18) return "chieu";
+    if (sStart >= 18 && sStart < 24) return "toi";
+    return "khuya";
+  }
+
+  return bestKey;
+};
+
+
 const getVisualEventsForDay = (eventsList: any[], dayDateStr: string) => {
   if (!eventsList) return [];
   const d = new Date(dayDateStr);
@@ -1849,7 +1893,7 @@ export default function StaffPortal() {
                         </td>
                         {weekDays.map(day => {
                           const cellScheds = (officialSchedulesList || []).filter(
-                            (s: any) => s.date === day.dateStr && cat.filter(s.startTime)
+                            (s: any) => s.date === day.dateStr && getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key
                           );
 
                           return (
@@ -1980,7 +2024,7 @@ export default function StaffPortal() {
                       
                       // Check if this category has already been scheduled/chốt by some other staff member
                       const hasOfficialInCat = (officialSchedulesList || []).some(
-                        (s: any) => s.date === day.dateStr && cat.filter(s.startTime)
+                        (s: any) => s.date === day.dateStr && getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key
                       );
 
                       return (
@@ -2038,7 +2082,7 @@ export default function StaffPortal() {
                         >
                           <div className="space-y-2 min-h-[95px] flex flex-col justify-start">
                             {(() => {
-                              const cellOfficials = (officialSchedulesList || []).filter((s: any) => s.date === day.dateStr && cat.filter(s.startTime));
+                              const cellOfficials = (officialSchedulesList || []).filter((s: any) => s.date === day.dateStr && getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key);
                               if (avails.length === 0) {
                                 if (hasOfficialInCat || cellOfficials.length > 0) {
                                   return (
