@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { toPng } from "html-to-image";
 import { useApp } from "@/context/AppContext";
-import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2 } from "lucide-react";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2, Download, Copy, Check } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import ModalPortal from "@/components/ModalPortal";
@@ -160,6 +161,88 @@ const getLayoutedEvents = (events: any[]) => {
 };
 
 export default function AdminPortal() {
+  const scheduleCaptureRef = useRef<HTMLDivElement>(null);
+  const [isExportingSchedule, setIsExportingSchedule] = useState(false);
+  const [exportSuccessMsg, setExportSuccessMsg] = useState<string | null>(null);
+
+  const handleExportScheduleImage = async (mode: "download" | "copy" = "download") => {
+    if (!scheduleCaptureRef.current || isExportingSchedule) return;
+    setIsExportingSchedule(true);
+    try {
+      const node = scheduleCaptureRef.current;
+      const tableEl = node.querySelector("table");
+      const contentWidth = Math.max(tableEl ? tableEl.scrollWidth + 36 : 1200, 1150);
+
+      const originalWidth = node.style.width;
+      const originalMaxWidth = node.style.maxWidth;
+      const originalOverflow = node.style.overflow;
+
+      node.style.width = `${contentWidth}px`;
+      node.style.maxWidth = "none";
+      node.style.overflow = "visible";
+
+      // Small delay for browser reflow
+      await new Promise(r => setTimeout(r, 80));
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#FAF9F6",
+        filter: (domNode: any) => {
+          if (domNode?.dataset?.excludeExport === "true") return false;
+          return true;
+        },
+        style: {
+          zoom: "100%",
+          transform: "none"
+        }
+      });
+
+      node.style.width = originalWidth;
+      node.style.maxWidth = originalMaxWidth;
+      node.style.overflow = originalOverflow;
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const fileName = `Lich-Truc-TheMoods-${todayStr}.png`;
+
+      if (mode === "download") {
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setExportSuccessMsg("Đã tải toàn bộ bảng lịch trực thành công!");
+        setTimeout(() => setExportSuccessMsg(null), 3500);
+      } else {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+          ]);
+          setExportSuccessMsg("Đã sao chép ảnh vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào Zalo/Messenger.");
+          setTimeout(() => setExportSuccessMsg(null), 4000);
+        } else {
+          const link = document.createElement("a");
+          link.download = fileName;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setExportSuccessMsg("Đã tự động tải file ảnh về máy!");
+          setTimeout(() => setExportSuccessMsg(null), 3500);
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi khi tạo ảnh lịch trực:", err);
+      alert("Không thể tạo ảnh lịch trực. Vui lòng thử lại!");
+    } finally {
+      setIsExportingSchedule(false);
+    }
+  };
+
   const { activeBrand, activeLocation, activeStaff, selectBrandAndLocation, locations, customers, promotions, shifts, requests, feedbacks, menuImage, menuImages, addPromotion, deletePromotion, archivePromotion, approveRequest, rejectRequest, adjustPointsManually, updateMenuImage, updateMenuImages, sendFeedbackReply, logs, addPointsToCustomer, notifications, markNotificationAsRead, subscribeUserToPush, showPushNotificationPrompt, setShowPushNotificationPrompt } = useApp() as any;
 
   const [page, setPage] = useState("dashboard");
@@ -2301,6 +2384,38 @@ export default function AdminPortal() {
 
           return (
             <div className="space-y-3">
+              {/* Thông báo sao chép / tải ảnh thành công */}
+              {exportSuccessMsg && (
+                <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-xs anim-fadeUp border border-emerald-500">
+                  <Check size={16} className="text-emerald-200" />
+                  <span>{exportSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* KHUNG ĐƯỢC CHỤP ẢNH TỰ ĐỘNG BẰNG NÚT BẤM */}
+              <div ref={scheduleCaptureRef} className="bg-white rounded-3xl p-3 sm:p-4 border border-stone-200 shadow-sm space-y-3 w-full">
+                {/* BANNER THƯƠNG HIỆU THE MOODS COFFEE (LUÔN XUẤT HIỆN TRÊN ẢNH) */}
+                <div className="bg-[#7c4831] text-white p-3.5 sm:p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-xl shadow-xs">
+                      ☕
+                    </div>
+                    <div>
+                      <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-amber-100 flex items-center gap-2">
+                        <span>THE MOODS COFFEE</span>
+                        <span className="opacity-60">•</span>
+                        <span>BẢNG PHÂN CÔNG LỊCH TRỰC TUẦN</span>
+                      </h2>
+                      <p className="text-[11px] text-amber-200/90 font-bold mt-0.5">
+                        Từ {weekDays[0]?.label} ({weekDays[0]?.dayNum}) đến {weekDays[6]?.label} ({weekDays[6]?.dayNum}) • {activeCategories.length} Buổi ca: {activeCategories.map(c => c.title).join(' • ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] text-amber-100/90 font-bold">
+                    <div>THE MOODS HRM SYSTEM</div>
+                    <div className="text-[9px] text-amber-200/70 mt-0.5">Lịch trực chính thức toàn chi nhánh</div>
+                  </div>
+                </div>
               {/* Legend guide for Schedule */}
               {!isCaptureMode && (
                 <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
@@ -2402,6 +2517,42 @@ export default function AdminPortal() {
                           {hideKhuyaInCapture ? "3 Ca Chính (Sáng, Chiều, Tối)" : "Tất cả 4 Ca (Kèm Khuya)"}
                         </button>
                       )}
+                    </div>
+
+                    
+                    {/* NÚT XUẤT ẢNH LỊCH TRỰC */}
+                    <div className="flex items-center gap-1.5 border-l border-stone-250 pl-2">
+                      <button
+                        type="button"
+                        onClick={() => handleExportScheduleImage("download")}
+                        disabled={isExportingSchedule}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white disabled:opacity-50"
+                        title="Tự động chụp toàn bộ bảng lịch trực và lưu file ảnh PNG về máy"
+                      >
+                        {isExportingSchedule ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Đang chụp ảnh...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download size={13} />
+                            <span>📸 Tải ảnh lịch (PNG)</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleExportScheduleImage("copy")}
+                        disabled={isExportingSchedule}
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] active:scale-95 text-white disabled:opacity-50"
+                        title="Sao chép ảnh vào Clipboard để dán (Ctrl+V) ngay vào nhóm Zalo hoặc Messenger"
+                      >
+                        <Copy size={13} />
+                        <span className="hidden sm:inline">Copy gửi Zalo</span>
+                        <span className="sm:hidden">Copy</span>
+                      </button>
                     </div>
 
                     {/* Zoom In / Out Controls */}
@@ -2681,7 +2832,7 @@ export default function AdminPortal() {
                                             setManualLogMode("schedule");
                                             setShowManualLogModal(true);
                                           }}
-                                          className="w-full py-1 text-center rounded-xl border border-dashed border-gray-200 hover:border-[#7c4831] hover:bg-[#7c4831]/5 text-[8.5px] font-extrabold uppercase text-[#7c4831] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                          data-exclude-export="true" className="w-full py-1 text-center rounded-xl border border-dashed border-gray-200 hover:border-[#7c4831] hover:bg-[#7c4831]/5 text-[8.5px] font-extrabold uppercase text-[#7c4831] transition-all flex items-center justify-center gap-1 cursor-pointer"
                                         >
                                           <Plus size={10} />
                                           <span>+ Thêm người</span>
@@ -2698,10 +2849,16 @@ export default function AdminPortal() {
                     </tbody>
                   </table>
                 </div>
+                {/* FOOTER WATERMARK TRÊN ẢNH XUẤT */}
+                <div className="pt-2 px-2 flex flex-wrap justify-between items-center text-[9.5px] font-bold text-stone-400 border-t border-stone-150">
+                  <span>The Moods HRM • Hệ thống quản lý vận hành & chấm công F&B</span>
+                  <span>Xuất lịch lúc: {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ngày {new Date().toLocaleDateString("vi-VN")}</span>
+                </div>
               </div>
             </div>
-          );
-        })()}
+          </div>
+        );
+      })()}
 
         {/* TAB 2: BẢNG ĐĂNG KÝ CA RẢNH (THEO NHÂN VIÊN) */}
         {devTab === "avail_matrix" && !selectedDayDetail && (
