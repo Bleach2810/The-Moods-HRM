@@ -2383,7 +2383,7 @@ export default function AdminPortal() {
           const isCompact = isCaptureMode || scheduleZoom <= 85;
 
           return (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {/* Thông báo sao chép / tải ảnh thành công */}
               {exportSuccessMsg && (
                 <div className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-xs anim-fadeUp border border-emerald-500">
@@ -2393,100 +2393,97 @@ export default function AdminPortal() {
               )}
 
               {/* KHUNG ĐƯỢC CHỤP ẢNH TỰ ĐỘNG BẰNG NÚT BẤM */}
-              <div ref={scheduleCaptureRef} className="bg-white rounded-3xl p-3 sm:p-4 border border-stone-200 shadow-sm space-y-3 w-full">
-                {/* BANNER THƯƠNG HIỆU THE MOODS COFFEE (LUÔN XUẤT HIỆN TRÊN ẢNH) */}
-                <div className="bg-[#7c4831] text-white p-3.5 sm:p-4 rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-xl shadow-xs">
-                      ☕
+              <div ref={scheduleCaptureRef} className="bg-white rounded-2xl sm:rounded-3xl p-1.5 sm:p-4 border border-stone-200 shadow-sm space-y-2 sm:space-y-3 w-full">
+                {/* BANNER THƯƠNG HIỆU THE MOODS COFFEE (Tự động hiện khi Copy ảnh hoặc Chế độ chụp) */}
+                {(isCaptureMode || isExportingSchedule) && (
+                  <div className="bg-[#7c4831] text-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-2 anim-fadeUp">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-base sm:text-xl shadow-xs">
+                        ☕
+                      </div>
+                      <div>
+                        <h2 className="text-xs sm:text-base font-black uppercase tracking-wider text-amber-100 flex items-center gap-1.5">
+                          <span>THE MOODS COFFEE</span>
+                          <span className="opacity-60">•</span>
+                          <span>BẢNG PHÂN CÔNG LỊCH TRỰC TUẦN</span>
+                        </h2>
+                        <p className="text-[9.5px] sm:text-[11px] text-amber-200/90 font-bold mt-0.5">
+                          Từ {weekDays[0]?.label} ({weekDays[0]?.dayNum}) đến {weekDays[6]?.label} ({weekDays[6]?.dayNum}) • {activeCategories.length} Buổi ca: {activeCategories.map(c => c.title).join(' • ')}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-amber-100 flex items-center gap-2">
-                        <span>THE MOODS COFFEE</span>
-                        <span className="opacity-60">•</span>
-                        <span>BẢNG PHÂN CÔNG LỊCH TRỰC TUẦN</span>
-                      </h2>
-                      <p className="text-[11px] text-amber-200/90 font-bold mt-0.5">
-                        Từ {weekDays[0]?.label} ({weekDays[0]?.dayNum}) đến {weekDays[6]?.label} ({weekDays[6]?.dayNum}) • {activeCategories.length} Buổi ca: {activeCategories.map(c => c.title).join(' • ')}
-                      </p>
+                    <div className="text-right text-[9.5px] text-amber-100/90 font-bold hidden sm:block">
+                      <div>THE MOODS HRM SYSTEM</div>
+                      <div className="text-[8.5px] text-amber-200/70 mt-0.5">Lịch trực chính thức toàn chi nhánh</div>
                     </div>
+                    {isCaptureMode && (
+                      <button
+                        type="button"
+                        onClick={() => setIsCaptureMode(false)}
+                        className="px-2.5 py-1 rounded-xl text-[11px] font-black uppercase bg-white text-[#7c4831] hover:bg-amber-50 cursor-pointer shadow-xs ml-auto"
+                      >
+                        ✕ Thoát
+                      </button>
+                    )}
                   </div>
-                  <div className="text-right text-[10px] text-amber-100/90 font-bold">
-                    <div>THE MOODS HRM SYSTEM</div>
-                    <div className="text-[9px] text-amber-200/70 mt-0.5">Lịch trực chính thức toàn chi nhánh</div>
+                )}
+
+                {/* Chú thích ca (Legend guide) - Siêu gọn gàng trên mobile */}
+                <div className="p-1.5 sm:p-2 bg-[#FAF9F6] border border-gray-150 rounded-xl flex flex-wrap items-center justify-center gap-x-2.5 sm:gap-x-5 gap-y-1 text-[8px] sm:text-[9.5px] font-black uppercase text-[#7c4831]">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-2xs" />
+                    <span>Đang trực</span>
                   </div>
-                </div>
-              {/* Legend guide for Schedule */}
-              {!isCaptureMode && (
-                <div className="card p-3 bg-[#FAF9F6] border border-gray-150 rounded-2xl flex flex-wrap justify-center gap-6 text-[9px] md:text-[10px] font-extrabold uppercase text-[#7c4831]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-                    <span>Đang trực (Trong ca)</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block shadow-2xs" />
+                    <span>Đã xong</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                    <span>Đã hoàn thành / Tự ngưng ca</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-gray-400 inline-block shadow-2xs" />
+                    <span>Chưa chấm</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" />
-                    <span>Chưa chấm công</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-rose-500 inline-block" />
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shadow-2xs" />
                     <span>Xin vắng</span>
                   </div>
                 </div>
-              )}
 
-              {/* POSTER BANNER WHEN IN CAPTURE MODE */}
-              {isCaptureMode && (
-                <div className="bg-[#7c4831] text-white p-3 sm:p-4 rounded-2xl shadow-md flex flex-wrap justify-between items-center gap-3 anim-fadeUp">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-lg">
-                      ☕
-                    </div>
+                <div className="card p-0 overflow-hidden border border-gray-200 shadow-xs bg-white w-full rounded-2xl">
+                  {/* TOOLBAR: Tiêu đề + Nút Copy Zalo + Chế độ chụp + Thu phóng */}
+                  <div className="p-2 sm:p-3 border-b border-gray-150 bg-[#FAF9F6] flex flex-wrap justify-between items-center gap-2">
                     <div>
-                      <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-amber-100 flex items-center gap-2">
-                        <span>THE MOODS COFFEE</span>
-                        <span className="opacity-60">•</span>
-                        <span>BẢNG PHÂN CA LỊCH TRỰC TUẦN</span>
-                      </h2>
-                      <p className="text-[11px] text-amber-200/90 font-bold mt-0.5">
-                        Từ {weekDays[0]?.label} ({weekDays[0]?.dayNum}) đến {weekDays[6]?.label} ({weekDays[6]?.dayNum}) • {activeCategories.length} Buổi ca: {activeCategories.map(c => c.title).join(' • ')}
+                      <h3 className="text-xs sm:text-sm font-black uppercase text-[#7c4831]">
+                        Lịch Trực Tuần <span className="hidden sm:inline">(Theo Ca Làm Việc)</span>
+                      </h3>
+                      <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5 hidden sm:block">
+                        {isCaptureMode ? "Chế độ thu gọn chụp màn hình (Vừa trọn 3 ca trên 1 màn hình)" : "Sắp xếp trực quan theo từng ca làm việc trong ngày • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới"}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10.5px] bg-white/15 text-white font-extrabold px-3 py-1.5 rounded-xl border border-white/20">
-                      📸 Chế độ chụp ảnh (Cap 3 ca)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsCaptureMode(false)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-black uppercase bg-white text-[#7c4831] hover:bg-amber-50 transition-all cursor-pointer shadow-xs"
-                    >
-                      ✕ Thoát
-                    </button>
-                  </div>
-                </div>
-              )}
 
-              <div className="card p-0 overflow-hidden border border-gray-200 shadow-md bg-white w-full">
-                {/* TOOLBAR: Title + Capture Mode + Zoom In / Out Controls */}
-                <div className="p-3 border-b border-gray-150 bg-[#FAF9F6] flex flex-wrap justify-between items-center gap-3">
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-black uppercase text-[#7c4831]">
-                      Bảng Phân Công Lịch Trực (Theo Ca Làm Việc)
-                    </h3>
-                    <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5">
-                      {isCaptureMode ? "Chế độ thu gọn chụp màn hình (Vừa trọn 3 ca trên 1 màn hình)" : "Sắp xếp trực quan theo từng ca làm việc trong ngày • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới"}
-                    </p>
-                  </div>
+                    {/* Actions & Zoom Toolbar */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* NÚT COPY ẢNH LỊCH TRỰC GỬI ZALO */}
+                      <button
+                        type="button"
+                        onClick={() => handleExportScheduleImage("copy")}
+                        disabled={isExportingSchedule}
+                        className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] active:scale-95 text-white disabled:opacity-50"
+                        title="Sao chép ảnh toàn bộ bảng lịch trực vào Clipboard để dán (Ctrl+V) ngay vào nhóm Zalo hoặc Messenger"
+                      >
+                        {isExportingSchedule ? (
+                          <>
+                            <RefreshCw size={12} className="animate-spin" />
+                            <span>Đang copy...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={12} />
+                            <span>📋 Copy gửi Zalo</span>
+                          </>
+                        )}
+                      </button>
 
-                  {/* Actions & Zoom Toolbar */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Capture Mode Toggle */}
-                    <div className="flex items-center gap-1.5">
+                      {/* Capture Mode Toggle */}
                       <button
                         type="button"
                         onClick={() => {
@@ -2496,123 +2493,69 @@ export default function AdminPortal() {
                             return next;
                           });
                         }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                        className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-2xs ${
                           isCaptureMode 
-                            ? "bg-[#7c4831] text-white border-2 border-[#7c4831] ring-2 ring-[#7c4831]/20" 
-                            : "bg-amber-100/90 hover:bg-amber-200 text-[#7c4831] border-2 border-[#7c4831]/30"
+                            ? "bg-amber-800 text-white border border-amber-900" 
+                            : "bg-white hover:bg-stone-50 text-stone-700 border border-stone-250"
                         }`}
                         title="Thu gọn bảng để chụp màn hình vừa vặn cả 3 ca trên 1 màn hình"
                       >
-                        <Camera size={14} />
-                        <span>{isCaptureMode ? "✕ Thoát chế độ chụp" : "📸 Chế độ chụp (Cap 3 ca)"}</span>
+                        <Camera size={13} />
+                        <span className="hidden sm:inline">{isCaptureMode ? "Thoát" : "Cap 3 ca"}</span>
                       </button>
 
-                      {isCaptureMode && (
+                      {/* Zoom In / Out Controls (Gọn gàng trên mobile) */}
+                      <div className="flex items-center gap-0.5 bg-white border border-stone-250 rounded-xl px-1.5 py-1 shadow-2xs">
                         <button
                           type="button"
-                          onClick={() => setHideKhuyaInCapture(prev => !prev)}
-                          className="px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 transition-all cursor-pointer shadow-2xs"
-                          title="Chuyển đổi giữa 3 ca chính (Sáng, Chiều, Tối) và tất cả ca"
+                          onClick={() => setScheduleZoom(prev => Math.max(50, prev - 10))}
+                          disabled={scheduleZoom <= 50}
+                          className="p-0.5 text-stone-700 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
+                          title="Thu nhỏ (-10%)"
                         >
-                          {hideKhuyaInCapture ? "3 Ca Chính (Sáng, Chiều, Tối)" : "Tất cả 4 Ca (Kèm Khuya)"}
+                          <ZoomOut size={12} />
                         </button>
-                      )}
-                    </div>
 
-                    
-                    {/* NÚT COPY ẢNH LỊCH TRỰC GỬI ZALO */}
-                    <div className="flex items-center border-l border-stone-250 pl-2">
-                      <button
-                        type="button"
-                        onClick={() => handleExportScheduleImage("copy")}
-                        disabled={isExportingSchedule}
-                        className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] active:scale-95 text-white disabled:opacity-50"
-                        title="Sao chép ảnh toàn bộ bảng lịch trực vào Clipboard để dán (Ctrl+V) ngay vào nhóm Zalo hoặc Messenger"
-                      >
-                        {isExportingSchedule ? (
-                          <>
-                            <RefreshCw size={13} className="animate-spin" />
-                            <span>Đang copy ảnh...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={13} />
-                            <span>📋 Copy ảnh gửi Zalo</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Zoom In / Out Controls */}
-                    <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
-                      <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setScheduleZoom(prev => Math.max(50, prev - 10))}
-                        disabled={scheduleZoom <= 50}
-                        className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Thu nhỏ (-10%)"
-                      >
-                        <ZoomOut size={14} />
-                      </button>
-
-                      <div className="flex items-center gap-1">
-                        {[70, 85, 100].map(lvl => (
-                          <button
-                            key={lvl}
-                            type="button"
-                            onClick={() => setScheduleZoom(lvl)}
-                            className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
-                              scheduleZoom === lvl 
-                                ? "bg-[#7c4831] text-white" 
-                                : "text-stone-600 hover:bg-stone-100"
-                            }`}
-                          >
-                            {lvl}%
-                          </button>
-                        ))}
-                        <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
+                        <span className="text-[10px] font-mono font-black text-[#7c4831] px-1 min-w-[28px] text-center">
                           {scheduleZoom}%
                         </span>
-                      </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setScheduleZoom(prev => Math.min(130, prev + 10))}
-                        disabled={scheduleZoom >= 130}
-                        className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Phóng to (+10%)"
-                      >
-                        <ZoomIn size={14} />
-                      </button>
-
-                      {scheduleZoom !== 100 && (
                         <button
                           type="button"
-                          onClick={() => setScheduleZoom(100)}
-                          className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
-                          title="Về 100% mặc định"
+                          onClick={() => setScheduleZoom(prev => Math.min(130, prev + 10))}
+                          disabled={scheduleZoom >= 130}
+                          className="p-0.5 text-stone-700 hover:bg-stone-100 disabled:opacity-30 cursor-pointer"
+                          title="Phóng to (+10%)"
                         >
-                          Đặt lại
+                          <ZoomIn size={12} />
                         </button>
-                      )}
+
+                        {scheduleZoom !== 100 && (
+                          <button
+                            type="button"
+                            onClick={() => setScheduleZoom(100)}
+                            className="text-[9px] font-extrabold text-blue-700 hover:underline ml-0.5 pl-0.5 border-l border-stone-200 cursor-pointer hidden sm:inline"
+                            title="Về 100% mặc định"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div 
-                  className="overflow-x-auto w-full overscroll-x-contain transition-all" 
-                  style={{ 
-                    WebkitOverflowScrolling: "touch", 
-                    touchAction: "pan-x pan-y",
-                    zoom: `${scheduleZoom}%` 
-                  }}
-                >
-                  <table className="w-full min-w-[1000px] text-center border-collapse">
+                  <div 
+                    className="overflow-x-auto w-full overscroll-x-contain transition-all" 
+                    style={{ 
+                      WebkitOverflowScrolling: "touch", 
+                      touchAction: "pan-x pan-y",
+                      zoom: `${scheduleZoom}%` 
+                    }}
+                  >
+                    <table className="w-full min-w-[880px] sm:min-w-[1000px] text-center border-collapse">
                     <thead>
                       <tr className="bg-stone-50 border-b border-gray-150 text-[#7c4831] text-[10px] font-black uppercase tracking-wider">
-                        <th className="p-2 sm:p-3 text-left w-[120px] min-w-[120px] whitespace-nowrap">Buổi ca</th>
+                        <th className="p-1.5 sm:p-3 text-left w-[85px] min-w-[85px] sm:w-[120px] sm:min-w-[120px] whitespace-nowrap text-[9px] sm:text-[10px]">Buổi ca</th>
                         {weekDays.map(day => {
                           const isSelected = selectedDayDetail === day.dateStr;
                           return (
@@ -2663,15 +2606,15 @@ export default function AdminPortal() {
                     <tbody className="divide-y divide-gray-150 text-[11px] font-bold text-[#4B3621]">
                       {activeCategories.map(cat => (
                         <tr key={cat.key} className="hover:bg-stone-50/30 transition-colors">
-                          <td className="p-2 sm:p-3 text-left bg-stone-50/30 w-[120px] min-w-[120px] whitespace-nowrap">
-                            <div className="font-extrabold text-xs uppercase text-[#7c4831]">{cat.title}</div>
+                          <td className="p-1.5 sm:p-3 text-left bg-stone-50/30 w-[85px] min-w-[85px] sm:w-[120px] sm:min-w-[120px] whitespace-nowrap">
+                            <div className="font-extrabold text-[10.5px] sm:text-xs uppercase text-[#7c4831]">{cat.title}</div>
                             <div className="text-[9px] text-gray-400 font-semibold mt-0.5">{cat.hours}</div>
                           </td>
                           {weekDays.map(day => {
                             const cellScheds = weekScheds.filter((s: any) => s.date === day.dateStr && getPrimaryShiftCategoryKey(s.startTime, s.endTime) === cat.key);
 
                             return (
-                              <td key={day.dateStr} className={`p-1.5 border-l border-gray-150 align-top text-left min-w-[125px]`}>
+                              <td key={day.dateStr} className={`p-1 sm:p-1.5 border-l border-gray-150 align-top text-left min-w-[110px] sm:min-w-[125px]`}>
                                 <div className={`space-y-1.5 ${isCompact ? "min-h-[44px]" : "min-h-[95px]"} flex flex-col justify-start`}>
                                   {cellScheds.length === 0 ? (
                                     <div
