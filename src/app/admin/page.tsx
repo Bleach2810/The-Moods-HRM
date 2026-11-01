@@ -7624,6 +7624,21 @@ export default function AdminPortal() {
           const selectedEmpAdvances = adjustmentsList
             ? adjustmentsList.filter((a: any) => a.EmployeeId === selectedPenaltyEmployee.userId && a.Type === "advance" && (!a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)))
             : [];
+          const getModalLatePenaltyAmount = (lateMin: number) => {
+            const startMins = parseInt(latePenaltyStartMinutes) || 10;
+            const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
+            const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
+            const multiplier = parseFloat(latePenaltyMultiplier) || 2;
+            const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
+
+            if (lateMin < startMins) return 0;
+            const intervals = Math.floor((lateMin - startMins) / intervalMins);
+            const multiplierFactor = Math.pow(multiplier, intervals);
+            const calculatedPenalty = baseAmt * multiplierFactor;
+            if (maxAmt > 0 && calculatedPenalty > maxAmt) return maxAmt;
+            return calculatedPenalty;
+          };
+
           const selectedEmpLateLogs = officialSchedulesList
             ? officialSchedulesList
               .filter((s: any) => {
@@ -7650,9 +7665,10 @@ export default function AdminPortal() {
                 } else if (startMin - realMin > 720) {
                   lateMin = (realMin + 1440) - startMin;
                 }
-                return { ...s, lateMin };
+                const penaltyAmount = getModalLatePenaltyAmount(lateMin);
+                return { ...s, lateMin, penaltyAmount };
               })
-              .filter((s: any) => s.lateMin > 0)
+              .filter((s: any) => s.lateMin >= 10 && s.penaltyAmount > 0)
             : [];
           const selectedEmpHolidayBonuses = officialSchedulesList
             ? officialSchedulesList
@@ -7801,16 +7817,21 @@ export default function AdminPortal() {
                       🕒 Vi phạm đi trễ (Dựa trên Clock-in)
                     </h4>
                     {selectedEmpLateLogs.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận đi trễ.</p>
+                      <p className="text-xs text-gray-400 italic">Không ghi nhận đi trễ (từ 10 phút trở lên).</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedEmpLateLogs.map((sched: any) => (
                           <div key={sched.id} className="p-3 bg-red-50/50 border border-red-100/50 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-[#7A2F1E]">
+                            <div className="flex justify-between items-center font-bold text-[#7A2F1E]">
                               <span>Điểm danh trễ ca {sched.startTime} - {sched.endTime}</span>
-                              <span className="font-mono">({sched.checkInTime})</span>
+                              <span className="text-red-600 font-black">
+                                -{sched.penaltyAmount?.toLocaleString("vi-VN")}đ
+                              </span>
                             </div>
-                            <p className="text-gray-600 font-semibold">Ngày: {sched.date} - Ghi nhận trễ {sched.lateMin} phút.</p>
+                            <div className="flex justify-between items-center text-gray-600 font-semibold text-[11px]">
+                              <span>Ngày: {sched.date} - Ghi nhận trễ {sched.lateMin} phút.</span>
+                              <span className="font-mono text-gray-500 text-[10px]">({sched.checkInTime})</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -7870,21 +7891,8 @@ export default function AdminPortal() {
                   {/* Summary Section */}
                   <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs font-extrabold uppercase">
                     {(() => {
-                      const getModalLatePenaltyAmount = (lateMin: number) => {
-                        const startMins = parseInt(latePenaltyStartMinutes) || 10;
-                        const baseAmt = parseFloat(latePenaltyBaseAmount) || 50000;
-                        const intervalMins = parseInt(latePenaltyIntervalMinutes) || 10;
-                        const multiplier = parseFloat(latePenaltyMultiplier) || 2;
-                        const maxAmt = parseFloat(latePenaltyMaxAmount) || 500000;
-                  
-                        if (lateMin < startMins) return 0;
-                        const intervals = Math.floor((lateMin - startMins) / intervalMins);
-                        const multiplierFactor = Math.pow(multiplier, intervals);
-                        return Math.min(baseAmt * multiplierFactor, maxAmt);
-                      };
-
                       const sumBonus = selectedEmpBonuses.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpHolidayBonuses.reduce((acc: number, h: any) => acc + (h.amount || 0), 0);
-                      const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (getModalLatePenaltyAmount(s.lateMin) || 0), 0);
+                      const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (s.penaltyAmount || 0), 0);
                       const sumAdvance = selectedEmpAdvances.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
                       const netAdjust = sumBonus - sumPenalty - sumAdvance;
 
