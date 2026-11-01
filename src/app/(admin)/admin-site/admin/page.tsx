@@ -256,10 +256,6 @@ export default function AdminPortal() {
 
   // Zoom & Capture states for Schedule
   const [scheduleZoom, setScheduleZoom] = useState<number>(100);
-  const [isCaptureMode, setIsCaptureMode] = useState<boolean>(false);
-  const [hideKhuyaInCapture, setHideKhuyaInCapture] = useState<boolean>(true);
-  const [isDetailCaptureMode, setIsDetailCaptureMode] = useState<boolean>(false);
-  const [hideKhuyaInDetailCapture, setHideKhuyaInDetailCapture] = useState<boolean>(true);
   const [detailZoom, setDetailZoom] = useState<number>(100);
 
   const [editingCell, setEditingCell] = useState<{ userId: string; userName: string; date: string; dateLabel: string } | null>(null);
@@ -2343,30 +2339,28 @@ export default function AdminPortal() {
         </div>
 
         {/* KPI CARDS */}
-        {!isCaptureMode && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
-              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
-            </div>
-            <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
-              <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
-            </div>
-            <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
-              <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
-            </div>
-            <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
-              <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
-            </div>
-            <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
-              <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
-              <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng nhân viên</span>
+            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalStaff} người</span>
           </div>
-        )}
+          <div className="card p-3 bg-stone-50 border border-stone-200 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-stone-500 tracking-wider">Tổng số ca tuần</span>
+            <span className="text-xl font-black mt-1 text-[#4B3621]">{totalShifts} ca</span>
+          </div>
+          <div className="card p-3 bg-emerald-50/55 border border-emerald-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Ca khớp 100% (Xanh)</span>
+            <span className="text-xl font-black mt-1 text-emerald-800">{greenShiftsCount} ca</span>
+          </div>
+          <div className="card p-3 bg-amber-50/55 border border-amber-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-amber-700 tracking-wider">Ca thay đổi (Vàng)</span>
+            <span className="text-xl font-black mt-1 text-amber-800">{yellowShiftsCount} ca</span>
+          </div>
+          <div className="card p-3 bg-rose-50/55 border border-rose-150 rounded-2xl flex flex-col justify-between">
+            <span className="text-[9px] font-black uppercase text-rose-700 tracking-wider">Sai đăng ký (Đỏ)</span>
+            <span className="text-xl font-black mt-1 text-rose-800">{redShiftsCount} ca</span>
+          </div>
+        </div>
 
         {/* TAB 1: BẢNG PHÂN CA CHÍNH (THEO BUỔI CA) */}
         {devTab === "matrix" && (() => {
@@ -2377,11 +2371,8 @@ export default function AdminPortal() {
             { key: "khuya", title: "Ca Khuya", hours: "00:00 - 06:00", startHour: 0, endHour: 6 }
           ];
 
-          const activeCategories = (isCaptureMode && hideKhuyaInCapture)
-            ? shiftCategories.filter(c => c.key !== "khuya")
-            : shiftCategories;
-
-          const isCompact = isCaptureMode || scheduleZoom <= 85;
+          const activeCategories = shiftCategories;
+          const isCompact = scheduleZoom <= 85;
 
           return (
             <div className="space-y-2 sm:space-y-3">
@@ -2395,8 +2386,8 @@ export default function AdminPortal() {
 
               {/* KHUNG ĐƯỢC CHỤP ẢNH TỰ ĐỘNG BẰNG NÚT BẤM */}
               <div ref={scheduleCaptureRef} className="bg-white rounded-2xl sm:rounded-3xl p-1.5 sm:p-4 border border-stone-200 shadow-sm space-y-2 sm:space-y-3 w-full">
-                {/* BANNER THƯƠNG HIỆU THE MOODS COFFEE (Tự động hiện khi Copy ảnh hoặc Chế độ chụp) */}
-                {(isCaptureMode || isExportingSchedule) && (
+                {/* BANNER THƯƠNG HIỆU THE MOODS COFFEE (Tự động hiện khi Copy ảnh gửi Zalo) */}
+                {isExportingSchedule && (
                   <div className="bg-[#7c4831] text-white p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm flex flex-wrap justify-between items-center gap-2 anim-fadeUp">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center font-black text-amber-200 text-base sm:text-xl shadow-xs">
@@ -2417,15 +2408,6 @@ export default function AdminPortal() {
                       <div>THE MOODS HRM SYSTEM</div>
                       <div className="text-[8.5px] text-amber-200/70 mt-0.5">Lịch trực chính thức toàn chi nhánh</div>
                     </div>
-                    {isCaptureMode && (
-                      <button
-                        type="button"
-                        onClick={() => setIsCaptureMode(false)}
-                        className="px-2.5 py-1 rounded-xl text-[11px] font-black uppercase bg-white text-[#7c4831] hover:bg-amber-50 cursor-pointer shadow-xs ml-auto"
-                      >
-                        ✕ Thoát
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -2457,7 +2439,7 @@ export default function AdminPortal() {
                         Lịch Trực Tuần <span className="hidden sm:inline">(Theo Ca Làm Việc)</span>
                       </h3>
                       <p className="text-[9px] text-[#7c4831]/70 font-semibold mt-0.5 hidden sm:block">
-                        {isCaptureMode ? "Chế độ thu gọn chụp màn hình (Vừa trọn 3 ca trên 1 màn hình)" : "Sắp xếp trực quan theo từng ca làm việc trong ngày • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới"}
+                        Sắp xếp trực quan theo từng ca làm việc trong ngày • Bấm ☰ ở các thứ để xem chi tiết ca bên dưới
                       </p>
                     </div>
 
@@ -2482,27 +2464,6 @@ export default function AdminPortal() {
                             <span>📋 Copy gửi Zalo</span>
                           </>
                         )}
-                      </button>
-
-                      {/* Capture Mode Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCaptureMode(prev => {
-                            const next = !prev;
-                            if (next && scheduleZoom > 80) setScheduleZoom(75);
-                            return next;
-                          });
-                        }}
-                        className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer shadow-2xs ${
-                          isCaptureMode 
-                            ? "bg-amber-800 text-white border border-amber-900" 
-                            : "bg-white hover:bg-stone-50 text-stone-700 border border-stone-250"
-                        }`}
-                        title="Thu gọn bảng để chụp màn hình vừa vặn cả 3 ca trên 1 màn hình"
-                      >
-                        <Camera size={13} />
-                        <span className="hidden sm:inline">{isCaptureMode ? "Thoát" : "Cap 3 ca"}</span>
                       </button>
 
                       {/* Zoom In / Out Controls (Gọn gàng trên mobile) */}
@@ -2746,8 +2707,7 @@ export default function AdminPortal() {
                                         );
                                       })}
 
-                                      {!isCaptureMode && (
-                                        <button
+                                      <button
                                           type="button"
                                           onClick={() => {
                                             setManualStaffId(staffOnly[0]?.id || "");
@@ -2769,7 +2729,6 @@ export default function AdminPortal() {
                                           <Plus size={10} />
                                           <span>+ Thêm người</span>
                                         </button>
-                                      )}
                                     </>
                                   )}
                                 </div>
@@ -3037,114 +2996,56 @@ export default function AdminPortal() {
                 </h3>
               </div>
 
-              {/* Action Toolbar: Capture & Zoom for Day Detail */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Zoom Controls for Day Detail */}
+              <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
+                <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsDetailCaptureMode(prev => {
-                      const next = !prev;
-                      if (next && detailZoom > 90) setDetailZoom(85);
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
-                    isDetailCaptureMode 
-                      ? "bg-[#7c4831] text-white border-2 border-[#7c4831] ring-2 ring-[#7c4831]/20" 
-                      : "bg-amber-100/90 hover:bg-amber-200 text-[#7c4831] border-2 border-[#7c4831]/30"
-                  }`}
-                  title="Thu gọn bảng để chụp màn hình vừa vặn cả 3 ca trên 1 màn hình"
+                  onClick={() => setDetailZoom(prev => Math.max(50, prev - 10))}
+                  disabled={detailZoom <= 50}
+                  className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  title="Thu nhỏ (-10%)"
                 >
-                  <Camera size={14} />
-                  <span>{isDetailCaptureMode ? "✕ Thoát Chụp" : "📸 Chế độ chụp (Cap 3 ca)"}</span>
+                  <ZoomOut size={14} />
                 </button>
-
-                {isDetailCaptureMode && (
-                  <button
-                    type="button"
-                    onClick={() => setHideKhuyaInDetailCapture(prev => !prev)}
-                    className="px-2.5 py-1.5 rounded-xl text-[10.5px] font-bold border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 transition-all cursor-pointer shadow-2xs"
-                    title="Chuyển đổi giữa 3 ca chính và 4 ca"
-                  >
-                    {hideKhuyaInDetailCapture ? "3 Ca Chính (Sáng, Chiều, Tối)" : "Tất cả 4 Ca (Kèm Khuya)"}
-                  </button>
-                )}
-
-                {/* Zoom Controls */}
-                <div className="flex items-center gap-1 bg-white border-2 border-stone-200/90 rounded-xl px-2 py-1 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase text-stone-500 mr-1 hidden sm:inline">Thu phóng:</span>
-                  <button
-                    type="button"
-                    onClick={() => setDetailZoom(prev => Math.max(50, prev - 10))}
-                    disabled={detailZoom <= 50}
-                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                    title="Thu nhỏ (-10%)"
-                  >
-                    <ZoomOut size={14} />
-                  </button>
-                  <div className="flex items-center gap-1">
-                    {[70, 85, 100].map(lvl => (
-                      <button
-                        key={lvl}
-                        type="button"
-                        onClick={() => setDetailZoom(lvl)}
-                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
-                          detailZoom === lvl ? "bg-[#7c4831] text-white" : "text-stone-600 hover:bg-stone-100"
-                        }`}
-                      >
-                        {lvl}%
-                      </button>
-                    ))}
-                    <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
-                      {detailZoom}%
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setDetailZoom(prev => Math.min(130, prev + 10))}
-                    disabled={detailZoom >= 130}
-                    className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                    title="Phóng to (+10%)"
-                  >
-                    <ZoomIn size={14} />
-                  </button>
-                  {detailZoom !== 100 && (
+                <div className="flex items-center gap-1">
+                  {[70, 85, 100].map(lvl => (
                     <button
+                      key={lvl}
                       type="button"
-                      onClick={() => setDetailZoom(100)}
-                      className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
-                      title="Về 100% mặc định"
+                      onClick={() => setDetailZoom(lvl)}
+                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-black transition-colors cursor-pointer ${
+                        detailZoom === lvl ? "bg-[#7c4831] text-white" : "text-stone-600 hover:bg-stone-100"
+                      }`}
                     >
-                      Đặt lại
+                      {lvl}%
                     </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Branded Banner for Capture Mode */}
-            {isDetailCaptureMode && (
-              <div className="p-3.5 bg-gradient-to-r from-[#7c4831] via-[#633824] to-[#4B3621] text-white rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md border border-[#7c4831]/30 anim-fadeUp">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center font-black text-amber-200 text-lg">
-                    ☕
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-black uppercase tracking-widest text-amber-200">
-                      THE MOODS COFFEE • BẢNG PHÂN CA HẰNG NGÀY
-                    </div>
-                    <div className="text-sm sm:text-base font-black">
-                      LỊCH TRỰC {new Date(selectedDayDetail + "T00:00:00").toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }).toUpperCase()}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10.5px] font-extrabold bg-white/20 text-white px-3 py-1 rounded-full backdrop-blur-xs">
-                    {(isDetailCaptureMode && hideKhuyaInDetailCapture ? 3 : 4)} Ca trực • {weekScheds.filter((s: any) => s.date === selectedDayDetail).length} Lượt trực
+                  ))}
+                  <span className="text-[11px] font-mono font-black text-[#7c4831] px-1 min-w-[38px] text-center">
+                    {detailZoom}%
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailZoom(prev => Math.min(130, prev + 10))}
+                  disabled={detailZoom >= 130}
+                  className="p-1 rounded-lg text-stone-700 hover:bg-stone-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  title="Phóng to (+10%)"
+                >
+                  <ZoomIn size={14} />
+                </button>
+                {detailZoom !== 100 && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailZoom(100)}
+                    className="text-[9.5px] font-extrabold text-blue-700 hover:underline ml-1 pl-1 border-l border-stone-200 cursor-pointer"
+                    title="Về 100% mặc định"
+                  >
+                    Đặt lại
+                  </button>
+                )}
               </div>
-            )}
+            </div>
 
             {(() => {
               const dayScheds = weekScheds.filter((s: any) => s.date === selectedDayDetail);
@@ -3163,9 +3064,7 @@ export default function AdminPortal() {
                 { key: "khuya", title: "KHUYA (00:00 - 06:00)", startHour: 0, endHour: 6, defaultStart: "00:00", defaultEnd: "06:00" }
               ];
 
-              const categories = (isDetailCaptureMode && hideKhuyaInDetailCapture)
-                ? allCategories.filter(c => c.key !== "khuya")
-                : allCategories;
+              const categories = allCategories;
 
               return (
                 <div 
@@ -3197,10 +3096,10 @@ export default function AdminPortal() {
                     return (
                       <div
                         key={cat.title}
-                        className={`bg-white border-2 border-[#7c4831]/25 hover:border-[#7c4831]/40 rounded-2xl ${isDetailCaptureMode ? "p-3 sm:p-4" : "p-4 sm:p-5"} shadow-sm space-y-4 flex flex-col justify-between transition-all`}
+                        className="bg-white border-2 border-[#7c4831]/25 hover:border-[#7c4831]/40 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4 flex flex-col justify-between transition-all"
                       >
                         <div className="space-y-4">
-                          <div className={`border-b-2 border-stone-150 pb-2.5 flex justify-between items-center bg-stone-50/70 ${isDetailCaptureMode ? "-mx-3 -mt-3 sm:-mx-4 sm:-mt-4 p-3 sm:p-3.5" : "-mx-4 -mt-4 sm:-mx-5 sm:-mt-5 p-3.5 sm:p-4"} rounded-t-2xl`}>
+                          <div className="border-b-2 border-stone-150 pb-2.5 flex justify-between items-center bg-stone-50/70 -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 p-3.5 sm:p-4 rounded-t-2xl">
                             <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#7c4831]">{cat.title}</h4>
                             <span className={`pill text-[9px] sm:text-[10px] font-black uppercase border-2 px-2.5 py-0.5 rounded-full ${diff >= 0 ? "bg-emerald-50 text-emerald-800 border-emerald-300" : "bg-rose-50 text-rose-800 border-rose-300"}`}>
                               {currentCount} / {requiredCount} Nhân viên
@@ -3218,7 +3117,7 @@ export default function AdminPortal() {
                                 return (
                                   <div
                                     key={s.id}
-                                    className={`${isDetailCaptureMode ? "p-2.5" : "p-3"} bg-stone-50/80 border-2 border-stone-200/90 hover:border-[#7c4831]/40 rounded-xl shadow-xs transition-all space-y-1.5`}
+                                    className="p-3 bg-stone-50/80 border-2 border-stone-200/90 hover:border-[#7c4831]/40 rounded-xl shadow-xs transition-all space-y-1.5"
                                   >
                                     <div className="flex items-start justify-between gap-2">
                                       <div className="space-y-1">
@@ -3244,8 +3143,7 @@ export default function AdminPortal() {
                                       </div>
 
                                       {/* Direct Action Buttons: Sửa & Xóa (Ẩn khi ở Chế độ Chụp) */}
-                                      {!isDetailCaptureMode && (
-                                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                                      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -3288,7 +3186,6 @@ export default function AdminPortal() {
                                             <span>Xóa</span>
                                           </button>
                                         </div>
-                                      )}
                                     </div>
                                   </div>
                                 );
@@ -3297,8 +3194,7 @@ export default function AdminPortal() {
                           </div>
                         </div>
 
-                        {!isDetailCaptureMode && (
-                          <div className="space-y-3.5 pt-3 border-t-2 border-stone-150 mt-auto">
+                        <div className="space-y-3.5 pt-3 border-t-2 border-stone-150 mt-auto">
                             {/* Candidates list for quick assign */}
                             {availableCandidates.length > 0 && (
                               <div className="space-y-2">
@@ -3460,7 +3356,6 @@ export default function AdminPortal() {
                               )}
                             </div>
                           </div>
-                        )}
                       </div>
                     );
                   })}
