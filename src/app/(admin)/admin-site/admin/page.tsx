@@ -3341,7 +3341,8 @@ export default function AdminPortal() {
                                   placeholder="Tìm nhanh tên nhân viên..."
                                   value={dailyStaffSearches[prefixId] || ""}
                                   onChange={e => setDailyStaffSearches(prev => ({ ...prev, [prefixId]: e.target.value }))}
-                                  className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold bg-white border border-stone-250 rounded-xl focus:border-[#7c4831] focus:outline-none placeholder:text-stone-400"
+                                  style={{ paddingLeft: "2.25rem", paddingRight: "2rem" }}
+                                  className="w-full py-1.5 text-xs font-semibold bg-white border border-stone-250 rounded-xl focus:border-[#7c4831] focus:outline-none placeholder:text-stone-400"
                                 />
                                 {dailyStaffSearches[prefixId] && (
                                   <button
@@ -3592,7 +3593,8 @@ export default function AdminPortal() {
                           placeholder="Gõ tìm nhanh tên nhân viên..."
                           value={manualStaffSearch}
                           onChange={e => setManualStaffSearch(e.target.value)}
-                          className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-white border-2 border-stone-200 rounded-xl focus:border-[#7c4831] focus:outline-none transition-all placeholder:text-stone-400"
+                          style={{ paddingLeft: "2.25rem", paddingRight: "2rem" }}
+                          className="w-full py-2 text-xs font-semibold bg-white border-2 border-stone-200 rounded-xl focus:border-[#7c4831] focus:outline-none transition-all placeholder:text-stone-400"
                         />
                         {manualStaffSearch && (
                           <button
@@ -5288,7 +5290,8 @@ export default function AdminPortal() {
                           placeholder="Gõ tên hoặc SĐT..."
                           value={payrollStaffSearch}
                           onChange={e => setPayrollStaffSearch(e.target.value)}
-                          className="input w-full pl-8 pr-7 py-1.5 h-9 text-xs font-semibold bg-white border border-gray-200 rounded-xl"
+                          style={{ paddingLeft: "2.25rem", paddingRight: "2rem" }}
+                          className="w-full py-1.5 h-9 text-xs font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#7c4831]"
                         />
                         {payrollStaffSearch && (
                           <button
@@ -5624,7 +5627,8 @@ export default function AdminPortal() {
                       placeholder="Tìm tên nhân viên..."
                       value={adjStaffSearch}
                       onChange={e => setAdjStaffSearch(e.target.value)}
-                      className="input w-full pl-7 pr-7 py-1 text-xs font-semibold bg-white border border-stone-250 rounded-xl"
+                      style={{ paddingLeft: "2.25rem", paddingRight: "2rem" }}
+                      className="w-full py-1.5 text-xs font-semibold bg-white border border-stone-250 rounded-xl focus:outline-none focus:border-[#7c4831]"
                     />
                     {adjStaffSearch && (
                       <button
@@ -6275,7 +6279,8 @@ export default function AdminPortal() {
                         placeholder="Tìm nhanh tên nhân viên..."
                         value={wageStaffSearch}
                         onChange={e => setWageStaffSearch(e.target.value)}
-                        className="w-full pl-7 pr-7 py-1.5 text-xs bg-white border border-gray-250 rounded-xl focus:outline-none focus:border-[#7c4831]"
+                        style={{ paddingLeft: "2.25rem", paddingRight: "2rem" }}
+                        className="w-full py-1.5 text-xs bg-white border border-gray-250 rounded-xl focus:outline-none focus:border-[#7c4831]"
                       />
                       {wageStaffSearch && (
                         <button
