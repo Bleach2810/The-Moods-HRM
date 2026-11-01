@@ -582,6 +582,7 @@ export default function AdminPortal() {
     return `${year}-${month}-${day}`;
   });
   const [payrollLoading, setPayrollLoading] = useState(false);
+  const [payrollStaffSearch, setPayrollStaffSearch] = useState("");
 
   // Dynamic Penalties/Configs
   const [latePenaltyRule, setLatePenaltyRule] = useState("10:-50000,20:-100000,30:-200000");
@@ -5218,13 +5219,34 @@ export default function AdminPortal() {
 
         {/* Tab 0: Payroll calculator */}
         {adjActiveTab === "payroll" && (() => {
+          const filteredPayrollList = payrollList.filter((p: any) => {
+            if (!payrollStaffSearch.trim()) return true;
+            const query = payrollStaffSearch.trim().toLowerCase();
+            const cleanQuery = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+            const name = (p.fullName || "").toLowerCase();
+            const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+            const phone = (p.phoneNumber || "").toLowerCase();
+            return cleanName.includes(cleanQuery) || name.includes(query) || phone.includes(query);
+          });
+
           return (
             <div className="space-y-6">
               {/* Date Selector Form */}
               <div className="card space-y-4">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">
-                  Chọn thời gian
-                </h3>
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">
+                    Chọn thời gian & Lọc nhân viên
+                  </h3>
+                  {payrollStaffSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPayrollStaffSearch("")}
+                      className="text-[10px] text-rose-600 hover:underline font-bold cursor-pointer"
+                    >
+                      ✕ Bỏ lọc nhân viên
+                    </button>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-4 items-end">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">Từ ngày:</label>
@@ -5252,14 +5274,70 @@ export default function AdminPortal() {
                   >
                     {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
                   </button>
+
+                  {/* Box Search & Filter theo tên nhân viên */}
+                  <div className="space-y-1 flex-1 min-w-[260px]">
+                    <label className="text-[10px] font-black uppercase text-[#7c4831] tracking-wider block">
+                      Tìm kiếm / Lọc theo nhân viên:
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          placeholder="🔍 Gõ tên hoặc SĐT..."
+                          value={payrollStaffSearch}
+                          onChange={e => setPayrollStaffSearch(e.target.value)}
+                          className="input w-full pl-8 pr-7 py-1.5 h-9 text-xs font-semibold bg-white border border-gray-200 rounded-xl"
+                        />
+                        {payrollStaffSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setPayrollStaffSearch("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 text-xs font-black cursor-pointer p-0.5"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <select
+                        value={payrollStaffSearch}
+                        onChange={e => setPayrollStaffSearch(e.target.value)}
+                        className="input h-9 text-xs font-semibold bg-white border border-gray-200 rounded-xl max-w-[160px] sm:max-w-[200px]"
+                      >
+                        <option value="">-- Tất cả nhân viên --</option>
+                        {Array.from(new Set(payrollList.map((p: any) => p.fullName).filter(Boolean))).map((name: any) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Payroll Table */}
               <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
-                <div className="p-2 border-b border-gray-150 mb-1 flex justify-between items-center">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Bảng lương chi nhánh</span>
-                  <span className="text-[10px] font-semibold text-gray-500 ">Đơn vị: VNĐ</span>
+                <div className="p-3 border-b border-gray-150 flex flex-wrap justify-between items-center gap-2 bg-[#FAF9F6]/50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Bảng lương chi nhánh</span>
+                    <span className="text-[10px] font-semibold text-gray-500">Đơn vị: VNĐ</span>
+                    {payrollStaffSearch && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#7c4831]/10 text-[#7c4831] font-bold">
+                        Đang lọc: "{payrollStaffSearch}" ({filteredPayrollList.length}/{payrollList.length} nhân viên)
+                      </span>
+                    )}
+                  </div>
+                  {payrollStaffSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPayrollStaffSearch("")}
+                      className="text-[11px] text-[#7c4831] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <X size={12} /> Bỏ lọc ({filteredPayrollList.length})
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
@@ -5283,8 +5361,21 @@ export default function AdminPortal() {
                         <tr>
                           <td colSpan={10} className="p-8 text-center text-gray-400 italic">Không có dữ liệu tính lương trong khoảng thời gian này. Bấm nút "Tính Lương" để tải dữ liệu.</td>
                         </tr>
+                      ) : filteredPayrollList.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="p-8 text-center text-gray-400 italic">
+                            Không tìm thấy nhân viên nào khớp với từ khóa "{payrollStaffSearch}".{" "}
+                            <button
+                              type="button"
+                              onClick={() => setPayrollStaffSearch("")}
+                              className="text-[#7c4831] font-bold underline ml-1 cursor-pointer"
+                            >
+                              Xóa bộ lọc
+                            </button>
+                          </td>
+                        </tr>
                       ) : (
-                        payrollList.map((p: any) => {
+                        filteredPayrollList.map((p: any) => {
                           const group = groupedAdjustments[p.userId] || groupedAdjustments[p.fullName] || {};
                           const totalBonus = group.totalBonus || p.totalBonus || 0;
                           const totalPenalty = group.totalPenalty || p.totalPenalty || 0;
@@ -5392,11 +5483,24 @@ export default function AdminPortal() {
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
                       {(() => {
-                        const list = officialSchedulesList.filter((s: any) => s.date >= payrollFromDate && s.date <= payrollToDate);
+                        const list = officialSchedulesList
+                          .filter((s: any) => s.date >= payrollFromDate && s.date <= payrollToDate)
+                          .filter((s: any) => {
+                            if (!payrollStaffSearch.trim()) return true;
+                            const query = payrollStaffSearch.trim().toLowerCase();
+                            const cleanQuery = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+                            const name = (s.staffName || "").toLowerCase();
+                            const cleanName = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+                            return cleanName.includes(cleanQuery) || name.includes(query);
+                          });
                         if (list.length === 0) {
                           return (
                             <tr>
-                              <td colSpan={6} className="p-8 text-center text-gray-400 italic">Không có dữ liệu ca trực & chấm công trong khoảng thời gian này.</td>
+                              <td colSpan={6} className="p-8 text-center text-gray-400 italic">
+                                {payrollStaffSearch.trim()
+                                  ? `Không có dữ liệu ca trực & chấm công cho nhân viên khớp với "${payrollStaffSearch}".`
+                                  : "Không có dữ liệu ca trực & chấm công trong khoảng thời gian này."}
+                              </td>
                             </tr>
                           );
                         }
