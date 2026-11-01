@@ -3338,7 +3338,7 @@ export default function AdminPortal() {
                                 <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                                 <input
                                   type="text"
-                                  placeholder="🔍 Tìm nhanh tên nhân viên..."
+                                  placeholder="Tìm nhanh tên nhân viên..."
                                   value={dailyStaffSearches[prefixId] || ""}
                                   onChange={e => setDailyStaffSearches(prev => ({ ...prev, [prefixId]: e.target.value }))}
                                   className="w-full pl-7 pr-7 py-1.5 text-xs font-semibold bg-white border border-stone-250 rounded-xl focus:border-[#7c4831] focus:outline-none placeholder:text-stone-400"
@@ -3589,7 +3589,7 @@ export default function AdminPortal() {
                         <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="🔍 Gõ tìm nhanh tên nhân viên..."
+                          placeholder="Gõ tìm nhanh tên nhân viên..."
                           value={manualStaffSearch}
                           onChange={e => setManualStaffSearch(e.target.value)}
                           className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-white border-2 border-stone-200 rounded-xl focus:border-[#7c4831] focus:outline-none transition-all placeholder:text-stone-400"
@@ -5285,7 +5285,7 @@ export default function AdminPortal() {
                         <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
-                          placeholder="🔍 Gõ tên hoặc SĐT..."
+                          placeholder="Gõ tên hoặc SĐT..."
                           value={payrollStaffSearch}
                           onChange={e => setPayrollStaffSearch(e.target.value)}
                           className="input w-full pl-8 pr-7 py-1.5 h-9 text-xs font-semibold bg-white border border-gray-200 rounded-xl"
@@ -5621,7 +5621,7 @@ export default function AdminPortal() {
                     <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
-                      placeholder="🔍 Tìm tên nhân viên..."
+                      placeholder="Tìm tên nhân viên..."
                       value={adjStaffSearch}
                       onChange={e => setAdjStaffSearch(e.target.value)}
                       className="input w-full pl-7 pr-7 py-1 text-xs font-semibold bg-white border border-stone-250 rounded-xl"
@@ -6272,7 +6272,7 @@ export default function AdminPortal() {
                       <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
-                        placeholder="🔍 Tìm nhanh tên nhân viên..."
+                        placeholder="Tìm nhanh tên nhân viên..."
                         value={wageStaffSearch}
                         onChange={e => setWageStaffSearch(e.target.value)}
                         className="w-full pl-7 pr-7 py-1.5 text-xs bg-white border border-gray-250 rounded-xl focus:outline-none focus:border-[#7c4831]"
