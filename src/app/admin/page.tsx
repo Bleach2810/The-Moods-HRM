@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import { toPng } from "html-to-image";
 import { useApp } from "@/context/AppContext";
-import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2, Download, Copy, Check } from "lucide-react";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2, Download, Copy, Check, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import ModalPortal from "@/components/ModalPortal";
@@ -165,6 +165,10 @@ export default function AdminPortal() {
   const [isExportingSchedule, setIsExportingSchedule] = useState(false);
   const [exportSuccessMsg, setExportSuccessMsg] = useState<string | null>(null);
 
+  const payrollCaptureRef = useRef<HTMLDivElement>(null);
+  const [isExportingPayrollExcel, setIsExportingPayrollExcel] = useState(false);
+  const [isExportingPayrollImage, setIsExportingPayrollImage] = useState(false);
+
   const handleExportScheduleImage = async (mode: "download" | "copy" = "download") => {
     if (!scheduleCaptureRef.current || isExportingSchedule) return;
     setIsExportingSchedule(true);
@@ -240,6 +244,114 @@ export default function AdminPortal() {
       alert("Không thể tạo ảnh lịch trực. Vui lòng thử lại!");
     } finally {
       setIsExportingSchedule(false);
+    }
+  };
+
+  const handleExportPayrollExcel = async () => {
+    if (isExportingPayrollExcel) return;
+    setIsExportingPayrollExcel(true);
+    try {
+      const locId = activeLocation?.id || "govap-branch";
+      const url = `${getApiBaseUrl()}/api/attendance/payroll/export?locationId=${locId}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error("Không thể tải file Excel từ máy chủ. Vui lòng kiểm tra lại dịch vụ Backend.");
+      }
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      const cleanLocName = activeLocation?.name ? activeLocation.name.replace(/[\s/\\?%*:|"<>]/g, "_") : "ChiNhanh";
+      link.download = `BangLuong_${cleanLocName}_${payrollFromDate}_den_${payrollToDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setExportSuccessMsg("Đã xuất và tải file Excel bảng lương thành công!");
+      setTimeout(() => setExportSuccessMsg(null), 3500);
+    } catch (err: any) {
+      console.error("Lỗi xuất Excel:", err);
+      alert(err.message || "Lỗi khi xuất file Excel. Vui lòng thử lại!");
+    } finally {
+      setIsExportingPayrollExcel(false);
+    }
+  };
+
+  const handleExportPayrollImage = async (mode: "download" | "copy" = "download") => {
+    if (!payrollCaptureRef.current || isExportingPayrollImage) return;
+    setIsExportingPayrollImage(true);
+    try {
+      const node = payrollCaptureRef.current;
+      const tableEl = node.querySelector("table");
+      const contentWidth = Math.max(tableEl ? tableEl.scrollWidth + 36 : 1150, 1050);
+
+      const originalWidth = node.style.width;
+      const originalMaxWidth = node.style.maxWidth;
+      const originalOverflow = node.style.overflow;
+
+      node.style.width = `${contentWidth}px`;
+      node.style.maxWidth = "none";
+      node.style.overflow = "visible";
+
+      await new Promise(r => setTimeout(r, 80));
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#FFFFFF",
+        filter: (domNode: any) => {
+          if (domNode?.dataset?.excludeExport === "true") return false;
+          return true;
+        },
+        style: {
+          zoom: "100%",
+          transform: "none"
+        }
+      });
+
+      node.style.width = originalWidth;
+      node.style.maxWidth = originalMaxWidth;
+      node.style.overflow = originalOverflow;
+
+      const cleanLocName = activeLocation?.name ? activeLocation.name.replace(/[\s/\\?%*:|"<>]/g, "_") : "TheMoods";
+      const fileName = `BangLuong_${cleanLocName}_${payrollFromDate}_den_${payrollToDate}.png`;
+
+      if (mode === "download") {
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setExportSuccessMsg("Đã tải ảnh toàn bộ bảng lương thành công!");
+        setTimeout(() => setExportSuccessMsg(null), 3500);
+      } else {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+          ]);
+          setExportSuccessMsg("Đã sao chép ảnh bảng lương vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào nhóm Zalo.");
+          setTimeout(() => setExportSuccessMsg(null), 4000);
+        } else {
+          const link = document.createElement("a");
+          link.download = fileName;
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setExportSuccessMsg("Đã tải file ảnh bảng lương về máy!");
+          setTimeout(() => setExportSuccessMsg(null), 3500);
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi khi tạo ảnh bảng lương:", err);
+      alert("Không thể tạo ảnh bảng lương. Vui lòng thử lại!");
+    } finally {
+      setIsExportingPayrollImage(false);
     }
   };
 
@@ -5199,8 +5311,35 @@ export default function AdminPortal() {
             return cleanName.includes(cleanQuery) || name.includes(query) || phone.includes(query);
           });
 
+          const sumHours = Math.round(filteredPayrollList.reduce((acc: number, p: any) => acc + (p.totalWorkedHours || 0), 0) * 10) / 10;
+          const sumBaseSalary = filteredPayrollList.reduce((acc: number, p: any) => acc + (p.baseSalary || 0), 0);
+          const sumAllowance = filteredPayrollList.reduce((acc: number, p: any) => acc + (p.totalShiftAllowance || 0), 0);
+          const sumBonus = filteredPayrollList.reduce((acc: number, p: any) => {
+            const g = groupedAdjustments[p.userId] || groupedAdjustments[p.fullName] || {};
+            return acc + (g.totalBonus || p.totalBonus || 0);
+          }, 0);
+          const sumPenalty = filteredPayrollList.reduce((acc: number, p: any) => {
+            const g = groupedAdjustments[p.userId] || groupedAdjustments[p.fullName] || {};
+            return acc + (g.totalPenalty || p.totalPenalty || 0);
+          }, 0);
+          const sumAdvance = filteredPayrollList.reduce((acc: number, p: any) => {
+            const g = groupedAdjustments[p.userId] || groupedAdjustments[p.fullName] || {};
+            return acc + (g.totalAdvance || p.totalAdvance || 0);
+          }, 0);
+          const sumFinal = sumBaseSalary + sumAllowance + sumBonus - sumPenalty - sumAdvance;
+
           return (
             <div className="space-y-6">
+              {exportSuccessMsg && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-4 py-2.5 rounded-2xl flex items-center justify-between shadow-xs anim-fadeUp">
+                  <span className="font-bold flex items-center gap-2">
+                    <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                    {exportSuccessMsg}
+                  </span>
+                  <button type="button" onClick={() => setExportSuccessMsg(null)} className="text-emerald-700 hover:text-emerald-900 text-xs font-black cursor-pointer">✕</button>
+                </div>
+              )}
+
               {/* Date Selector Form */}
               <div className="card space-y-4">
                 <div className="flex flex-wrap justify-between items-center gap-2">
@@ -5236,14 +5375,37 @@ export default function AdminPortal() {
                       className="input text-xs font-semibold w-36"
                     />
                   </div>
-                  <button
-                    onClick={fetchPayrollData}
-                    disabled={payrollLoading}
-                    type="button"
-                    className="btn btn-primary text-xs py-2 px-4 h-9 flex items-center gap-1.5"
-                  >
-                    {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
-                  </button>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={fetchPayrollData}
+                      disabled={payrollLoading}
+                      type="button"
+                      className="btn btn-primary text-xs py-2 px-3.5 h-9 flex items-center gap-1.5 shadow-xs"
+                    >
+                      {payrollLoading ? <RefreshCw size={13} className="animate-spin" /> : "Tính Lương"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportPayrollExcel}
+                      disabled={isExportingPayrollExcel || payrollList.length === 0}
+                      className="btn text-xs py-2 px-3 h-9 flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                      title="Xuất toàn bộ bảng lương ra file Excel (.xlsx)"
+                    >
+                      {isExportingPayrollExcel ? <RefreshCw size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                      <span className="hidden sm:inline">Xuất Excel</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportPayrollImage("copy")}
+                      disabled={isExportingPayrollImage || payrollList.length === 0}
+                      className="btn text-xs py-2 px-3 h-9 flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs disabled:opacity-50 cursor-pointer"
+                      title="Sao chép ảnh bảng lương vào bộ nhớ tạm để dán vào Zalo"
+                    >
+                      {isExportingPayrollImage ? <RefreshCw size={13} className="animate-spin" /> : <Copy size={13} />}
+                      <span className="hidden sm:inline">Copy Zalo</span>
+                    </button>
+                  </div>
 
                   {/* Box Search & Filter theo tên nhân viên */}
                   <div className="space-y-1 flex-1 min-w-[260px]">
@@ -5289,8 +5451,26 @@ export default function AdminPortal() {
               </div>
 
               {/* Payroll Table */}
-              <div className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
-                <div className="p-3 border-b border-gray-150 flex flex-wrap justify-between items-center gap-2 bg-[#FAF9F6]/50">
+              <div ref={payrollCaptureRef} className="card p-0 overflow-hidden border border-gray-150 shadow-sm bg-white">
+                {/* Header hiển thị khi xuất ảnh bảng lương */}
+                <div className="p-4 bg-gradient-to-r from-[#7c4831] to-[#55301f] text-white flex flex-wrap justify-between items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black uppercase tracking-wider">The Moods Coffee & Tea</span>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-white/20 font-black uppercase tracking-wider">Bảng Lương Tháng</span>
+                    </div>
+                    <p className="text-xs text-white/85 font-semibold mt-1">
+                      Chi nhánh: <span className="font-bold text-white">{activeLocation?.name || "Gò Vấp"}</span> • Kỳ tính lương: <span className="font-bold text-white">{payrollFromDate}</span> đến <span className="font-bold text-white">{payrollToDate}</span>
+                    </p>
+                  </div>
+                  <div className="text-right text-[10px] text-white/80 font-medium">
+                    <p className="uppercase tracking-wider font-bold text-white/90">Đơn vị: VNĐ</p>
+                    <p className="mt-0.5">Tổng số: <span className="font-black text-white">{filteredPayrollList.length} nhân viên</span></p>
+                  </div>
+                </div>
+
+                {/* Toolbar điều khiển (chỉ hiển thị trên web, tự động ẩn khi chụp ảnh) */}
+                <div data-exclude-export="true" className="p-3 border-b border-gray-150 flex flex-wrap justify-between items-center gap-2 bg-[#FAF9F6]/50">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831]">Bảng lương chi nhánh</span>
                     <span className="text-[10px] font-semibold text-gray-500">Đơn vị: VNĐ</span>
@@ -5300,15 +5480,72 @@ export default function AdminPortal() {
                       </span>
                     )}
                   </div>
-                  {payrollStaffSearch && (
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Nút Xuất Excel */}
                     <button
                       type="button"
-                      onClick={() => setPayrollStaffSearch("")}
-                      className="text-[11px] text-[#7c4831] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                      onClick={handleExportPayrollExcel}
+                      disabled={isExportingPayrollExcel || payrollList.length === 0}
+                      className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50 active:scale-95"
+                      title="Xuất và tải toàn bộ bảng lương tháng này ra file Excel (.xlsx)"
                     >
-                      <X size={12} /> Bỏ lọc ({filteredPayrollList.length})
+                      {isExportingPayrollExcel ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin" />
+                          <span>Đang xuất...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileSpreadsheet size={13} />
+                          <span>Xuất Excel</span>
+                        </>
+                      )}
                     </button>
-                  )}
+
+                    {/* Nút Tải Ảnh PNG */}
+                    <button
+                      type="button"
+                      onClick={() => handleExportPayrollImage("download")}
+                      disabled={isExportingPayrollImage || payrollList.length === 0}
+                      className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-[#7c4831] hover:bg-[#5e3524] text-white disabled:opacity-50 active:scale-95"
+                      title="Chụp toàn bộ bảng lương và tải file ảnh (.png)"
+                    >
+                      {isExportingPayrollImage ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin" />
+                          <span>Đang tạo ảnh...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera size={13} />
+                          <span>Tải Ảnh PNG</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Nút Copy Ảnh gửi Zalo */}
+                    <button
+                      type="button"
+                      onClick={() => handleExportPayrollImage("copy")}
+                      disabled={isExportingPayrollImage || payrollList.length === 0}
+                      className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl text-[11px] font-black uppercase flex items-center gap-1.5 transition-all cursor-pointer shadow-xs bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 active:scale-95"
+                      title="Sao chép ảnh bảng lương vào bộ nhớ tạm để dán (Ctrl+V) ngay vào nhóm Zalo"
+                    >
+                      <Copy size={12} />
+                      <span>Copy gửi Zalo</span>
+                    </button>
+
+                    {payrollStaffSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPayrollStaffSearch("")}
+                        className="text-[11px] text-[#7c4831] font-bold hover:underline flex items-center gap-1 cursor-pointer ml-1"
+                      >
+                        <X size={12} /> Bỏ lọc ({filteredPayrollList.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto w-full overscroll-x-contain" style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x pan-y" }}>
@@ -5356,14 +5593,15 @@ export default function AdminPortal() {
                           return (
                           <tr key={p.userId} className="hover:bg-gray-50/50 transition-colors">
                             <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
-                            <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
-                            <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
-                            <td className="p-4 text-right ">
+                            <td className="p-4 font-medium text-gray-500">{p.phoneNumber}</td>
+                            <td className="p-4 text-right">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <span className="font-bold">{p.totalWorkedHours}h</span>
                           {p.details && p.details.length > 0 && (
                             <button
                               type="button"
+                              data-exclude-export="true"
                               onClick={() => {
                                 setSelectedShiftDetailsStaff(p);
                                 setShowShiftDetailsModal(true);
@@ -5376,7 +5614,7 @@ export default function AdminPortal() {
                           )}
                         </div>
                       </td>
-                            <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end gap-1">
                                 <span className="font-extrabold text-blue-900">
@@ -5396,11 +5634,12 @@ export default function AdminPortal() {
                                 </div>
                               </div>
                             </td>
-                            <td className="p-4 text-right  text-emerald-600">
+                            <td className="p-4 text-right text-emerald-600">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span>+{totalBonus.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
+                                  data-exclude-export="true"
                                   onClick={() => {
                                     setSelectedPenaltyEmployee(p);
                                     setShowPenaltyModal(true);
@@ -5411,11 +5650,12 @@ export default function AdminPortal() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-right  text-red-600">
+                            <td className="p-4 text-right text-red-600">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span>-{totalPenalty.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
+                                  data-exclude-export="true"
                                   onClick={() => {
                                     setSelectedPenaltyEmployee(p);
                                     setShowPenaltyModal(true);
@@ -5426,11 +5666,12 @@ export default function AdminPortal() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-right  text-amber-700">
+                            <td className="p-4 text-right text-amber-700">
                               <div className="flex items-center justify-end gap-1.5">
                                 <span>-{totalAdvance.toLocaleString("vi-VN")}đ</span>
                                 <button
                                   type="button"
+                                  data-exclude-export="true"
                                   onClick={() => {
                                     setSelectedPenaltyEmployee(p);
                                     setShowPenaltyModal(true);
@@ -5441,12 +5682,38 @@ export default function AdminPortal() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-4 text-right  font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{finalAmount.toLocaleString("vi-VN")}đ</td>
+                            <td className="p-4 text-right font-black text-sm text-[#7c4831] bg-[#7c4831]/5">{finalAmount.toLocaleString("vi-VN")}đ</td>
                           </tr>
                         )})
                       )}
                     </tbody>
+                    {filteredPayrollList.length > 0 && (
+                      <tfoot className="bg-gradient-to-r from-stone-100 to-amber-50/40 border-t-2 border-stone-300 font-bold text-xs text-[#4B3621]">
+                        <tr>
+                          <td className="p-4 uppercase font-black text-[#7c4831]">
+                            TỔNG CỘNG ({filteredPayrollList.length})
+                          </td>
+                          <td className="p-4 text-stone-400 font-semibold text-[11px]">—</td>
+                          <td className="p-4 text-right text-stone-400 font-semibold text-[11px]">—</td>
+                          <td className="p-4 text-right font-black text-[#7c4831]">{sumHours}h</td>
+                          <td className="p-4 text-right font-black">{sumBaseSalary.toLocaleString("vi-VN")}đ</td>
+                          <td className="p-4 text-right font-black text-blue-900">+{sumAllowance.toLocaleString("vi-VN")}đ</td>
+                          <td className="p-4 text-right font-black text-emerald-700">+{sumBonus.toLocaleString("vi-VN")}đ</td>
+                          <td className="p-4 text-right font-black text-rose-700">-{sumPenalty.toLocaleString("vi-VN")}đ</td>
+                          <td className="p-4 text-right font-black text-amber-700">-{sumAdvance.toLocaleString("vi-VN")}đ</td>
+                          <td className="p-4 text-right font-black text-sm text-[#7c4831] bg-[#7c4831]/10">
+                            {sumFinal.toLocaleString("vi-VN")}đ
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
+                </div>
+
+                {/* FOOTER WATERMARK TRÊN ẢNH XUẤT */}
+                <div className="py-2.5 px-4 flex flex-wrap justify-between items-center text-[10px] font-bold text-stone-400 border-t border-stone-200 bg-stone-50/80">
+                  <span>The Moods HRM • Hệ thống quản lý vận hành & tính lương F&B</span>
+                  <span>Xuất bảng lương lúc: {new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} ngày {new Date().toLocaleDateString("vi-VN")}</span>
                 </div>
               </div>
 

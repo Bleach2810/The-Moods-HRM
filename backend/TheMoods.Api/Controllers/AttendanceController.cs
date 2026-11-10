@@ -1370,7 +1370,7 @@ namespace TheMoods.Api.Controllers
 
                     // Cộng/Trừ các khoản Adjustments riêng cho từng nhân viên
                     var userAdjustments = adjustmentsList
-                        .Where(a => a.EmployeeId == user.Id)
+                        .Where(a => a.EmployeeId == user.Id || string.Equals(a.EmployeeId, user.FullName, StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     decimal advance = 0;
@@ -1736,6 +1736,14 @@ namespace TheMoods.Api.Controllers
                 }
 
                 int rowIdx = 2;
+                double grandTotalHours = 0;
+                decimal grandBaseSalary = 0;
+                decimal grandShiftAllowance = 0;
+                decimal grandBonus = 0;
+                decimal grandPenalty = 0;
+                decimal grandAdvance = 0;
+                decimal grandFinalAmount = 0;
+
                 foreach (var user in users)
                 {
                     var userLoc = user.UserLocations.FirstOrDefault(ul => ul.LocationId == locationId);
@@ -1862,7 +1870,7 @@ namespace TheMoods.Api.Controllers
                     }
 
                     var userAdjustments = adjustmentsList
-                        .Where(a => a.EmployeeId == user.Id)
+                        .Where(a => a.EmployeeId == user.Id || string.Equals(a.EmployeeId, user.FullName, StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
                     decimal advance = 0;
@@ -1930,8 +1938,43 @@ namespace TheMoods.Api.Controllers
                     ws.Cell(rowIdx, 9).Value = Math.Round(advance);
                     ws.Cell(rowIdx, 10).Value = Math.Round(finalAmount);
 
+                    grandTotalHours += totalHours;
+                    grandBaseSalary += baseSalary;
+                    grandShiftAllowance += totalShiftAllowance;
+                    grandBonus += bonus;
+                    grandPenalty += penalty;
+                    grandAdvance += advance;
+                    grandFinalAmount += finalAmount;
+
                     rowIdx++;
                 }
+
+                // Dòng Tổng Cộng
+                ws.Cell(rowIdx, 1).Value = "TỔNG CỘNG";
+                ws.Cell(rowIdx, 2).Value = $"{users.Count} nhân viên";
+                ws.Cell(rowIdx, 4).Value = Math.Round(grandTotalHours, 1, MidpointRounding.AwayFromZero);
+                ws.Cell(rowIdx, 5).Value = Math.Round(grandBaseSalary);
+                ws.Cell(rowIdx, 6).Value = Math.Round(grandShiftAllowance);
+                ws.Cell(rowIdx, 7).Value = Math.Round(grandBonus);
+                ws.Cell(rowIdx, 8).Value = Math.Round(grandPenalty);
+                ws.Cell(rowIdx, 9).Value = Math.Round(grandAdvance);
+                ws.Cell(rowIdx, 10).Value = Math.Round(grandFinalAmount);
+
+                var totalRange = ws.Range(rowIdx, 1, rowIdx, 10);
+                totalRange.Style.Font.Bold = true;
+                totalRange.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#F5EBE6");
+                totalRange.Style.Border.TopBorder = ClosedXML.Excel.XLBorderStyleValues.Thin;
+                totalRange.Style.Border.BottomBorder = ClosedXML.Excel.XLBorderStyleValues.Double;
+
+                // Format number columns
+                ws.Column(3).Style.NumberFormat.Format = "#,##0";
+                ws.Column(4).Style.NumberFormat.Format = "0.0";
+                ws.Column(5).Style.NumberFormat.Format = "#,##0";
+                ws.Column(6).Style.NumberFormat.Format = "#,##0";
+                ws.Column(7).Style.NumberFormat.Format = "#,##0";
+                ws.Column(8).Style.NumberFormat.Format = "#,##0";
+                ws.Column(9).Style.NumberFormat.Format = "#,##0";
+                ws.Column(10).Style.NumberFormat.Format = "#,##0";
 
                 ws.Columns().AdjustToContents();
 
