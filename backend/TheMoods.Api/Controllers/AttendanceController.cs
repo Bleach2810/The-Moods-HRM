@@ -1269,20 +1269,32 @@ namespace TheMoods.Api.Controllers
                             }
                         }
 
-                        if (att.CheckOutTime != null)
+                        // Auto-checkout fallback: Nếu nhân viên chưa bấm checkout nhưng ca đã qua giờ kết thúc, tự động chốt checkout đúng giờ kết thúc ca (schedEnd)
+                        var nowVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Utc);
+                        var effectiveCheckOut = att.CheckOutTime;
+                        if (effectiveCheckOut == null && hasSchedule)
+                        {
+                            if (nowVn >= schedEnd)
+                            {
+                                effectiveCheckOut = schedEnd;
+                                att.CheckOutTime = schedEnd;
+                            }
+                        }
+
+                        if (effectiveCheckOut != null)
                         {
                             double rawHours = 0;
                             if (hasSchedule)
                             {
                                 // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
                                 var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
-                                var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
+                                var checkOutLimit = effectiveCheckOut.Value > schedEnd ? schedEnd : effectiveCheckOut.Value;
                                 rawHours = (checkOutLimit - checkInLimit).TotalHours;
 
                                 // Fallback nếu giờ check-in / check-out lệch ra ngoài khung ca trực được gán
-                                if (rawHours <= 0 && att.CheckOutTime.Value > att.CheckInTime)
+                                if (rawHours <= 0 && effectiveCheckOut.Value > att.CheckInTime)
                                 {
-                                    var actualDur = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                    var actualDur = (effectiveCheckOut.Value - att.CheckInTime).TotalHours;
                                     var nominalDur = (schedEnd - schedStart).TotalHours;
                                     if (nominalDur <= 0) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
                                     rawHours = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
@@ -1290,15 +1302,13 @@ namespace TheMoods.Api.Controllers
                             }
                             else
                             {
-                                rawHours = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                rawHours = (effectiveCheckOut.Value - att.CheckInTime).TotalHours;
                             }
 
                             if (rawHours < 0) rawHours = 0;
 
-                            // Quy tắc làm tròn: "chỉ tính giờ làm dựa trên ca được xếp và chỉ làm trong giờ làm được xếp, tối thiểu làm được 30p thì mới làm tròn lên 1h ví dụ 5.5h->6h, 5.4h->5h"
-                            var wholeH = Math.Floor(rawHours);
-                            var remMins = (rawHours - wholeH) * 60.0;
-                            var hours = remMins >= 30.0 ? wholeH + 1.0 : wholeH;
+                            // Làm tròn đến số thập phân thứ nhất (ví dụ 4.25h -> 4.3h, 4.83h -> 4.8h)
+                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
 
                             if (hours > 0)
                             {
@@ -1481,21 +1491,29 @@ namespace TheMoods.Api.Controllers
                         var schedEnd = hasSched ? baseDate.Add(a.Schedule!.EndTime) : DateTime.MinValue;
                         if (hasSched && a.Schedule!.EndTime < a.Schedule!.StartTime) schedEnd = schedEnd.AddDays(1);
 
-                        var checkInLimit = hasSched ? (a.CheckInTime < schedStart ? schedStart : a.CheckInTime) : a.CheckInTime;
-                        var checkOutLimit = a.CheckOutTime != null ? (hasSched ? (a.CheckOutTime.Value > schedEnd ? schedEnd : a.CheckOutTime.Value) : a.CheckOutTime.Value) : DateTime.MinValue;
-                        var rawHrs = a.CheckOutTime != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
-                        if (rawHrs <= 0 && a.CheckOutTime != null && a.CheckOutTime.Value > a.CheckInTime)
+                        var nowVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Utc);
+                        var effectiveCheckOut = a.CheckOutTime;
+                        if (effectiveCheckOut == null && hasSched)
                         {
-                            var actualDur = (a.CheckOutTime.Value - a.CheckInTime).TotalHours;
+                            if (nowVn >= schedEnd)
+                            {
+                                effectiveCheckOut = schedEnd;
+                            }
+                        }
+
+                        var checkInLimit = hasSched ? (a.CheckInTime < schedStart ? schedStart : a.CheckInTime) : a.CheckInTime;
+                        var checkOutLimit = effectiveCheckOut != null ? (hasSched ? (effectiveCheckOut.Value > schedEnd ? schedEnd : effectiveCheckOut.Value) : effectiveCheckOut.Value) : DateTime.MinValue;
+                        var rawHrs = effectiveCheckOut != null ? (checkOutLimit - checkInLimit).TotalHours : 0;
+                        if (rawHrs <= 0 && effectiveCheckOut != null && effectiveCheckOut.Value > a.CheckInTime)
+                        {
+                            var actualDur = (effectiveCheckOut.Value - a.CheckInTime).TotalHours;
                             var nominalDur = hasSched ? (schedEnd - schedStart).TotalHours : actualDur;
                             if (nominalDur <= 0 && hasSched) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
                             rawHrs = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
                         }
                         if (rawHrs < 0) rawHrs = 0;
 
-                        var wholeH = Math.Floor(rawHrs);
-                        var remM = (rawHrs - wholeH) * 60.0;
-                        var hrs = remM >= 30.0 ? wholeH + 1.0 : wholeH;
+                        var hrs = Math.Round(rawHrs, 1, MidpointRounding.AwayFromZero);
 
                         var shiftSecAllowance = (a.Schedule?.IsSecurity ?? false) ? securityAllowancePerHour : 0;
                         var shiftNightAllowance = (a.Schedule?.IsNightShift ?? false) ? nightAllowancePerHour : 0;
@@ -1509,7 +1527,7 @@ namespace TheMoods.Api.Controllers
                             attId = a.Id,
                             date = baseDate.ToString("yyyy-MM-dd"),
                             checkIn = a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
-                            checkOut = a.CheckOutTime?.ToString("yyyy-MM-dd HH:mm:ss"),
+                            checkOut = effectiveCheckOut?.ToString("yyyy-MM-dd HH:mm:ss"),
                             schedStart = hasSched ? schedStart.ToString("yyyy-MM-dd HH:mm:ss") : "--:--",
                             schedEnd = hasSched ? schedEnd.ToString("yyyy-MM-dd HH:mm:ss") : "--:--",
                             checkInLimit = hasSched ? checkInLimit.ToString("yyyy-MM-dd HH:mm:ss") : a.CheckInTime.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -1552,6 +1570,12 @@ namespace TheMoods.Api.Controllers
                         details = detailsList
                     });
                 }
+
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch { }
 
                 return Ok(payrolls);
             }
@@ -1747,18 +1771,29 @@ namespace TheMoods.Api.Controllers
                             }
                         }
 
-                        if (att.CheckOutTime != null)
+                        var nowVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Utc);
+                        var effectiveCheckOut = att.CheckOutTime;
+                        if (effectiveCheckOut == null && hasSchedule)
+                        {
+                            if (nowVn >= schedEnd)
+                            {
+                                effectiveCheckOut = schedEnd;
+                                att.CheckOutTime = schedEnd;
+                            }
+                        }
+
+                        if (effectiveCheckOut != null)
                         {
                             double rawHours = 0;
                             if (hasSchedule)
                             {
                                 var checkInLimit = att.CheckInTime < schedStart ? schedStart : att.CheckInTime;
-                                var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
+                                var checkOutLimit = effectiveCheckOut.Value > schedEnd ? schedEnd : effectiveCheckOut.Value;
                                 rawHours = (checkOutLimit - checkInLimit).TotalHours;
 
-                                if (rawHours <= 0 && att.CheckOutTime.Value > att.CheckInTime)
+                                if (rawHours <= 0 && effectiveCheckOut.Value > att.CheckInTime)
                                 {
-                                    var actualDur = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                    var actualDur = (effectiveCheckOut.Value - att.CheckInTime).TotalHours;
                                     var nominalDur = (schedEnd - schedStart).TotalHours;
                                     if (nominalDur <= 0) nominalDur = (schedEnd.AddDays(1) - schedStart).TotalHours;
                                     rawHours = nominalDur > 0 ? Math.Min(actualDur, nominalDur) : actualDur;
@@ -1766,14 +1801,13 @@ namespace TheMoods.Api.Controllers
                             }
                             else
                             {
-                                rawHours = (att.CheckOutTime.Value - att.CheckInTime).TotalHours;
+                                rawHours = (effectiveCheckOut.Value - att.CheckInTime).TotalHours;
                             }
 
                             if (rawHours < 0) rawHours = 0;
 
-                            var wholeH = Math.Floor(rawHours);
-                            var remMins = (rawHours - wholeH) * 60.0;
-                            var hours = remMins >= 30.0 ? wholeH + 1.0 : wholeH;
+                            // Làm tròn đến số thập phân thứ nhất
+                            var hours = Math.Round(rawHours, 1, MidpointRounding.AwayFromZero);
 
                             if (hours > 0)
                             {
@@ -3053,11 +3087,22 @@ namespace TheMoods.Api.Controllers
                         var schedEnd = DateTime.SpecifyKind(baseDate.Add(att.Schedule.EndTime), att.CheckInTime.Kind);
                         if (att.Schedule.EndTime < att.Schedule.StartTime) schedEnd = schedEnd.AddDays(1);
 
-                        if (att.CheckOutTime != null)
+                        var nowVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Utc);
+                        var effectiveCheckOut = att.CheckOutTime;
+                        if (effectiveCheckOut == null)
+                        {
+                            if (nowVn >= schedEnd)
+                            {
+                                effectiveCheckOut = schedEnd;
+                                att.CheckOutTime = schedEnd;
+                            }
+                        }
+
+                        if (effectiveCheckOut != null)
                         {
                             // Giờ làm tối đa tính theo ca trực chính thức (No OT), check-in sớm không tính thêm giờ
                             var checkInLimit = att.CheckInTime < schedStart2 ? schedStart2 : att.CheckInTime;
-                            var checkOutLimit = att.CheckOutTime.Value > schedEnd ? schedEnd : att.CheckOutTime.Value;
+                            var checkOutLimit = effectiveCheckOut.Value > schedEnd ? schedEnd : effectiveCheckOut.Value;
                             var rawHours = (checkOutLimit - checkInLimit).TotalHours;
                             if (rawHours < 0) rawHours = 0;
 

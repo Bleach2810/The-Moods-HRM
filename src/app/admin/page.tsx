@@ -645,6 +645,10 @@ export default function AdminPortal() {
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [selectedPenaltyEmployee, setSelectedPenaltyEmployee] = useState<any>(null);
 
+  // Shift Details Modal States
+  const [showShiftDetailsModal, setShowShiftDetailsModal] = useState(false);
+  const [selectedShiftDetailsStaff, setSelectedShiftDetailsStaff] = useState<any>(null);
+
   // Grouped Adjustments Details Modal States
   const [showAdjDetailModal, setShowAdjDetailModal] = useState(false);
   const [selectedAdjGroup, setSelectedAdjGroup] = useState<any>(null);
@@ -4389,7 +4393,24 @@ export default function AdminPortal() {
                       <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
                       <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
                       <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
-                      <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
+                      <td className="p-4 text-right ">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="font-bold">{p.totalWorkedHours}h</span>
+                          {p.details && p.details.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedShiftDetailsStaff(p);
+                                setShowShiftDetailsModal(true);
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-800 text-[9px] font-black uppercase transition-all cursor-pointer"
+                              title="Xem chi tiết từng ca làm"
+                            >
+                              Chi tiết
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
                       <td className="p-4 text-right">
                         <div className="flex flex-col items-end gap-1">
@@ -5337,7 +5358,24 @@ export default function AdminPortal() {
                             <td className="p-4 uppercase tracking-tight font-black">{p.fullName}</td>
                             <td className="p-4  font-medium text-gray-500">{p.phoneNumber}</td>
                             <td className="p-4 text-right ">{p.hourlyWage?.toLocaleString("vi-VN")}đ</td>
-                            <td className="p-4 text-right ">{p.totalWorkedHours}h</td>
+                            <td className="p-4 text-right ">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <span className="font-bold">{p.totalWorkedHours}h</span>
+                          {p.details && p.details.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedShiftDetailsStaff(p);
+                                setShowShiftDetailsModal(true);
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-800 text-[9px] font-black uppercase transition-all cursor-pointer"
+                              title="Xem chi tiết từng ca làm"
+                            >
+                              Chi tiết
+                            </button>
+                          )}
+                        </div>
+                      </td>
                             <td className="p-4 text-right ">{p.baseSalary?.toLocaleString("vi-VN")}đ</td>
                             <td className="p-4 text-right">
                               <div className="flex flex-col items-end gap-1">
@@ -7997,6 +8035,150 @@ export default function AdminPortal() {
             </ModalPortal>
           );
         })()}
+
+        {/* Shift Details Modal */}
+        {showShiftDetailsModal && selectedShiftDetailsStaff && (
+          <ModalPortal>
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+              onClick={() => { setShowShiftDetailsModal(false); setSelectedShiftDetailsStaff(null); }}
+            >
+              <div
+                className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-gray-150 my-auto animate-scale-up"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="p-5 border-b border-gray-150 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-white">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-[#7c4831] uppercase tracking-tight flex items-center gap-2">
+                      <span>⏱️ Chi tiết ca làm:</span>
+                      <span className="text-blue-900">{selectedShiftDetailsStaff.fullName}</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                      Kỳ tính lương từ <span className="font-bold text-[#7c4831]">{payrollFromDate}</span> đến <span className="font-bold text-[#7c4831]">{payrollToDate}</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShiftDetailsModal(false);
+                      setSelectedShiftDetailsStaff(null);
+                    }}
+                    className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Summary Stats */}
+                <div className="p-4 bg-blue-50/30 border-b border-blue-150/40 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
+                  <div className="bg-white p-2.5 rounded-2xl border border-blue-100 shadow-sm">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Số ca ghi nhận</span>
+                    <span className="text-base font-black text-blue-950">{selectedShiftDetailsStaff.details?.length || 0} ca</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-2xl border border-blue-100 shadow-sm">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Tổng giờ làm</span>
+                    <span className="text-base font-black text-blue-700">{selectedShiftDetailsStaff.totalWorkedHours}h</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-2xl border border-blue-100 shadow-sm">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Lương / giờ</span>
+                    <span className="text-base font-black text-gray-700">{selectedShiftDetailsStaff.hourlyWage?.toLocaleString("vi-VN")}đ</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-2xl border border-blue-100 shadow-sm">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block">Lương cơ bản</span>
+                    <span className="text-base font-black text-emerald-700">{selectedShiftDetailsStaff.baseSalary?.toLocaleString("vi-VN")}đ</span>
+                  </div>
+                </div>
+
+                {/* Shifts Table */}
+                <div className="p-4 overflow-y-auto max-h-[55vh]">
+                  {(!selectedShiftDetailsStaff.details || selectedShiftDetailsStaff.details.length === 0) ? (
+                    <div className="p-8 text-center text-gray-400 italic">Không có dữ liệu ca làm việc chi tiết.</div>
+                  ) : (
+                    <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+                      <thead>
+                        <tr className="bg-gray-50 text-[#7c4831] uppercase text-[9px] font-black tracking-wider border-b border-gray-150">
+                          <th className="px-4 py-3">Ngày</th>
+                          <th className="px-4 py-3">Khung ca xếp</th>
+                          <th className="px-4 py-3 text-center">Giờ vào</th>
+                          <th className="px-4 py-3 text-center">Giờ ra</th>
+                          <th className="px-4 py-3 text-right">Giờ tính công</th>
+                          <th className="px-4 py-3 text-right">Lương/giờ</th>
+                          <th className="px-4 py-3 text-right">Lương ca</th>
+                          <th className="px-4 py-3 text-center">Phụ cấp</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 font-semibold text-[#4B3621]">
+                        {selectedShiftDetailsStaff.details.map((d: any, idx: number) => {
+                          const checkInTimeOnly = d.checkIn ? (d.checkIn.includes(" ") ? d.checkIn.split(" ")[1] : d.checkIn) : "--:--";
+                          const checkOutTimeOnly = d.checkOut ? (d.checkOut.includes(" ") ? d.checkOut.split(" ")[1] : d.checkOut) : "--:--";
+                          return (
+                            <tr key={d.attId || idx} className="hover:bg-blue-50/20 transition-colors">
+                              <td className="px-4 py-3 font-mono font-bold">{d.date}</td>
+                              <td className="px-4 py-3 font-mono text-gray-600">
+                                {d.isExtension ? (
+                                  <span className="pill pill-purple text-[10px]">Kéo ca</span>
+                                ) : (
+                                  `${d.schedStart ? (d.schedStart.includes(" ") ? d.schedStart.split(" ")[1]?.substring(0, 5) : d.schedStart) : "--"} - ${d.schedEnd ? (d.schedEnd.includes(" ") ? d.schedEnd.split(" ")[1]?.substring(0, 5) : d.schedEnd) : "--"}`
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center font-mono font-bold text-emerald-700">
+                                {checkInTimeOnly}
+                              </td>
+                              <td className="px-4 py-3 text-center font-mono font-bold text-amber-800">
+                                {checkOutTimeOnly}
+                              </td>
+                              <td className="px-4 py-3 text-right font-black text-blue-900">
+                                {d.hours}h
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-gray-600">
+                                {d.hourlyWage?.toLocaleString("vi-VN")}đ
+                              </td>
+                              <td className="px-4 py-3 text-right font-black text-emerald-700">
+                                {d.basePay?.toLocaleString("vi-VN")}đ
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  {d.isSecurity && (
+                                    <span className="text-[9px] bg-blue-50 text-blue-800 border border-blue-200 px-1 py-0.5 rounded font-bold" title="Phụ cấp bảo vệ">
+                                      🛡️ BV
+                                    </span>
+                                  )}
+                                  {d.isNightShift && (
+                                    <span className="text-[9px] bg-purple-50 text-purple-800 border border-purple-200 px-1 py-0.5 rounded font-bold" title="Phụ cấp ca khuya">
+                                      🌙 Khuya
+                                    </span>
+                                  )}
+                                  {!d.isSecurity && !d.isNightShift && (
+                                    <span className="text-gray-300">-</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-gray-150 bg-gray-50 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShiftDetailsModal(false);
+                      setSelectedShiftDetailsStaff(null);
+                    }}
+                    className="btn btn-secondary px-6 py-2 text-xs font-bold"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </ModalPortal>
+        )}
       </main>
     </div>
   );
