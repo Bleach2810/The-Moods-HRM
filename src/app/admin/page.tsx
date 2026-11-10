@@ -649,6 +649,7 @@ export default function AdminPortal() {
   const [showAdjDetailModal, setShowAdjDetailModal] = useState(false);
   const [selectedAdjGroup, setSelectedAdjGroup] = useState<any>(null);
   const [editingAdjIndex, setEditingAdjIndex] = useState<number | null>(null);
+  const [editingAdjId, setEditingAdjId] = useState<string | null>(null);
   const [editingAutoKey, setEditingAutoKey] = useState<string | null>(null);
 
   // Staff Skills States
@@ -1030,7 +1031,15 @@ export default function AdminPortal() {
         const adjVal = data.find((c: any) => c.configKey === "Adjustments")?.configValue;
         if (adjVal) {
           try {
-            setAdjustmentsList(JSON.parse(adjVal));
+            const parsed = JSON.parse(adjVal);
+            if (Array.isArray(parsed)) {
+              setAdjustmentsList(parsed.map((item: any, i: number) => ({
+                ...item,
+                Id: item.Id || item.id || `adj_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 7)}`
+              })));
+            } else {
+              setAdjustmentsList([]);
+            }
           } catch {
             setAdjustmentsList([]);
           }
@@ -1268,6 +1277,7 @@ export default function AdminPortal() {
         setNewHolidayMultiplier("2.0");
         setNewHolidayFlatBonus("0");
         fetchHrmConfigs();
+        fetchPayrollData();
       }
     } catch (err) {
       console.error(err);
@@ -1289,6 +1299,7 @@ export default function AdminPortal() {
       if (res.ok) {
         alert("Xóa ngày lễ thành công!");
         fetchHrmConfigs();
+        fetchPayrollData();
       }
     } catch (err) {
       console.error(err);
@@ -1449,7 +1460,9 @@ export default function AdminPortal() {
     const price = parseFloat(newAdjAmountPerUnit) || 0;
     const totalAmt = newAdjUnit === "co_dinh" ? price : qty * price;
 
+    const newAdjId = editingAdjId || (editingAdjIndex !== null && adjustmentsList[editingAdjIndex]?.Id) || `adj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const newAdj: any = {
+      Id: newAdjId,
       EmployeeId: newAdjEmployeeId,
       EmployeeName: empName,
       Type: newAdjType,
@@ -1471,15 +1484,27 @@ export default function AdminPortal() {
     }
 
     let updated = [...adjustmentsList];
-    if (editingAdjIndex !== null) {
-      const existing = updated[editingAdjIndex];
+    let foundIndex = -1;
+    if (editingAdjId) {
+      foundIndex = updated.findIndex((a: any) => (a.Id || a.id) === editingAdjId);
+    }
+    if (foundIndex === -1 && editingAutoKey) {
+      foundIndex = updated.findIndex((a: any) => a.IsAutoOverride && (a.OverrideKey === editingAutoKey || a.AutoKey === editingAutoKey));
+    }
+    if (foundIndex === -1 && editingAdjIndex !== null && editingAdjIndex >= 0 && editingAdjIndex < updated.length) {
+      foundIndex = editingAdjIndex;
+    }
+
+    if (foundIndex !== -1) {
+      const existing = updated[foundIndex];
       if (existing && existing.IsAutoOverride) {
         newAdj.IsAutoOverride = true;
-        newAdj.OverrideKey = existing.OverrideKey;
-        newAdj.AutoKey = existing.AutoKey || existing.OverrideKey;
-        newAdj.AutoRef = existing.AutoRef;
+        newAdj.OverrideKey = existing.OverrideKey || editingAutoKey;
+        newAdj.AutoKey = existing.AutoKey || existing.OverrideKey || editingAutoKey;
+        newAdj.AutoRef = existing.AutoRef || (editingAutoKey ? `LATE_${editingAutoKey.split("_")[0]}_${editingAutoKey.split("_")[1]}_${editingAutoKey.split("_")[2]}` : undefined);
       }
-      updated[editingAdjIndex] = newAdj;
+      newAdj.Id = existing?.Id || existing?.id || newAdjId;
+      updated[foundIndex] = newAdj;
     } else {
       updated.push(newAdj);
     }
@@ -1493,10 +1518,13 @@ export default function AdminPortal() {
         ])
       });
       if (res.ok) {
-        alert(editingAdjIndex !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
+        alert(editingAdjIndex !== null || editingAdjId !== null || editingAutoKey !== null ? "Cập nhật khoản thưởng/phạt thành công!" : "Thêm khoản thưởng/phạt thành công!");
+        setAdjustmentsList(updated);
         setNewAdjNote("");
         setEditingAdjIndex(null);
+        setEditingAdjId(null);
         setEditingAutoKey(null);
+        setSelectedAdjGroup(null);
         setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
         fetchHrmConfigs();
         fetchPayrollData();
@@ -1507,9 +1535,25 @@ export default function AdminPortal() {
     }
   };
 
-  const handleDeleteAdjustment = async (adjIndex: number) => {
+  const handleDeleteAdjustment = async (target: any, fallbackIndex?: number) => {
     if (!confirm("Bạn có chắc muốn xóa khoản thưởng/phạt này?")) return;
-    const updated = adjustmentsList.filter((_, idx) => idx !== adjIndex);
+
+    const targetId = typeof target === "object" ? (target.Id || target.id) : (typeof target === "string" ? target : null);
+    const targetIdx = typeof target === "number" ? target : fallbackIndex;
+
+    const updated = adjustmentsList.filter((a: any, idx: number) => {
+      if (targetId && (a.Id || a.id)) {
+        return (a.Id || a.id) !== targetId;
+      }
+      if (targetIdx !== undefined && targetIdx !== null && targetIdx >= 0) {
+        return idx !== targetIdx;
+      }
+      if (typeof target === "object") {
+        return !(a.EmployeeId === target.EmployeeId && a.Date === target.Date && a.Note === target.Note);
+      }
+      return true;
+    });
+
     try {
       const res = await fetch(`${getApiBaseUrl()}/api/attendance/config?locationId=${activeLocation?.id || "govap-branch"}`, {
         method: "POST",
@@ -1520,7 +1564,10 @@ export default function AdminPortal() {
       });
       if (res.ok) {
         alert("Xóa khoản thưởng/phạt thành công!");
+        setAdjustmentsList(updated);
+        setSelectedAdjGroup(null);
         fetchHrmConfigs();
+        fetchPayrollData();
       }
     } catch (err) {
       console.error(err);
@@ -4919,7 +4966,8 @@ export default function AdminPortal() {
 
     // Group adjustments by employee id/name
     const groupedAdjustments: { [key: string]: { employeeKey: string; employeeName: string; adjustments: any[]; totalBonus: number; totalPenalty: number; totalAdvance: number } } = {};
-    adjustmentsList.filter((a: any) => !a.Date || (a.Date >= payrollFromDate && a.Date <= payrollToDate)).forEach((a: any, idx: number) => {
+    adjustmentsList.forEach((a: any, realIndex: number) => {
+      if (a.Date && (a.Date < payrollFromDate || a.Date > payrollToDate)) return;
       const key = a.EmployeeId || a.EmployeeName || "unknown";
       if (!groupedAdjustments[key]) {
         groupedAdjustments[key] = {
@@ -4939,7 +4987,11 @@ export default function AdminPortal() {
       } else {
         groupedAdjustments[key].totalPenalty += amount;
       }
-      groupedAdjustments[key].adjustments.push({ ...a, originalIndex: idx });
+      groupedAdjustments[key].adjustments.push({
+        ...a,
+        Id: a.Id || a.id || `adj_${realIndex}`,
+        originalIndex: realIndex
+      });
     });
 
     // Thêm các ca đi trễ tự động vào bảng thưởng phạt
@@ -5478,13 +5530,15 @@ export default function AdminPortal() {
             <div className="card space-y-4 border border-gray-150">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-2">
-                  <Plus size={15} /> {editingAdjIndex !== null ? "Sửa Thưởng / Phạt Nhân Viên" : "Thêm Thưởng / Phạt"}
+                  <Plus size={15} /> {(editingAdjIndex !== null || editingAdjId !== null || editingAutoKey !== null) ? "Sửa Thưởng / Phạt Nhân Viên" : "Thêm Thưởng / Phạt"}
                 </h3>
-                {editingAdjIndex !== null && (
+                {(editingAdjIndex !== null || editingAdjId !== null || editingAutoKey !== null) && (
                   <button
                     type="button"
                     onClick={() => {
                       setEditingAdjIndex(null);
+                      setEditingAdjId(null);
+                      setEditingAutoKey(null);
                       setNewAdjNote("");
                       setNewAdjDate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
                     }}
@@ -5495,7 +5549,7 @@ export default function AdminPortal() {
                 )}
               </div>
 
-              {editingAdjIndex !== null && (
+              {(editingAdjIndex !== null || editingAdjId !== null || editingAutoKey !== null) && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-bold">
                   ⚠️ Bạn đang chỉnh sửa một khoản thưởng/phạt. Sau khi sửa xong hãy bấm nút "Cập nhật điều chỉnh" bên dưới.
                 </div>
@@ -5630,7 +5684,7 @@ export default function AdminPortal() {
                 </div>
 
                 <button type="submit" className="btn btn-primary py-2.5 px-4 text-xs font-bold w-full cursor-pointer h-9">
-                  {editingAdjIndex !== null ? "Cập nhật điều chỉnh" : "Thêm điều chỉnh"}
+                  {(editingAdjIndex !== null || editingAdjId !== null || editingAutoKey !== null) ? "Cập nhật điều chỉnh" : "Thêm điều chỉnh"}
                 </button>
               </form>
             </div>
@@ -5775,6 +5829,7 @@ export default function AdminPortal() {
                                           setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
                                           setNewAdjNote(item.Note || "");
                                           setEditingAdjIndex(null);
+                                          setEditingAdjId(null);
                                           setEditingAutoKey(item.AutoKey);
                                           setSelectedAdjGroup(null);
                                           const formElement = document.getElementById("new-adj-employee-id");
@@ -5836,10 +5891,11 @@ export default function AdminPortal() {
                                           setNewAdjType(item.Type || "bonus");
                                           setNewAdjUnit(item.Unit || "co_dinh");
                                           setNewAdjQuantity(String(item.Quantity || 1));
-                                          setNewAdjAmountPerUnit(String(item.AmountPerUnit || 50000));
+                                          setNewAdjAmountPerUnit(String(item.AmountPerUnit !== undefined && item.AmountPerUnit !== null ? item.AmountPerUnit : (item.Amount || 50000)));
                                           setNewAdjDate(item.Date || (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })());
                                           setNewAdjNote(item.Note || "");
                                           setEditingAdjIndex(originalIndex);
+                                          setEditingAdjId(item.Id || item.id || null);
                                           setEditingAutoKey(null);
                                           setSelectedAdjGroup(null);
 
@@ -5855,7 +5911,7 @@ export default function AdminPortal() {
                                       </button>
                                       <button
                                         onClick={async () => {
-                                          await handleDeleteAdjustment(originalIndex);
+                                          await handleDeleteAdjustment(item, originalIndex);
                                         }}
                                         className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
                                         type="button"

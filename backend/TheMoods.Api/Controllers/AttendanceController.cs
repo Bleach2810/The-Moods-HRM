@@ -2774,6 +2774,7 @@ namespace TheMoods.Api.Controllers
         // DTOs
         public class PayrollAdjustment
         {
+            public string? Id { get; set; }
             public string EmployeeId { get; set; } = string.Empty;
             public string EmployeeName { get; set; } = string.Empty;
             public string Type { get; set; } = string.Empty; // "bonus" hoặc "penalty"
