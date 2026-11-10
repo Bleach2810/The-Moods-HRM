@@ -17,11 +17,11 @@ module.exports = {
       name: "themoods-fe",
       cwd: __dirname,
       script: path.resolve(__dirname, "node_modules/next/dist/bin/next"),
-      args: "start -p 3137",
+      args: "start -p 8899",
       interpreter: "node",
       env: {
         NODE_ENV: "production",
-        PORT: "3137"
+        PORT: "8899"
       }
     }
   ]
