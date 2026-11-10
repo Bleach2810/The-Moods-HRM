@@ -7832,6 +7832,12 @@ export default function AdminPortal() {
               })
               .filter(Boolean)
             : [];
+
+          const sumBonus = selectedEmpBonuses.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpHolidayBonuses.reduce((acc: number, h: any) => acc + (h.amount || 0), 0);
+          const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (s.penaltyAmount || 0), 0);
+          const sumAdvance = selectedEmpAdvances.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
+          const netAdjust = sumBonus - sumPenalty - sumAdvance;
+
           return (
             <ModalPortal>
               <div 
@@ -7839,199 +7845,234 @@ export default function AdminPortal() {
                 onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
               >
                 <div 
-                  className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn space-y-4 my-auto max-h-[90vh] flex flex-col"
+                  className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn flex flex-col max-h-[90vh] overflow-hidden my-auto"
                   onClick={e => e.stopPropagation()}
                 >
-                <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                  <div>
-                    <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
-                      <Award size={16} /> Lịch Sử Thưởng & Phạt Nhân Viên
-                    </h3>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{selectedPenaltyEmployee.fullName} ({selectedPenaltyEmployee.phoneNumber})</p>
+                  {/* Header (Cố định ở trên) */}
+                  <div className="flex justify-between items-center border-b border-gray-100 px-5 sm:px-6 py-4 shrink-0 bg-white">
+                    <div className="min-w-0 pr-2">
+                      <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5 truncate">
+                        <Award size={17} className="text-amber-600 shrink-0" /> Lịch Sử Thưởng & Phạt Nhân Viên
+                      </h3>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5 truncate">
+                        {selectedPenaltyEmployee.fullName} ({selectedPenaltyEmployee.phoneNumber})
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
+                      className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all cursor-pointer shrink-0"
+                    >
+                      <X size={18} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
-                    className="text-gray-455 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all cursor-pointer"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {/* 1. Bonuses Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🎁 Khoản thưởng
-                    </h4>
-                    {selectedEmpBonuses.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận khoản thưởng thủ công.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedEmpBonuses.map((a: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-emerald-50/50 border border-emerald-100/50 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-emerald-800">
-                              <span>{a.Note || "Thưởng nóng"}</span>
-                              <span>+{a.Amount?.toLocaleString("vi-VN")}đ</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>{a.Unit === "lan" ? `Số lần: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
-                            </div>
-                          </div>
-                        ))}
+                  {/* Body (Cuộn mượt bên trong, không bao giờ tràn ra ngoài khung) */}
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
+                    {/* 1. Bonuses Section */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <h4 className="text-xs font-black uppercase text-[#7c4831] flex items-center gap-1">
+                          🎁 Khoản thưởng
+                        </h4>
+                        {selectedEmpBonuses.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
+                            {selectedEmpBonuses.length} khoản
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      {selectedEmpBonuses.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Không ghi nhận khoản thưởng thủ công.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedEmpBonuses.map((a: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-emerald-50/60 border border-emerald-100 rounded-xl text-xs space-y-1">
+                              <div className="flex justify-between font-bold text-emerald-800">
+                                <span>{a.Note || "Thưởng nóng"}</span>
+                                <span>+{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              </div>
+                              <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
+                                <span>Ngày: {a.Date}</span>
+                                <span>{a.Unit === "lan" ? `Số lần: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* 1b. Holiday Work Bonuses Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🎉 Thưởng đi làm ngày lễ (Hệ số & thưởng thêm)
-                    </h4>
-                    {selectedEmpHolidayBonuses.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận thưởng đi làm ngày lễ.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedEmpHolidayBonuses.map((h: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-amber-50/50 border border-amber-100/50 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-amber-800">
-                              <span>Đi làm ngày lễ: {h.holidayName} ({h.startTime} - {h.endTime})</span>
-                              <span>+{h.amount?.toLocaleString("vi-VN")}đ</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {h.date}</span>
-                              <span>Hệ số: x{h.multiplier}{h.flatBonus > 0 ? ` + ${h.flatBonus.toLocaleString("vi-VN")}đ` : ""}</span>
-                            </div>
-                          </div>
-                        ))}
+                    {/* 1b. Holiday Work Bonuses Section */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <h4 className="text-xs font-black uppercase text-[#7c4831] flex items-center gap-1">
+                          🎉 Thưởng đi làm ngày lễ
+                        </h4>
+                        {selectedEmpHolidayBonuses.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                            {selectedEmpHolidayBonuses.length} ca
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      {selectedEmpHolidayBonuses.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Không ghi nhận thưởng đi làm ngày lễ.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedEmpHolidayBonuses.map((h: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-amber-50/60 border border-amber-100 rounded-xl text-xs space-y-1">
+                              <div className="flex justify-between font-bold text-amber-800">
+                                <span>Đi làm ngày lễ: {h.holidayName} ({h.startTime} - {h.endTime})</span>
+                                <span>+{h.amount?.toLocaleString("vi-VN")}đ</span>
+                              </div>
+                              <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
+                                <span>Ngày: {h.date}</span>
+                                <span>Hệ số: x{h.multiplier}{h.flatBonus > 0 ? ` + ${h.flatBonus.toLocaleString("vi-VN")}đ` : ""}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* 2. Late Penalty Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-100 pb-1">
-                      🕒 Vi phạm đi trễ (Dựa trên Clock-in)
-                    </h4>
-                    {selectedEmpLateLogs.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận đi trễ (từ 10 phút trở lên).</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedEmpLateLogs.map((sched: any) => (
-                          <div key={sched.id} className="p-3 bg-red-50/50 border border-red-100/50 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between items-center font-bold text-[#7A2F1E]">
-                              <span>Điểm danh trễ ca {sched.startTime} - {sched.endTime}</span>
-                              <span className="text-red-600 font-black">
-                                -{sched.penaltyAmount?.toLocaleString("vi-VN")}đ
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-gray-600 font-semibold text-[11px]">
-                              <span>Ngày: {sched.date} - Ghi nhận trễ {sched.lateMin} phút.</span>
-                              <span className="font-mono text-gray-500 text-[10px]">({sched.checkInTime})</span>
-                            </div>
-                          </div>
-                        ))}
+                    {/* 2. Late Penalty Section */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <h4 className="text-xs font-black uppercase text-[#7c4831] flex items-center gap-1">
+                          🕒 Vi phạm đi trễ (Dựa trên Clock-in)
+                        </h4>
+                        {selectedEmpLateLogs.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full">
+                            {selectedEmpLateLogs.length} lần
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      {selectedEmpLateLogs.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Không ghi nhận đi trễ (từ 10 phút trở lên).</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedEmpLateLogs.map((sched: any) => (
+                            <div key={sched.id} className="p-3 bg-rose-50/60 border border-rose-100 rounded-xl text-xs space-y-1">
+                              <div className="flex justify-between items-center font-bold text-[#7A2F1E]">
+                                <span>Điểm danh trễ ca {sched.startTime} - {sched.endTime}</span>
+                                <span className="text-rose-600 font-black">
+                                  -{sched.penaltyAmount?.toLocaleString("vi-VN")}đ
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center text-gray-600 font-semibold text-[11px]">
+                                <span>Ngày: {sched.date} • Ghi nhận trễ {sched.lateMin} phút</span>
+                                <span className="font-mono text-gray-500 text-[10px]">({sched.checkInTime})</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* 3. Individual Adjustments Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-150 pb-1">
-                      💸 Khoản phạt
-                    </h4>
-                    {selectedEmpPenalties.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận khoản phạt thủ công.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedEmpPenalties.map((a: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-gray-50 border border-gray-150 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-[#4B3621]">
-                              <span>{a.Note || "Phạt hành chính"}</span>
-                              <span className="text-red-600 ">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>{a.Unit === "he_so" ? `Hệ số: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
-                            </div>
-                          </div>
-                        ))}
+                    {/* 3. Individual Adjustments Section */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <h4 className="text-xs font-black uppercase text-[#7c4831] flex items-center gap-1">
+                          💸 Khoản phạt
+                        </h4>
+                        {selectedEmpPenalties.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-gray-200 text-gray-800 rounded-full">
+                            {selectedEmpPenalties.length} khoản
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      {selectedEmpPenalties.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Không ghi nhận khoản phạt thủ công.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedEmpPenalties.map((a: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs space-y-1">
+                              <div className="flex justify-between font-bold text-[#4B3621]">
+                                <span>{a.Note || "Phạt hành chính"}</span>
+                                <span className="text-rose-600 font-bold">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              </div>
+                              <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
+                                <span>Ngày: {a.Date}</span>
+                                <span>{a.Unit === "he_so" ? `Hệ số: ${a.Quantity} x ${a.AmountPerUnit?.toLocaleString("vi-VN")}đ` : "Số tiền cố định"}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                  {/* 4. Salary Advance Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-black uppercase text-[#7c4831] border-b border-gray-150 pb-1">
-                      💰 Khoản tạm ứng lương
-                    </h4>
-                    {selectedEmpAdvances.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Không ghi nhận tạm ứng lương.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedEmpAdvances.map((a: any, idx: number) => (
-                          <div key={idx} className="p-3 bg-gray-50 border border-gray-150 rounded-xl text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-[#4B3621]">
-                              <span>{a.Note || "Tạm ứng lương"}</span>
-                              <span className="text-amber-700 ">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
-                              <span>Ngày: {a.Date}</span>
-                              <span>Số tiền cố định</span>
-                            </div>
-                          </div>
-                        ))}
+                    {/* 4. Salary Advance Section */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-1">
+                        <h4 className="text-xs font-black uppercase text-[#7c4831] flex items-center gap-1">
+                          💰 Khoản tạm ứng lương
+                        </h4>
+                        {selectedEmpAdvances.length > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
+                            {selectedEmpAdvances.length} khoản
+                          </span>
+                        )}
                       </div>
-                    )}
+                      {selectedEmpAdvances.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Không ghi nhận tạm ứng lương.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedEmpAdvances.map((a: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-amber-50/40 border border-amber-150 rounded-xl text-xs space-y-1">
+                              <div className="flex justify-between font-bold text-[#4B3621]">
+                                <span>{a.Note || "Tạm ứng lương"}</span>
+                                <span className="text-amber-700 font-bold">-{a.Amount?.toLocaleString("vi-VN")}đ</span>
+                              </div>
+                              <div className="flex justify-between text-[10px] text-gray-500 font-bold uppercase">
+                                <span>Ngày: {a.Date}</span>
+                                <span>Số tiền cố định</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Summary Section Card */}
+                    <div className="p-4 bg-gradient-to-br from-gray-50 to-amber-50/30 rounded-2xl border border-gray-200/80 space-y-2 text-xs font-bold uppercase">
+                      <div className="flex justify-between items-center text-emerald-700">
+                        <span>Tổng tiền thưởng:</span>
+                        <span className="font-black">+{sumBonus.toLocaleString("vi-VN")}đ</span>
+                      </div>
+                      <div className="flex justify-between items-center text-rose-600">
+                        <span>Tổng khấu trừ phạt:</span>
+                        <span className="font-black">-{sumPenalty.toLocaleString("vi-VN")}đ</span>
+                      </div>
+                      <div className="flex justify-between items-center text-amber-700">
+                        <span>Tổng tạm ứng:</span>
+                        <span className="font-black">-{sumAdvance.toLocaleString("vi-VN")}đ</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-2 text-xs">
+                        <span>Thực lĩnh điều chỉnh:</span>
+                        <span className="text-base font-black">
+                          {netAdjust >= 0 ? "+" : ""}
+                          {netAdjust.toLocaleString("vi-VN")}đ
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Summary Section */}
-                  <div className="pt-3 border-t border-gray-100 space-y-1.5 text-xs font-extrabold uppercase">
-                    {(() => {
-                      const sumBonus = selectedEmpBonuses.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpHolidayBonuses.reduce((acc: number, h: any) => acc + (h.amount || 0), 0);
-                      const sumPenalty = selectedEmpPenalties.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0) + selectedEmpLateLogs.reduce((acc: number, s: any) => acc + (s.penaltyAmount || 0), 0);
-                      const sumAdvance = selectedEmpAdvances.reduce((acc: number, a: any) => acc + (a.Amount || (a.Quantity * a.AmountPerUnit) || 0), 0);
-                      const netAdjust = sumBonus - sumPenalty - sumAdvance;
-
-                      return (
-                        <>
-                          <div className="flex justify-between items-center text-emerald-700">
-                            <span>Tổng tiền thưởng:</span>
-                            <span>+{sumBonus.toLocaleString("vi-VN")}đ</span>
-                          </div>
-                          <div className="flex justify-between items-center text-red-600">
-                            <span>Tổng khấu trừ phạt:</span>
-                            <span>-{sumPenalty.toLocaleString("vi-VN")}đ</span>
-                          </div>
-                          <div className="flex justify-between items-center text-amber-700">
-                            <span>Tổng tạm ứng:</span>
-                            <span>-{sumAdvance.toLocaleString("vi-VN")}đ</span>
-                          </div>
-                          <div className="flex justify-between items-center text-[#7c4831] border-t border-dashed border-gray-200 pt-1.5">
-                            <span>Thực lĩnh điều chỉnh:</span>
-                            <span className="text-base font-black">
-                              {netAdjust >= 0 ? "+" : ""}
-                              {netAdjust.toLocaleString("vi-VN")}đ
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
+                  {/* Footer (Cố định ở dưới) */}
+                  <div className="px-5 py-3.5 sm:px-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 shrink-0">
+                    <div className="text-xs text-gray-600 min-w-0">
+                      <span className="font-medium text-gray-500">Thực lĩnh Đ/C: </span>
+                      <span className={`font-black text-sm ${netAdjust >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                        {netAdjust >= 0 ? "+" : ""}{netAdjust.toLocaleString("vi-VN")}đ
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
+                      className="btn btn-primary px-5 py-2 text-xs font-bold rounded-xl shrink-0"
+                    >
+                      Đóng
+                    </button>
                   </div>
-                </div>
-
-                <div className="pt-3">
-                  <button
-                    type="button"
-                    onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
-                    className="btn btn-primary w-full py-2.5 text-xs font-bold"
-                  >
-                    Đóng
-                  </button>
                 </div>
               </div>
-            </div>
             </ModalPortal>
           );
         })()}
