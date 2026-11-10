@@ -29,7 +29,10 @@ npm run build
 
 echo "--> Đang restart Frontend trên PM2..."
 pm2 delete themoods-fe 2>/dev/null || true
-PORT=8899 pm2 start npm --name "themoods-fe" -- run start
+if command -v fuser >/dev/null 2>&1; then
+    fuser -k 3137/tcp 2>/dev/null || true
+fi
+PORT=3137 pm2 start npm --name "themoods-fe" -- run start
 
 # 3. Lưu cấu hình PM2
 pm2 save
