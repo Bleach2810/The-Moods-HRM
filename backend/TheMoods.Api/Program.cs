@@ -71,6 +71,10 @@ app.UseCors();
 
 app.MapControllers();
 
+app.MapGet("/", (IWebHostEnvironment env) => env.IsDevelopment() 
+    ? Results.Redirect("/swagger") 
+    : Results.Ok(new { status = "online", service = "TheMoods API", swagger = "/swagger" }));
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
