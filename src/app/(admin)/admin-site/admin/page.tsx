@@ -168,6 +168,7 @@ export default function AdminPortal() {
   const payrollCaptureRef = useRef<HTMLDivElement>(null);
   const [isExportingPayrollExcel, setIsExportingPayrollExcel] = useState(false);
   const [isExportingPayrollImage, setIsExportingPayrollImage] = useState(false);
+  const [previewExportModal, setPreviewExportModal] = useState<{ url: string; title: string; fileName: string } | null>(null);
 
   const handleExportScheduleImage = async (mode: "download" | "copy" = "download") => {
     if (!scheduleCaptureRef.current || isExportingSchedule) return;
@@ -185,13 +186,17 @@ export default function AdminPortal() {
       node.style.maxWidth = "none";
       node.style.overflow = "visible";
 
-      // Small delay for browser reflow
-      await new Promise(r => setTimeout(r, 80));
+      // Delay for browser reflow
+      await new Promise(r => setTimeout(r, 100));
+
+      const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const dataUrl = await toPng(node, {
         cacheBust: true,
-        pixelRatio: 2,
+        pixelRatio: isIOS ? 1.5 : 2,
         backgroundColor: "#FAF9F6",
+        skipFonts: true,
         filter: (domNode: any) => {
           if (domNode?.dataset?.excludeExport === "true") return false;
           return true;
@@ -209,35 +214,67 @@ export default function AdminPortal() {
       const todayStr = new Date().toISOString().slice(0, 10);
       const fileName = `Lich-Truc-TheMoods-${todayStr}.png`;
 
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const imageFile = new File([blob], fileName, { type: "image/png" });
+
+      // Nếu trên điện thoại (iPhone / Android) -> Dùng Web Share API mở thẳng Zalo / Lưu ảnh
+      if (isMobile) {
+        if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+          try {
+            await navigator.share({
+              files: [imageFile],
+              title: "Lịch Trực The Moods",
+              text: `Lịch trực The Moods ngày ${todayStr}`
+            });
+            setExportSuccessMsg("Đã mở chia sẻ ảnh lịch trực thành công!");
+            setTimeout(() => setExportSuccessMsg(null), 3500);
+            return;
+          } catch (shareErr: any) {
+            if (shareErr.name === "AbortError") return;
+          }
+        }
+        // Fallback mở popup xem ảnh để người dùng chạm giữ lưu vào iPhone / Android
+        setPreviewExportModal({ url: dataUrl, title: "Lịch Trực Toàn Bộ Chi Nhánh", fileName });
+        return;
+      }
+
+      // Trên Desktop
       if (mode === "download") {
+        const downloadUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = fileName;
-        link.href = dataUrl;
+        link.href = downloadUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
 
         setExportSuccessMsg("Đã tải toàn bộ bảng lịch trực thành công!");
         setTimeout(() => setExportSuccessMsg(null), 3500);
       } else {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
         if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob })
-          ]);
-          setExportSuccessMsg("Đã sao chép ảnh vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào Zalo/Messenger.");
-          setTimeout(() => setExportSuccessMsg(null), 4000);
-        } else {
-          const link = document.createElement("a");
-          link.download = fileName;
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setExportSuccessMsg("Đã tự động tải file ảnh về máy!");
-          setTimeout(() => setExportSuccessMsg(null), 3500);
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ "image/png": blob })
+            ]);
+            setExportSuccessMsg("Đã sao chép ảnh vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào Zalo/Messenger.");
+            setTimeout(() => setExportSuccessMsg(null), 4000);
+            return;
+          } catch (clipErr) {
+            console.warn("Clipboard write failed:", clipErr);
+          }
         }
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = downloadUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
+        setExportSuccessMsg("Đã tự động tải file ảnh về máy!");
+        setTimeout(() => setExportSuccessMsg(null), 3500);
       }
     } catch (err) {
       console.error("Lỗi khi tạo ảnh lịch trực:", err);
@@ -252,27 +289,61 @@ export default function AdminPortal() {
     setIsExportingPayrollExcel(true);
     try {
       const locId = activeLocation?.id || "govap-branch";
+      const cleanLocName = activeLocation?.name ? activeLocation.name.replace(/[\s/\\?%*:|"<>]/g, "_") : "ChiNhanh";
+      const fileName = `BangLuong_${cleanLocName}_${payrollFromDate}_den_${payrollToDate}.xlsx`;
       const url = `${getApiBaseUrl()}/api/attendance/payroll/export?locationId=${locId}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`;
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error("Không thể tải file Excel từ máy chủ. Vui lòng kiểm tra lại dịch vụ Backend.");
       }
       const blob = await res.blob();
+      const excelFile = new File([blob], fileName, {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+
+      // Nếu trên điện thoại (iPhone / Android) -> mở Web Share API để gửi Zalo / Lưu vào Tệp (Files)
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [excelFile] })) {
+        try {
+          await navigator.share({
+            files: [excelFile],
+            title: fileName,
+            text: `Bảng lương The Moods từ ${payrollFromDate} đến ${payrollToDate}`
+          });
+          setExportSuccessMsg("Đã mở chia sẻ file Excel thành công!");
+          setTimeout(() => setExportSuccessMsg(null), 3500);
+          return;
+        } catch (shareErr: any) {
+          if (shareErr.name === "AbortError") return;
+        }
+      }
+
+      // Tải file trực tiếp
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      const cleanLocName = activeLocation?.name ? activeLocation.name.replace(/[\s/\\?%*:|"<>]/g, "_") : "ChiNhanh";
-      link.download = `BangLuong_${cleanLocName}_${payrollFromDate}_den_${payrollToDate}.xlsx`;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
+
+      // Dự phòng cho trình duyệt di động chặn tải qua blob URL
+      if (isMobile) {
+        window.location.href = url;
+      }
 
       setExportSuccessMsg("Đã xuất và tải file Excel bảng lương thành công!");
       setTimeout(() => setExportSuccessMsg(null), 3500);
     } catch (err: any) {
       console.error("Lỗi xuất Excel:", err);
-      alert(err.message || "Lỗi khi xuất file Excel. Vui lòng thử lại!");
+      try {
+        const locId = activeLocation?.id || "govap-branch";
+        window.location.href = `${getApiBaseUrl()}/api/attendance/payroll/export?locationId=${locId}&fromDate=${payrollFromDate}&toDate=${payrollToDate}`;
+      } catch {
+        alert(err.message || "Lỗi khi xuất file Excel. Vui lòng thử lại!");
+      }
     } finally {
       setIsExportingPayrollExcel(false);
     }
@@ -294,12 +365,17 @@ export default function AdminPortal() {
       node.style.maxWidth = "none";
       node.style.overflow = "visible";
 
-      await new Promise(r => setTimeout(r, 80));
+      await new Promise(r => setTimeout(r, 100));
+
+      const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const dataUrl = await toPng(node, {
         cacheBust: true,
-        pixelRatio: 2,
+        // Trên iOS giới hạn pixelRatio ở 1.5 để bảo đảm bộ nhớ Canvas Safari WebKit
+        pixelRatio: isIOS ? 1.5 : 2,
         backgroundColor: "#FFFFFF",
+        skipFonts: true, // Tránh lỗi SecurityError trên iOS Safari
         filter: (domNode: any) => {
           if (domNode?.dataset?.excludeExport === "true") return false;
           return true;
@@ -317,37 +393,75 @@ export default function AdminPortal() {
       const cleanLocName = activeLocation?.name ? activeLocation.name.replace(/[\s/\\?%*:|"<>]/g, "_") : "TheMoods";
       const fileName = `BangLuong_${cleanLocName}_${payrollFromDate}_den_${payrollToDate}.png`;
 
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const imageFile = new File([blob], fileName, { type: "image/png" });
+
+      // 1. Nếu trên điện thoại (iPhone & Android)
+      if (isMobile) {
+        // Ưu tiên mở Share Sheet hệ thống (Zalo, Lưu vào ảnh, Messenger...)
+        if (navigator.canShare && navigator.canShare({ files: [imageFile] })) {
+          try {
+            await navigator.share({
+              files: [imageFile],
+              title: "Bảng Lương The Moods",
+              text: `Bảng lương ${activeLocation?.name || "The Moods"} (${payrollFromDate} đến ${payrollToDate})`
+            });
+            setExportSuccessMsg("Đã mở chia sẻ ảnh bảng lương thành công!");
+            setTimeout(() => setExportSuccessMsg(null), 3500);
+            return;
+          } catch (shareErr: any) {
+            if (shareErr.name === "AbortError") return;
+          }
+        }
+
+        // Mở popup xem ảnh để người dùng chạm giữ lưu vào Camera Roll / gửi Zalo
+        setPreviewExportModal({
+          url: dataUrl,
+          title: "Ảnh Bảng Lương Chi Nhánh",
+          fileName
+        });
+        return;
+      }
+
+      // 2. Nếu trên máy tính (Desktop)
       if (mode === "download") {
+        const downloadUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.download = fileName;
-        link.href = dataUrl;
+        link.href = downloadUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
 
         setExportSuccessMsg("Đã tải ảnh toàn bộ bảng lương thành công!");
         setTimeout(() => setExportSuccessMsg(null), 3500);
       } else {
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
         if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob })
-          ]);
-          setExportSuccessMsg("Đã sao chép ảnh bảng lương vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào nhóm Zalo.");
-          setTimeout(() => setExportSuccessMsg(null), 4000);
-        } else {
-          const link = document.createElement("a");
-          link.download = fileName;
-          link.href = dataUrl;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setExportSuccessMsg("Đã tải file ảnh bảng lương về máy!");
-          setTimeout(() => setExportSuccessMsg(null), 3500);
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ "image/png": blob })
+            ]);
+            setExportSuccessMsg("Đã sao chép ảnh bảng lương vào bộ nhớ tạm! Bạn có thể dán (Ctrl+V) ngay vào nhóm Zalo.");
+            setTimeout(() => setExportSuccessMsg(null), 4000);
+            return;
+          } catch (clipErr) {
+            console.warn("Clipboard write failed:", clipErr);
+          }
         }
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = downloadUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
+        setExportSuccessMsg("Đã tải file ảnh bảng lương về máy!");
+        setTimeout(() => setExportSuccessMsg(null), 3500);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Lỗi khi tạo ảnh bảng lương:", err);
       alert("Không thể tạo ảnh bảng lương. Vui lòng thử lại!");
     } finally {
@@ -8479,6 +8593,70 @@ export default function AdminPortal() {
                       setSelectedShiftDetailsStaff(null);
                     }}
                     className="btn btn-secondary px-6 py-2 text-xs font-bold"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </ModalPortal>
+        )}
+
+        {/* Modal Xem trước / Lưu ảnh cho Điện thoại iPhone & Android */}
+        {previewExportModal && (
+          <ModalPortal>
+            <div 
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+              onClick={() => setPreviewExportModal(null)}
+            >
+              <div 
+                className="bg-white rounded-3xl w-full max-w-xl shadow-2xl border border-gray-100 flex flex-col max-h-[92vh] overflow-hidden my-auto"
+                onClick={e => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex justify-between items-center border-b border-gray-100 px-5 py-4 shrink-0 bg-white">
+                  <div>
+                    <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5">
+                      <Camera size={16} className="text-amber-600 shrink-0" /> {previewExportModal.title}
+                    </h3>
+                    <p className="text-[11px] font-bold text-gray-500 mt-0.5">
+                      📱 Mẹo: Nhấn giữ vào ảnh để chọn <span className="text-[#7c4831]">"Lưu hình ảnh"</span> hoặc <span className="text-blue-600">"Gửi qua Zalo"</span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewExportModal(null)}
+                    className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all cursor-pointer shrink-0"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Body: Cuộn xem ảnh */}
+                <div className="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0 bg-stone-100/70 flex flex-col items-center justify-center">
+                  <img
+                    src={previewExportModal.url}
+                    alt="Bảng lương The Moods"
+                    className="w-full h-auto rounded-xl border border-stone-200 shadow-md max-w-full"
+                  />
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="p-3.5 sm:px-5 bg-gray-50 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={previewExportModal.url}
+                      download={previewExportModal.fileName}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#7c4831] hover:bg-[#5e3524] text-white flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Download size={14} />
+                      <span>Tải về máy</span>
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewExportModal(null)}
+                    className="btn btn-secondary px-4 py-2 text-xs font-bold rounded-xl"
                   >
                     Đóng
                   </button>
