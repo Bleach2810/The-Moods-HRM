@@ -3,22 +3,11 @@
 import React, { useState, useRef } from "react";
 import { toPng } from "html-to-image";
 import { useApp } from "@/context/AppContext";
-import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2, Download, Copy, Check, FileSpreadsheet, KeyRound } from "lucide-react";
+import { LayoutDashboard, Megaphone, Calendar, FileCheck, Settings, Users, ImagePlus, PlusCircle, MessageSquare, ArrowLeft, Menu, X, ChevronRight, TrendingUp, MapPin, UserCheck, Clock, Gift, Plus, CheckCircle, XCircle, Search, Edit3, Coffee, Send, Bell, ScanLine, AlertTriangle, RefreshCw, LogOut, Lock, DollarSign, Award, Trash2, FileText, ZoomIn, ZoomOut, Camera, Maximize2, Minimize2, Download, Copy, Check, FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import PullToRefresh from "@/components/PullToRefresh";
 import ModalPortal from "@/components/ModalPortal";
 import { isWebAuthnSupported } from "@/utils/biometrics";
-
-function getApiBaseUrl(): string {
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
-    if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
-      return "http://localhost:5078";
-    }
-    return ""; // Use Next.js rewrites to proxy /api directly
-  }
-  return "http://127.0.0.1:5078"; // SSR fallback
-}
 
 const parseTimeToFloat = (timeStr: string) => {
   if (!timeStr) return 0;
@@ -653,9 +642,6 @@ export default function AdminPortal() {
   const [editStaffName, setEditStaffName] = useState("");
   const [editStaffPhone, setEditStaffPhone] = useState("");
   const [editStaffWage, setEditStaffWage] = useState("");
-  const [resetPinTargetStaff, setResetPinTargetStaff] = useState<any | null>(null);
-  const [resetPinCustomValue, setResetPinCustomValue] = useState("");
-  const [isResettingPin, setIsResettingPin] = useState(false);
 
   // Schedule Management States
   const [selectedScheduleDate, setSelectedScheduleDate] = useState(new Date().toISOString().split('T')[0]);
@@ -1991,47 +1977,6 @@ export default function AdminPortal() {
     } catch (err) {
       console.error(err);
       alert("Lỗi kết nối!");
-    }
-  };
-
-  const handleAdminResetPin = async (staffId: string, customPin?: string) => {
-    if (customPin && (customPin.length !== 6 || isNaN(Number(customPin)))) {
-      alert("Mã PIN phải gồm đúng 6 chữ số!");
-      return;
-    }
-
-    const confirmMsg = customPin
-      ? `Bạn có chắc chắn muốn đặt mã PIN mới (${customPin}) cho nhân viên này?`
-      : "Bạn có chắc chắn muốn XÓA mã PIN cũ? Nhân viên sẽ được tự tạo mã PIN 6 số mới trong lần đăng nhập tiếp theo.";
-
-    if (!confirm(confirmMsg)) return;
-
-    setIsResettingPin(true);
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/admin-reset-pin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          staffId: staffId,
-          newPin: customPin || null,
-          locationId: activeLocation?.id || ""
-        })
-      });
-
-      const data = await res.json();
-      setIsResettingPin(false);
-      if (res.ok) {
-        alert(data.message || "Đặt lại mã PIN thành công!");
-        setResetPinTargetStaff(null);
-        setResetPinCustomValue("");
-        fetchStaff();
-      } else {
-        alert(data.message || "Thao tác thất bại!");
-      }
-    } catch (err) {
-      setIsResettingPin(false);
-      console.error(err);
-      alert("Lỗi kết nối khi đặt lại mã PIN!");
     }
   };
 
@@ -7174,6 +7119,19 @@ export default function AdminPortal() {
     );
   };
 
+  const getApiBaseUrl = () => {
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      if (hostname.includes("localhost") || hostname.includes("127.0.0.1") || hostname.endsWith(".test")) {
+        return "http://localhost:5078";
+      }
+      return ""; // Use Next.js rewrites to proxy /api directly
+    }
+    return "http://127.0.0.1:5078"; // SSR fallback
+  };
+
+
+
   // === QR LOOKUP ===
   const handleQrLookup = async () => {
     if (!qrInput.trim()) {
@@ -7848,17 +7806,6 @@ export default function AdminPortal() {
                               <div className="flex gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setResetPinTargetStaff(staff);
-                                    setResetPinCustomValue("");
-                                  }}
-                                  className="btn btn-ghost py-1 px-2.5 text-[10px] font-bold border border-amber-200 text-amber-800 bg-amber-50/70 hover:bg-amber-100 cursor-pointer flex items-center gap-1"
-                                >
-                                  <KeyRound size={11} />
-                                  <span>Đặt lại PIN</span>
-                                </button>
-                                <button
-                                  type="button"
                                   onClick={() => setEditingStaffId(null)}
                                   className="btn btn-ghost py-1 px-2.5 text-[10px] font-bold border border-gray-200 cursor-pointer"
                                 >
@@ -7899,18 +7846,6 @@ export default function AdminPortal() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setResetPinTargetStaff(staff);
-                                setResetPinCustomValue("");
-                              }}
-                              className="btn btn-ghost py-1 px-2 text-[10px] font-bold border border-amber-200 text-amber-800 bg-amber-50/60 hover:bg-amber-100 cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="Đặt lại hoặc xóa mã PIN của nhân viên"
-                            >
-                              <KeyRound size={11} />
-                              <span>Đặt lại PIN</span>
-                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -8287,15 +8222,15 @@ export default function AdminPortal() {
           return (
             <ModalPortal>
               <div 
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto"
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
                 onClick={() => { setShowPenaltyModal(false); setSelectedPenaltyEmployee(null); }}
               >
                 <div 
-                  className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn flex flex-col max-h-[88dvh] sm:max-h-[85dvh] overflow-hidden my-auto"
+                  className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 anim-scaleIn flex flex-col max-h-[90vh] overflow-hidden my-auto"
                   onClick={e => e.stopPropagation()}
                 >
                   {/* Header (Cố định ở trên) */}
-                  <div className="flex justify-between items-center border-b border-gray-100 px-4 sm:px-6 py-3.5 sm:py-4 shrink-0 bg-white">
+                  <div className="flex justify-between items-center border-b border-gray-100 px-5 sm:px-6 py-4 shrink-0 bg-white">
                     <div className="min-w-0 pr-2">
                       <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#7c4831] flex items-center gap-1.5 truncate">
                         <Award size={17} className="text-amber-600 shrink-0" /> Lịch Sử Thưởng & Phạt Nhân Viên
@@ -8314,7 +8249,7 @@ export default function AdminPortal() {
                   </div>
 
                   {/* Body (Cuộn mượt bên trong, không bao giờ tràn ra ngoài khung) */}
-                  <div className="p-3.5 sm:p-6 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-4">
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
                     {/* 1. Bonuses Section */}
                     <div className="space-y-2">
                       <div className="flex justify-between items-center border-b border-gray-100 pb-1">
@@ -8502,7 +8437,7 @@ export default function AdminPortal() {
                   </div>
 
                   {/* Footer (Cố định ở dưới) */}
-                  <div className="px-4 py-3 sm:px-6 sm:py-3.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 shrink-0">
+                  <div className="px-5 py-3.5 sm:px-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 shrink-0">
                     <div className="text-xs text-gray-600 min-w-0">
                       <span className="font-medium text-gray-500">Thực lĩnh Đ/C: </span>
                       <span className={`font-black text-sm ${netAdjust >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
@@ -8722,108 +8657,6 @@ export default function AdminPortal() {
                     type="button"
                     onClick={() => setPreviewExportModal(null)}
                     className="btn btn-secondary px-4 py-2 text-xs font-bold rounded-xl"
-                  >
-                    Đóng
-                  </button>
-                </div>
-              </div>
-            </div>
-          </ModalPortal>
-        )}
-
-        {/* Modal Đặt lại PIN nhân viên (Admin Reset PIN) */}
-        {resetPinTargetStaff && (
-          <ModalPortal>
-            <div
-              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
-              onClick={() => { if (!isResettingPin) setResetPinTargetStaff(null); }}
-            >
-              <div
-                className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-gray-100 flex flex-col max-h-[92vh] overflow-hidden my-auto anim-scaleIn"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Header */}
-                <div className="flex justify-between items-center border-b border-gray-100 px-5 py-4 shrink-0 bg-gradient-to-r from-amber-50/70 to-white">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-800 flex items-center justify-center font-bold">
-                      <KeyRound size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black uppercase tracking-tight text-[#7c4831]">
-                        Đặt Lại Mã PIN Nhân Sự
-                      </h3>
-                      <p className="text-[10.5px] text-gray-500 font-bold uppercase mt-0.5">
-                        {resetPinTargetStaff.fullName} • SĐT: {resetPinTargetStaff.phoneNumber || resetPinTargetStaff.phone}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { if (!isResettingPin) setResetPinTargetStaff(null); }}
-                    className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-xl transition-all cursor-pointer shrink-0"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                {/* Body */}
-                <div className="p-5 space-y-4 text-xs text-[#4B3621]">
-                  {/* Option 1: Xóa PIN cũ để nhân viên tự tạo lại */}
-                  <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="pill bg-amber-100 text-amber-900 border-amber-200 text-[9px] font-black uppercase">
-                        Khuyên Dùng
-                      </span>
-                      <h4 className="font-extrabold text-[#7c4831] uppercase">Cách 1: Xóa mã PIN cũ</h4>
-                    </div>
-                    <p className="text-[11px] text-gray-600 leading-relaxed font-medium">
-                      Hệ thống sẽ xóa mã PIN hiện tại của bạn <strong>{resetPinTargetStaff.fullName}</strong>. Lần tới khi bạn ấy gõ số điện thoại đăng nhập, hệ thống sẽ tự động hiện màn hình để bạn ấy <strong>tự cài mã PIN 6 số mới</strong>.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={isResettingPin}
-                      onClick={() => handleAdminResetPin(resetPinTargetStaff.id)}
-                      className="btn btn-primary w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <KeyRound size={14} />
-                      <span>{isResettingPin ? "Đang xử lý..." : "Xóa mã PIN cũ (Cho nhân viên tự đặt lại)"}</span>
-                    </button>
-                  </div>
-
-                  {/* Option 2: Cấp mã PIN cụ thể */}
-                  <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-2.5">
-                    <h4 className="font-extrabold text-[#4B3621] uppercase">Cách 2: Cấp mã PIN mới trực tiếp</h4>
-                    <p className="text-[11px] text-gray-600 leading-relaxed font-medium">
-                      Nếu bạn muốn đặt sẵn một mã PIN 6 số cho nhân viên (ví dụ: 123456):
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        maxLength={6}
-                        placeholder="Nhập 6 số PIN (VD: 123456)"
-                        value={resetPinCustomValue}
-                        onChange={e => setResetPinCustomValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        className="input flex-grow text-xs font-mono font-bold py-2 px-3 bg-white"
-                      />
-                      <button
-                        type="button"
-                        disabled={isResettingPin || resetPinCustomValue.length !== 6}
-                        onClick={() => handleAdminResetPin(resetPinTargetStaff.id, resetPinCustomValue)}
-                        className="btn btn-secondary px-3 py-2 text-xs font-bold whitespace-nowrap rounded-xl shadow-xs cursor-pointer disabled:opacity-50"
-                      >
-                        Cấp mã này
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-3.5 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => { if (!isResettingPin) setResetPinTargetStaff(null); }}
-                    className="btn btn-ghost px-4 py-2 text-xs font-bold rounded-xl border border-gray-200 cursor-pointer"
                   >
                     Đóng
                   </button>

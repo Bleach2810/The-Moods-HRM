@@ -405,130 +405,6 @@ namespace TheMoods.Api.Controllers
             return Ok(new { message = "Đổi mã PIN thành công!" });
         }
 
-        private static string RemoveDiacritics(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
-            var normalizedString = text.Normalize(System.Text.NormalizationForm.FormD);
-            var stringBuilder = new System.Text.StringBuilder();
-
-            foreach (var c in normalizedString)
-            {
-                var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
-                if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
-                {
-                    stringBuilder.Append(c);
-                }
-            }
-
-            return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC).ToLowerInvariant().Replace("đ", "d").Replace(" ", "");
-        }
-
-        // 6c. Quên mã PIN - Nhân viên tự đặt lại mã PIN xác thực bằng Họ tên
-        [HttpPost("staff/forgot-pin")]
-        public async Task<IActionResult> ForgotPin([FromBody] ForgotPinDto dto)
-        {
-            var phone = dto.PhoneNumber?.Trim() ?? "";
-            var fullName = dto.FullName?.Trim() ?? "";
-
-            if (string.IsNullOrWhiteSpace(phone))
-            {
-                return BadRequest(new { message = "Vui lòng nhập số điện thoại nhân sự!" });
-            }
-
-            if (string.IsNullOrWhiteSpace(fullName))
-            {
-                return BadRequest(new { message = "Vui lòng nhập họ và tên của bạn để xác thực danh tính!" });
-            }
-
-            var user = await FindStaffByPhoneInBranch(phone, dto.LocationId);
-            if (user == null)
-            {
-                return NotFound(new { message = "Không tìm thấy hồ sơ nhân sự với số điện thoại này tại chi nhánh!" });
-            }
-
-            // Kiểm tra khớp tên (loại bỏ dấu và khoảng trắng để nhân viên gõ có dấu hay không dấu đều khớp)
-            var cleanInput = RemoveDiacritics(fullName);
-            var cleanUser = RemoveDiacritics(user.FullName ?? "");
-
-            if (cleanInput != cleanUser && !cleanUser.Contains(cleanInput) && !cleanInput.Contains(cleanUser))
-            {
-                return BadRequest(new { message = "Họ và tên không khớp với hồ sơ nhân viên trong hệ thống! Vui lòng kiểm tra lại hoặc nhờ Quản lý ca trực đặt lại PIN giúp bạn." });
-            }
-
-            if (string.IsNullOrWhiteSpace(dto.NewPin) || dto.NewPin.Length != 6 || !int.TryParse(dto.NewPin, out _))
-            {
-                return BadRequest(new { message = "Mã PIN mới phải gồm đúng 6 chữ số!" });
-            }
-
-            user.PinHash = HashPin(dto.NewPin);
-            user.BiometricKey = null; // Đặt lại sinh trắc học để nhân viên liên kết lại với PIN mới
-
-            // Tạo thông báo cho Quản lý chi nhánh
-            try
-            {
-                var notif = new Notification
-                {
-                    Id = Guid.NewGuid().ToString(),
-                    UserId = user.Id,
-                    Title = "Nhân viên đặt lại mã PIN",
-                    Message = $"Nhân viên {user.FullName} ({user.PhoneNumber}) vừa tự đặt lại mã PIN mới thành công.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.Notifications.Add(notif);
-            }
-            catch { }
-
-            await _context.SaveChangesAsync();
-
-            var profile = BuildStaffProfile(user, dto.LocationId);
-            return Ok(new
-            {
-                message = "Đặt lại mã PIN thành công! Bạn có thể sử dụng mã PIN mới để đăng nhập ngay bây giờ.",
-                success = true,
-                user = profile
-            });
-        }
-
-        // 6d. Quản lý / Admin đặt lại mã PIN cho nhân viên (Reset PIN)
-        [HttpPost("staff/admin-reset-pin")]
-        public async Task<IActionResult> AdminResetPin([FromBody] AdminResetPinDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(dto.StaffId))
-            {
-                return BadRequest(new { message = "Mã nhân viên không hợp lệ!" });
-            }
-
-            var user = await _context.Users
-                .Include(u => u.UserLocations)
-                .FirstOrDefaultAsync(u => u.Id == dto.StaffId && !u.IsDeleted);
-
-            if (user == null)
-            {
-                return NotFound(new { message = "Không tìm thấy nhân viên!" });
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.NewPin))
-            {
-                if (dto.NewPin.Length != 6 || !int.TryParse(dto.NewPin, out _))
-                {
-                    return BadRequest(new { message = "Mã PIN mới phải gồm đúng 6 chữ số!" });
-                }
-                user.PinHash = HashPin(dto.NewPin);
-                user.BiometricKey = null;
-                await _context.SaveChangesAsync();
-                return Ok(new { message = $"Đã cấp mã PIN mới ({dto.NewPin}) cho nhân viên {user.FullName} thành công!", action = "set_pin" });
-            }
-            else
-            {
-                // Xóa PIN cũ để nhân viên tự tạo lại khi đăng nhập
-                user.PinHash = null;
-                user.BiometricKey = null;
-                await _context.SaveChangesAsync();
-                return Ok(new { message = $"Đã xóa mã PIN cũ của {user.FullName}! Lần tới khi đăng nhập bằng SĐT, hệ thống sẽ tự động yêu cầu bạn ấy tạo mã PIN 6 số mới.", action = "cleared" });
-            }
-        }
-
         // 7. Bật/Liên kết xác thực Vân tay
         // Hỗ trợ lưu trữ nhiều thiết bị (Multi-device platform credentials)
         [HttpPost("staff/setup-biometric")]
@@ -1038,20 +914,6 @@ namespace TheMoods.Api.Controllers
                 }
             }
 
-            if (dto.ResetPin == true)
-            {
-                user.PinHash = null;
-                user.BiometricKey = null;
-            }
-            else if (!string.IsNullOrWhiteSpace(dto.NewPin))
-            {
-                if (dto.NewPin.Length == 6 && int.TryParse(dto.NewPin, out _))
-                {
-                    user.PinHash = HashPin(dto.NewPin);
-                    user.BiometricKey = null;
-                }
-            }
-
             await _context.SaveChangesAsync();
             return Ok(new { message = "Cập nhật thông tin nhân viên thành công!" });
         }
@@ -1094,8 +956,6 @@ namespace TheMoods.Api.Controllers
         public decimal? HourlyWage { get; set; }
         public bool? IsDeleted { get; set; }
         public System.Collections.Generic.List<string>? SkillIds { get; set; }
-        public bool? ResetPin { get; set; }
-        public string? NewPin { get; set; }
     }
 
     public class CreateSkillDto
@@ -1157,21 +1017,6 @@ namespace TheMoods.Api.Controllers
         public string PhoneNumber { get; set; } = string.Empty;
         public string OldPin { get; set; } = string.Empty;
         public string NewPin { get; set; } = string.Empty;
-        public string? LocationId { get; set; } // Branch context
-    }
-
-    public class ForgotPinDto
-    {
-        public string PhoneNumber { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
-        public string NewPin { get; set; } = string.Empty;
-        public string? LocationId { get; set; } // Branch context
-    }
-
-    public class AdminResetPinDto
-    {
-        public string StaffId { get; set; } = string.Empty;
-        public string? NewPin { get; set; } // Null hoặc rỗng để xóa PIN cũ
         public string? LocationId { get; set; } // Branch context
     }
 
