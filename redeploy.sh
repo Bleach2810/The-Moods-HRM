@@ -15,13 +15,9 @@ dotnet publish TheMoods.Api/TheMoods.Api.csproj -c Release -o ./publish
 
 echo "--> Đang restart Backend trên PM2..."
 pm2 delete themoods-be 2>/dev/null || true
-if command -v fuser >/dev/null 2>&1; then
-    fuser -k 5078/tcp 2>/dev/null || true
-fi
-killall -9 dotnet 2>/dev/null || true
+killall dotnet 2>/dev/null || true
 cd "$SCRIPT_DIR/backend/publish"
-export ASPNETCORE_ENVIRONMENT=Production
-pm2 start dotnet --name "themoods-be" --update-env -- TheMoods.Api.dll --urls http://127.0.0.1:5078
+pm2 start "dotnet TheMoods.Api.dll --urls http://127.0.0.1:5078" --name "themoods-be"
 
 # 2. Build & Restart Frontend
 echo "--> Đang cài đặt thư viện dependencies mới (npm install)..."
