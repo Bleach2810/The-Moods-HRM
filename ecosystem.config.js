@@ -6,11 +6,15 @@ module.exports = {
       name: "themoods-be",
       cwd: path.resolve(__dirname, "backend/publish"),
       script: "dotnet",
-      args: "TheMoods.Api.dll --urls http://127.0.0.1:5078 --environment Development",
+      args: "TheMoods.Api.dll --urls http://127.0.0.1:5078",
       interpreter: "none",
       env: {
         ASPNETCORE_ENVIRONMENT: "Development",
         DOTNET_ENVIRONMENT: "Development"
+      },
+      env_production: {
+        ASPNETCORE_ENVIRONMENT: "Production",
+        DOTNET_ENVIRONMENT: "Production"
       }
     },
     {
