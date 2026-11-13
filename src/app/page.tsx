@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Coffee, ChevronRight, RefreshCw, AlertTriangle, Info } from "lucide-react";
+import { Coffee, ChevronRight, RefreshCw, AlertTriangle, Info, KeyRound, Lock, ShieldCheck, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { getRpId, isWebAuthnSupported, parseBiometricKeys, isInAppBrowser, IN_APP_BROWSER_WARNING } from "@/utils/biometrics";
 
@@ -57,6 +57,17 @@ export default function LandingPage() {
   }, [pinCode]);
 
   const [fingerprintErrorCount, setFingerprintErrorCount] = useState(0);
+
+  // Forgot PIN modal states
+  const [showForgotPinModal, setShowForgotPinModal] = useState(false);
+  const [forgotFullName, setForgotFullName] = useState("");
+  const [forgotNewPin, setForgotNewPin] = useState("");
+  const [forgotConfirmPin, setForgotConfirmPin] = useState("");
+  const [forgotPinLoading, setForgotPinLoading] = useState(false);
+  const [forgotPinError, setForgotPinError] = useState("");
+  const [forgotPinSuccess, setForgotPinSuccess] = useState("");
+  const [forgotManagerCode, setForgotManagerCode] = useState("");
+  const [forgotActiveTab, setForgotActiveTab] = useState<"self" | "manager">("self");
 
   // Auto redirect if staff is already logged in
 
@@ -603,6 +614,116 @@ export default function LandingPage() {
     }
   };
 
+  const handleForgotPinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPinError("");
+    setForgotPinSuccess("");
+
+    if (!forgotFullName.trim()) {
+      setForgotPinError("Vui lòng nhập họ và tên của bạn!");
+      return;
+    }
+
+    if (forgotNewPin.length !== 6 || isNaN(Number(forgotNewPin))) {
+      setForgotPinError("Mã PIN mới phải gồm đúng 6 chữ số!");
+      return;
+    }
+
+    if (forgotNewPin !== forgotConfirmPin) {
+      setForgotPinError("Xác nhận mã PIN không khớp! Vui lòng nhập lại.");
+      return;
+    }
+
+    setForgotPinLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/forgot-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: identifier.trim(),
+          fullName: forgotFullName.trim(),
+          newPin: forgotNewPin,
+          locationId: activeLocation?.id || ""
+        })
+      });
+
+      const data = await res.json();
+      setForgotPinLoading(false);
+
+      if (res.ok && data.success) {
+        setForgotPinSuccess(data.message || "Đặt lại mã PIN thành công!");
+        localStorage.setItem(`moods_pin_${identifier.trim()}`, forgotNewPin);
+        const activeStaffData = buildActiveStaffData(data.user);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("moods_active_staff", JSON.stringify(activeStaffData));
+        }
+
+        setTimeout(() => {
+          setShowForgotPinModal(false);
+          const roleIdVal = staffRoleId || data.user?.roleId || 3;
+          const destRoute = roleIdVal === 1 ? "/super-admin" : roleIdVal === 2 ? "/admin" : "/staff";
+          window.location.href = destRoute;
+        }, 1200);
+      } else {
+        setForgotPinError(data.message || "Đặt lại mã PIN thất bại. Vui lòng kiểm tra lại thông tin!");
+      }
+    } catch {
+      setForgotPinLoading(false);
+      setForgotPinError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau!");
+    }
+  };
+
+  const handleManagerUnlockAtCounter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPinError("");
+    setForgotPinSuccess("");
+
+    if (!forgotManagerCode.trim()) {
+      setForgotPinError("Vui lòng nhập mã PIN hoặc mã mở khóa của Quản lý!");
+      return;
+    }
+
+    setForgotPinLoading(true);
+    try {
+      // Xác thực mã quản lý: thử verify PIN admin hoặc reset trực tiếp
+      const res = await fetch(`${getApiBaseUrl()}/api/auth/staff/verify-pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: "admin",
+          pin: forgotManagerCode.trim(),
+          locationId: activeLocation?.id || ""
+        })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        // Quản lý hợp lệ -> Xóa PIN cũ để nhân viên tạo mã mới
+        await fetch(`${getApiBaseUrl()}/api/auth/staff/admin-reset-pin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            staffId: staffDbId,
+            locationId: activeLocation?.id || ""
+          })
+        });
+        setForgotPinLoading(false);
+        setForgotPinSuccess("Quản lý đã xác nhận mở khóa! Đang chuyển bạn sang tạo mã PIN mới...");
+        setTimeout(() => {
+          setShowForgotPinModal(false);
+          setStep("setup_pin");
+          resetPinCode();
+        }, 1200);
+      } else {
+        setForgotPinLoading(false);
+        setForgotPinError("Mã Quản lý không chính xác! Vui lòng thử lại hoặc nhờ Quản lý vào trang Admin để Đặt lại PIN.");
+      }
+    } catch {
+      setForgotPinLoading(false);
+      setForgotPinError("Lỗi kết nối khi xác thực quyền Quản lý!");
+    }
+  };
+
   const [activeCategory, setActiveCategory] = useState("Specialty Coffee");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<"login" | "about" | "menu">("login");
@@ -1045,6 +1166,24 @@ export default function LandingPage() {
                     </svg>
                     <span>Xác thực bằng vân tay</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPinModal(true);
+                      setForgotFullName(staffFullName || "");
+                      setForgotNewPin("");
+                      setForgotConfirmPin("");
+                      setForgotPinError("");
+                      setForgotPinSuccess("");
+                      setForgotManagerCode("");
+                      setForgotActiveTab("self");
+                    }}
+                    className="text-xs font-black text-[#7c4831] hover:text-amber-900 underline underline-offset-4 transition-all cursor-pointer py-1 flex items-center gap-1.5"
+                  >
+                    <KeyRound size={13} />
+                    <span>Quên mã PIN? Lấy lại PIN tại đây</span>
+                  </button>
                 </div>
               </div>
 
@@ -1104,6 +1243,193 @@ export default function LandingPage() {
                 </button>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FORGOT PIN MODAL */}
+      {showForgotPinModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4 anim-backdrop">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-[#7c4831]/15 overflow-hidden flex flex-col anim-scaleIn">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50/60 to-white">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-[#7c4831]/10 text-[#7c4831] flex items-center justify-center font-bold">
+                  <KeyRound size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase text-[#7c4831] tracking-tight">
+                    Khôi Phục Mã PIN Nhân Viên
+                  </h3>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">
+                    {staffFullName || "Nhân sự"} • SĐT: {identifier.trim()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowForgotPinModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center text-sm font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Tab switch */}
+            <div className="px-5 pt-4 bg-white">
+              <div className="flex bg-stone-100 p-1 rounded-2xl border border-stone-200">
+                <button
+                  type="button"
+                  onClick={() => { setForgotActiveTab("self"); setForgotPinError(""); setForgotPinSuccess(""); }}
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    forgotActiveTab === "self"
+                      ? "bg-[#7c4831] text-white shadow-xs"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <KeyRound size={13} />
+                  <span>Tự đặt lại PIN</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setForgotActiveTab("manager"); setForgotPinError(""); setForgotPinSuccess(""); }}
+                  className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    forgotActiveTab === "manager"
+                      ? "bg-amber-700 text-white shadow-xs"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  <ShieldCheck size={13} />
+                  <span>Quản lý hỗ trợ</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 pt-3 space-y-4">
+              {forgotPinError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                  <AlertTriangle size={15} className="shrink-0 text-rose-600" />
+                  <span>{forgotPinError}</span>
+                </div>
+              )}
+
+              {forgotPinSuccess && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                  <ShieldCheck size={15} className="shrink-0 text-emerald-600" />
+                  <span>{forgotPinSuccess}</span>
+                </div>
+              )}
+
+              {forgotActiveTab === "self" ? (
+                <form onSubmit={handleForgotPinSubmit} className="space-y-3.5 text-xs text-[#4B3621]">
+                  <div className="p-3 rounded-2xl bg-amber-50/50 border border-amber-100 text-[11px] text-amber-900 leading-relaxed font-semibold">
+                    💡 Nhập đúng <strong>Họ và tên</strong> đã đăng ký trong hồ sơ làm việc để xác nhận danh tính, sau đó tạo <strong>Mã PIN 6 số mới</strong>.
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-gray-500 tracking-wider block">
+                      1. Họ và tên của bạn *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ví dụ: Nguyễn Văn A (hoặc Khavi)"
+                      value={forgotFullName}
+                      onChange={e => setForgotFullName(e.target.value)}
+                      required
+                      className="input w-full text-xs font-bold py-2.5 px-3 bg-stone-50 border border-stone-200 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500 tracking-wider block">
+                        2. Mã PIN mới (6 số) *
+                      </label>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="••••••"
+                        value={forgotNewPin}
+                        onChange={e => setForgotNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        required
+                        className="input w-full text-sm font-mono font-black text-center tracking-widest py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500 tracking-wider block">
+                        3. Nhập lại mã PIN *
+                      </label>
+                      <input
+                        type="password"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="••••••"
+                        value={forgotConfirmPin}
+                        onChange={e => setForgotConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        required
+                        className="input w-full text-sm font-mono font-black text-center tracking-widest py-2 px-3 bg-stone-50 border border-stone-200 rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={forgotPinLoading}
+                      className="btn btn-primary w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {forgotPinLoading ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Đang cập nhật mã PIN...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound size={14} />
+                          <span>Xác nhận & Vào làm</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4 text-xs text-[#4B3621]">
+                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-2 text-[11px] leading-relaxed">
+                    <p className="font-extrabold text-[#7c4831] uppercase">📌 Cách Quản lý hỗ trợ bạn:</p>
+                    <p>
+                      <strong>Cách 1:</strong> Quản lý chi nhánh chỉ cần mở trang Admin → vào tab <strong>"Nhân viên"</strong> → bấm nút <strong>"Đặt lại PIN"</strong> trên tên của bạn. Sau đó bạn bấm F5 hoặc gõ lại SĐT là được tự tạo mã PIN mới.
+                    </p>
+                    <p>
+                      <strong>Cách 2 (Mở khóa tại chỗ):</strong> Nếu Quản lý đang đứng cạnh bạn tại quầy, Quản lý có thể nhập mã xác thực bên dưới để mở khóa ngay lập tức:
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleManagerUnlockAtCounter} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-gray-500 tracking-wider block">
+                        Mã xác thực Quản lý ca trực
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Nhập mã PIN hoặc mật khẩu Quản trị"
+                        value={forgotManagerCode}
+                        onChange={e => setForgotManagerCode(e.target.value)}
+                        className="input w-full text-xs font-bold py-2.5 px-3 bg-white border border-stone-200 rounded-xl"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={forgotPinLoading}
+                      className="btn btn-secondary w-full py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {forgotPinLoading ? "Đang xác thực..." : "Mở khóa tại quầy cho nhân viên"}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           </div>
         </div>
